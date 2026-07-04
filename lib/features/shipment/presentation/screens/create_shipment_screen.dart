@@ -9,7 +9,8 @@ import '../../data/models/order.dart';
 import '../../providers/shipment_provider.dart';
 
 class CreateShipmentScreen extends ConsumerStatefulWidget {
-  const CreateShipmentScreen({super.key});
+  final String? orderId;
+  const CreateShipmentScreen({super.key, this.orderId});
 
   @override
   ConsumerState<CreateShipmentScreen> createState() =>
@@ -24,6 +25,60 @@ class _CreateShipmentScreenState extends ConsumerState<CreateShipmentScreen> {
   final Map<String, bool> _selectedItems = {};
 
   int _step = 0; // 0 = select order, 1 = select items
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.orderId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_selectedOrder == null && mounted) {
+          final orders = ref.read(confirmedOrdersProvider);
+          try {
+            final order = orders.firstWhere(
+              (o) =>
+                  o.id == widget.orderId ||
+                  o.orderNumber == widget.orderId ||
+                  o.id == 'ord_${widget.orderId}' ||
+                  o.orderNumber.contains(widget.orderId!),
+              orElse: () => Order(
+                id: widget.orderId!,
+                orderNumber: widget.orderId!.startsWith('EFP')
+                    ? widget.orderId!
+                    : 'EFP-O-10${widget.orderId}',
+                customerName: 'SaiFlaerhomes',
+                customerId: 'cust_9',
+                orderDate: DateTime.now(),
+                lineItems: [
+                  OrderLineItem(
+                      id: 'li_fb_1',
+                      product: dummyProducts[5],
+                      orderedQty: 20),
+                  OrderLineItem(
+                      id: 'li_fb_2',
+                      product: dummyProducts[6],
+                      orderedQty: 30),
+                  OrderLineItem(
+                      id: 'li_fb_3',
+                      product: dummyProducts[7],
+                      orderedQty: 1),
+                ],
+              ),
+            );
+            setState(() {
+              _selectedOrder = order;
+              _step = 1;
+              _selectedItems.clear();
+              _selectedQtys.clear();
+              for (final li in order.lineItems) {
+                _selectedItems[li.product.id] = true;
+                _selectedQtys[li.product.id] = li.orderedQty;
+              }
+            });
+          } catch (_) {}
+        }
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -189,8 +244,11 @@ class _CreateShipmentScreenState extends ConsumerState<CreateShipmentScreen> {
             itemBuilder: (_, i) {
               final li = order.lineItems[i];
               final isChecked = _selectedItems[li.product.id] ?? false;
-              final maxQty = li.product.nodeStock;
-              final currentQty = _selectedQtys[li.product.id] ?? li.orderedQty;
+              final nodeStock = li.product.nodeStock;
+              final maxAllowedQty =
+                  li.orderedQty < nodeStock ? li.orderedQty : nodeStock;
+              final currentQty = (_selectedQtys[li.product.id] ?? li.orderedQty)
+                  .clamp(1, maxAllowedQty > 0 ? maxAllowedQty : 1);
 
               return AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
@@ -202,7 +260,9 @@ class _CreateShipmentScreenState extends ConsumerState<CreateShipmentScreen> {
                       : AppColors.card.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: isChecked ? AppColors.primary.withValues(alpha: 0.4) : AppColors.cardBorder,
+                    color: isChecked
+                        ? AppColors.primary.withValues(alpha: 0.4)
+                        : AppColors.cardBorder,
                   ),
                 ),
                 child: Column(
@@ -263,16 +323,16 @@ class _CreateShipmentScreenState extends ConsumerState<CreateShipmentScreen> {
                               Row(children: [
                                 Icon(Icons.warehouse_outlined,
                                     size: 12,
-                                    color: maxQty >= li.orderedQty
+                                    color: nodeStock >= li.orderedQty
                                         ? AppColors.success
                                         : AppColors.warning),
                                 const SizedBox(width: 4),
                                 Text('Node Stock: ',
                                     style: AppTextStyles.caption),
                                 Text(
-                                  '$maxQty ${li.product.unit}',
+                                  '$nodeStock ${li.product.unit}',
                                   style: AppTextStyles.caption.copyWith(
-                                    color: maxQty >= li.orderedQty
+                                    color: nodeStock >= li.orderedQty
                                         ? AppColors.success
                                         : AppColors.warning,
                                     fontWeight: FontWeight.w600,
@@ -280,7 +340,7 @@ class _CreateShipmentScreenState extends ConsumerState<CreateShipmentScreen> {
                                 ),
                               ]),
                               Text(
-                                'Ordered: ${li.orderedQty} ${li.product.unit}',
+                                'Ordered: ${li.orderedQty} ${li.product.unit} (Max allowed: $maxAllowedQty)',
                                 style: AppTextStyles.caption,
                               ),
                             ],
@@ -290,7 +350,7 @@ class _CreateShipmentScreenState extends ConsumerState<CreateShipmentScreen> {
                         if (isChecked) ...[
                           _QtyStepper(
                             value: currentQty,
-                            max: maxQty,
+                            max: maxAllowedQty,
                             onChanged: (v) => setState(
                                 () => _selectedQtys[li.product.id] = v),
                           ),

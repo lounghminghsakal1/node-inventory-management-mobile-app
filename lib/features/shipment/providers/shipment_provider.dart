@@ -74,6 +74,11 @@ class ShipmentListNotifier extends StateNotifier<ShipmentListState> {
     await _repo.dispatch(id, driver);
     state = state.copyWith(shipments: _repo.getAll());
   }
+
+  Future<void> updateShipmentItems(String id, List<ShipmentLineItem> items) async {
+    await _repo.updateShipmentItems(id, items);
+    state = state.copyWith(shipments: _repo.getAll());
+  }
 }
 
 final shipmentListProvider =

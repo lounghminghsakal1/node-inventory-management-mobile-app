@@ -16,6 +16,7 @@ class ShipmentLineItem {
   final List<BatchAllocation> batchAllocations;
   final List<String> serialNumbers;
   final bool isAllocated;
+  final String allocationType; // 'lifo', 'fifo', 'manual'
 
   const ShipmentLineItem({
     required this.id,
@@ -24,20 +25,24 @@ class ShipmentLineItem {
     this.batchAllocations = const [],
     this.serialNumbers = const [],
     this.isAllocated = false,
+    this.allocationType = 'lifo',
   });
 
   ShipmentLineItem copyWith({
+    int? shippedQty,
     List<BatchAllocation>? batchAllocations,
     List<String>? serialNumbers,
     bool? isAllocated,
+    String? allocationType,
   }) {
     return ShipmentLineItem(
       id: id,
       product: product,
-      shippedQty: shippedQty,
+      shippedQty: shippedQty ?? this.shippedQty,
       batchAllocations: batchAllocations ?? this.batchAllocations,
       serialNumbers: serialNumbers ?? this.serialNumbers,
       isAllocated: isAllocated ?? this.isAllocated,
+      allocationType: allocationType ?? this.allocationType,
     );
   }
 }
@@ -59,9 +64,11 @@ class DriverDetails {
 enum ShipmentStatus {
   created,
   allocated,
+  packed,
   invoiced,
   dispatched,
   delivered,
+  cancelled,
   returnInitiated,
   returnCompleted,
 }
@@ -73,12 +80,16 @@ extension ShipmentStatusX on ShipmentStatus {
         return 'created';
       case ShipmentStatus.allocated:
         return 'allocated';
+      case ShipmentStatus.packed:
+        return 'packed';
       case ShipmentStatus.invoiced:
         return 'invoiced';
       case ShipmentStatus.dispatched:
         return 'dispatched';
       case ShipmentStatus.delivered:
         return 'delivered';
+      case ShipmentStatus.cancelled:
+        return 'cancelled';
       case ShipmentStatus.returnInitiated:
         return 'return_initiated';
       case ShipmentStatus.returnCompleted:
@@ -92,12 +103,16 @@ extension ShipmentStatusX on ShipmentStatus {
         return 'Created';
       case ShipmentStatus.allocated:
         return 'Allocated';
+      case ShipmentStatus.packed:
+        return 'Packed';
       case ShipmentStatus.invoiced:
         return 'Invoiced';
       case ShipmentStatus.dispatched:
         return 'Dispatched';
       case ShipmentStatus.delivered:
         return 'Delivered';
+      case ShipmentStatus.cancelled:
+        return 'Cancelled';
       case ShipmentStatus.returnInitiated:
         return 'Return Initiated';
       case ShipmentStatus.returnCompleted:
@@ -110,6 +125,8 @@ extension ShipmentStatusX on ShipmentStatus {
       case ShipmentStatus.created:
         return ShipmentStatus.allocated;
       case ShipmentStatus.allocated:
+        return ShipmentStatus.packed;
+      case ShipmentStatus.packed:
         return ShipmentStatus.invoiced;
       case ShipmentStatus.invoiced:
         return ShipmentStatus.dispatched;

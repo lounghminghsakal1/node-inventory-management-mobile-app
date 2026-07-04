@@ -88,6 +88,53 @@ class ShipmentCard extends StatelessWidget {
                 ),
               ),
             ],
+
+            if (shipment.status == ShipmentStatus.invoiced ||
+                shipment.status == ShipmentStatus.dispatched ||
+                shipment.status == ShipmentStatus.delivered) ...[
+              const SizedBox(height: 10),
+              GestureDetector(
+                onTap: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Downloading Invoice PDF...'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                        color: AppColors.primary.withValues(alpha: 0.25)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.picture_as_pdf_outlined,
+                          size: 14, color: AppColors.primary),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'https://flaerhomes.com/invoices/${shipment.shipmentNumber}.pdf',
+                          style: AppTextStyles.caption.copyWith(
+                            color: AppColors.primary,
+                            fontSize: 11,
+                            decoration: TextDecoration.underline,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.download_rounded,
+                          size: 14, color: AppColors.primary),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),

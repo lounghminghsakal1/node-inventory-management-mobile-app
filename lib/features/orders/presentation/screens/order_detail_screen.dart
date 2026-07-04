@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/widgets/app_shell.dart';
+import '../../../../core/widgets/app_button.dart';
 import '../../data/models/order_model.dart';
 import '../../providers/order_provider.dart';
 
@@ -56,6 +57,31 @@ class OrderDetailScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: const NodeOpsAppBar(showBack: true, title: 'Order Details'),
+      bottomNavigationBar: asyncDetail.maybeWhen(
+        data: (order) {
+          if (order.status == 'confirmed' ||
+              order.status == 'partially_delivered') {
+            return Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: AppColors.surface,
+                border: Border(top: BorderSide(color: AppColors.cardBorder)),
+              ),
+              child: SafeArea(
+                top: false,
+                child: AppButton(
+                  label: 'Create Shipment',
+                  icon: Icons.add_box_outlined,
+                  onPressed: () => context
+                      .push('/shipments/create?orderId=${order.orderNumber}'),
+                ),
+              ),
+            );
+          }
+          return null;
+        },
+        orElse: () => null,
+      ),
       body: asyncDetail.when(
         loading: () => const Center(
           child: CircularProgressIndicator(color: AppColors.primary),

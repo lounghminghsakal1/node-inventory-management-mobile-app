@@ -81,6 +81,16 @@ class ShipmentRepository {
     _shipments[idx] = updated;
     return updated;
   }
+
+  Future<Shipment> updateShipmentItems(
+      String id, List<ShipmentLineItem> items) async {
+    await Future.delayed(const Duration(milliseconds: 600));
+    final idx = _shipments.indexWhere((s) => s.id == id);
+    if (idx == -1) throw Exception('Shipment not found');
+    final updated = _shipments[idx].copyWith(lineItems: items);
+    _shipments[idx] = updated;
+    return updated;
+  }
 }
 
 List<Shipment> _buildDummyShipments() {

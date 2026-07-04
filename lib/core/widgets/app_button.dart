@@ -77,12 +77,18 @@ class _AppButtonState extends State<AppButton>
           scale: _scaleAnimation.value,
           child: child,
         ),
-        child: SizedBox(
-          width: widget.width ?? double.infinity,
-          height: widget.height,
-          child: widget.isOutlined
-              ? _buildOutlined(isDisabled)
-              : _buildFilled(isDisabled),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final double? buttonWidth = widget.width ??
+                (constraints.maxWidth == double.infinity ? null : double.infinity);
+            return SizedBox(
+              width: buttonWidth,
+              height: widget.height,
+              child: widget.isOutlined
+                  ? _buildOutlined(isDisabled)
+                  : _buildFilled(isDisabled),
+            );
+          },
         ),
       ),
     );

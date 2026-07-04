@@ -7,6 +7,7 @@ import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_shell.dart';
 import '../../../../core/widgets/status_badge.dart';
 import '../../data/models/shipment.dart';
+import '../../data/models/order.dart';
 import '../../providers/shipment_provider.dart';
 
 class ShipmentDetailScreen extends ConsumerWidget {
@@ -68,7 +69,7 @@ class ShipmentDetailScreen extends ConsumerWidget {
               title: 'Line Items (${shipment.lineItems.length})',
               child: Column(
                 children: shipment.lineItems
-                    .map((li) => _LineItemRow(item: li))
+                    .map((li) => _LineItemRow(item: li, shipment: shipment))
                     .toList(),
               ),
             ),
@@ -86,6 +87,75 @@ class ShipmentDetailScreen extends ConsumerWidget {
                   _infoTile(Icons.directions_car_outlined, 'Vehicle',
                       shipment.driverDetails!.vehicleNumber),
                 ]),
+              ),
+            ],
+
+            // ── Invoice Details (if invoiced, dispatched, or delivered) ───
+            if (shipment.status == ShipmentStatus.invoiced ||
+                shipment.status == ShipmentStatus.dispatched ||
+                shipment.status == ShipmentStatus.delivered) ...[
+              const SizedBox(height: 16),
+              _SectionCard(
+                title: 'Invoice Details',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Invoice for ${shipment.shipmentNumber} is generated and ready.',
+                        style: AppTextStyles.bodySmall),
+                    const SizedBox(height: 12),
+                    InkWell(
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Downloading Invoice PDF...'),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.picture_as_pdf_outlined, color: AppColors.primary, size: 22),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'https://flaerhomes.com/invoices/${shipment.shipmentNumber}.pdf',
+                                    style: AppTextStyles.caption.copyWith(
+                                      color: AppColors.primary,
+                                      fontWeight: FontWeight.bold,
+                                      decoration: TextDecoration.underline,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Click to download invoice',
+                                    style: AppTextStyles.caption.copyWith(
+                                      color: AppColors.textMuted,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(Icons.download_rounded, color: AppColors.primary, size: 20),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
 
@@ -131,6 +201,7 @@ class _ShipmentTimeline extends StatelessWidget {
   static const _stages = [
     ('Created', ShipmentStatus.created, Icons.add_circle_outline_rounded),
     ('Allocated', ShipmentStatus.allocated, Icons.inventory_outlined),
+    ('Packed', ShipmentStatus.packed, Icons.inventory_2_outlined),
     ('Invoiced', ShipmentStatus.invoiced, Icons.receipt_long_outlined),
     ('Dispatched', ShipmentStatus.dispatched, Icons.local_shipping_outlined),
     ('Delivered', ShipmentStatus.delivered, Icons.check_circle_outline_rounded),
@@ -150,7 +221,7 @@ class _ShipmentTimeline extends StatelessWidget {
       child: Row(
         children: List.generate(_stages.length, (i) {
           final stage = _stages[i];
-          final isDone = i <= currentIdx;
+          final isDone = i <= currentIdx && currentIdx != -1;
           final isCurrent = i == currentIdx;
           return Expanded(
             child: Column(
@@ -161,15 +232,15 @@ class _ShipmentTimeline extends StatelessWidget {
                       Expanded(
                         child: Container(
                           height: 2,
-                          color: i <= currentIdx
+                          color: i <= currentIdx && currentIdx != -1
                               ? AppColors.primary
                               : AppColors.cardBorder,
                         ),
                       ),
                     AnimatedContainer(
                       duration: const Duration(milliseconds: 300),
-                      width: isCurrent ? 32 : 26,
-                      height: isCurrent ? 32 : 26,
+                      width: isCurrent ? 30 : 24,
+                      height: isCurrent ? 30 : 24,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: isDone
@@ -183,20 +254,11 @@ class _ShipmentTimeline extends StatelessWidget {
                               : AppColors.cardBorder,
                           width: isCurrent ? 2 : 1,
                         ),
-                        boxShadow: isCurrent
-                            ? [
-                                BoxShadow(
-                                  color: AppColors.primary.withValues(alpha: 0.4),
-                                  blurRadius: 10,
-                                  spreadRadius: 1,
-                                ),
-                              ]
-                            : null,
                       ),
                       child: Center(
                         child: Icon(
                           stage.$3,
-                          size: isCurrent ? 16 : 13,
+                          size: isCurrent ? 15 : 12,
                           color: isDone
                               ? (isCurrent ? Colors.white : AppColors.primary)
                               : AppColors.textMuted,
@@ -236,10 +298,18 @@ class _ShipmentTimeline extends StatelessWidget {
 // ── Line Item Row ─────────────────────────────────────────────────────────────
 class _LineItemRow extends StatelessWidget {
   final ShipmentLineItem item;
-  const _LineItemRow({required this.item});
+  final Shipment shipment;
+  const _LineItemRow({required this.item, required this.shipment});
 
   @override
   Widget build(BuildContext context) {
+    final showViewInventory = item.isAllocated &&
+        (shipment.status == ShipmentStatus.allocated ||
+          shipment.status == ShipmentStatus.packed ||
+            shipment.status == ShipmentStatus.invoiced ||
+            shipment.status == ShipmentStatus.dispatched ||
+            shipment.status == ShipmentStatus.delivered);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
@@ -258,7 +328,7 @@ class _LineItemRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(item.product.name, style: AppTextStyles.headingSmall),
-                    Text(item.product.sku, style: AppTextStyles.caption),
+                    Text('${item.product.sku} · ${item.product.trackingType.label}', style: AppTextStyles.caption),
                   ],
                 ),
               ),
@@ -276,59 +346,157 @@ class _LineItemRow extends StatelessWidget {
               ),
             ],
           ),
-          if (item.batchAllocations.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Allocation: ${item.allocationType.toUpperCase()}',
+                style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
+              ),
+              Row(
+                children: [
+                  Icon(
+                    item.isAllocated
+                        ? Icons.check_circle_rounded
+                        : Icons.radio_button_unchecked_rounded,
+                    size: 14,
+                    color: item.isAllocated
+                        ? AppColors.success
+                        : AppColors.textMuted,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    item.isAllocated ? 'Allocated' : 'Pending',
+                    style: AppTextStyles.caption.copyWith(
+                      color: item.isAllocated
+                          ? AppColors.success
+                          : AppColors.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          if (showViewInventory) ...[
             const SizedBox(height: 8),
-            Wrap(
-              spacing: 6,
-              runSpacing: 4,
-              children: item.batchAllocations.map((b) {
-                return Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+            const Divider(height: 1),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                icon: const Icon(Icons.visibility_outlined, size: 16),
+                label: const Text('View Assigned Inventory', style: TextStyle(fontSize: 12)),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                onPressed: () => _showAssignedInventoryDialog(context, item),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _showAssignedInventoryDialog(BuildContext context, ShipmentLineItem item) {
+    showDialog(
+      context: context,
+      builder: (_) => Dialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: AppColors.cardBorder),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Assigned Inventory', style: AppTextStyles.headingMedium),
+              const SizedBox(height: 4),
+              Text(item.product.name, style: AppTextStyles.caption),
+              const SizedBox(height: 14),
+              const Divider(height: 1),
+              const SizedBox(height: 14),
+              Text('Allocation Type: ${item.allocationType.toUpperCase()}',
+                  style: AppTextStyles.labelMedium),
+              const SizedBox(height: 10),
+              if (item.allocationType == 'lifo' || item.allocationType == 'fifo') ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppColors.accent.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(5),
+                    color: AppColors.secondary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
-                    '${b.batchCode}: ${b.qty}',
-                    style: AppTextStyles.caption
-                        .copyWith(color: AppColors.accent),
+                    'Auto-allocated ${item.shippedQty} ${item.product.unit} via ${item.allocationType.toUpperCase()} from available node stock.',
+                    style: AppTextStyles.caption.copyWith(color: AppColors.secondary),
                   ),
-                );
-              }).toList(),
-            ),
-          ],
-          if (item.serialNumbers.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(
-              '${item.serialNumbers.length} serials allocated',
-              style: AppTextStyles.caption.copyWith(color: AppColors.secondary),
-            ),
-          ],
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              Icon(
-                item.isAllocated
-                    ? Icons.check_circle_rounded
-                    : Icons.radio_button_unchecked_rounded,
-                size: 14,
-                color: item.isAllocated
-                    ? AppColors.success
-                    : AppColors.textMuted,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                item.isAllocated ? 'Allocated' : 'Pending',
-                style: AppTextStyles.caption.copyWith(
-                  color: item.isAllocated
-                      ? AppColors.success
-                      : AppColors.textMuted,
+                ),
+              ] else if (item.product.trackingType == TrackingType.batch ||
+                  item.product.trackingType == TrackingType.untracked) ...[
+                if (item.batchAllocations.isEmpty)
+                  Text('No lots assigned.', style: AppTextStyles.caption)
+                else
+                  Column(
+                    children: item.batchAllocations.map((b) {
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.background,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.cardBorder),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(b.batchCode, style: AppTextStyles.bodySmall),
+                            Text('${b.qty} ${item.product.unit}',
+                                style: AppTextStyles.labelMedium.copyWith(color: AppColors.primary)),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+              ] else ...[
+                if (item.serialNumbers.isEmpty)
+                  Text('No serials assigned.', style: AppTextStyles.caption)
+                else
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: item.serialNumbers.map((sn) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.primary),
+                        ),
+                        child: Text(sn, style: AppTextStyles.caption.copyWith(color: AppColors.primary, fontWeight: FontWeight.bold)),
+                      );
+                    }).toList(),
+                  ),
+              ],
+              const SizedBox(height: 20),
+              Align(
+                alignment: Alignment.centerRight,
+                child: AppButton(
+                  width: 120,
+                  height: 44,
+                  label: 'Close',
+                  onPressed: () => Navigator.pop(context),
                 ),
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -341,70 +509,203 @@ class _ActionButtons extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    switch (shipment.status) {
-      case ShipmentStatus.created:
-        return Column(
-          children: [
-            AppButton(
-              label: 'Manage Allocations',
-              icon: Icons.inventory_2_outlined,
-              onPressed: () => context.push('/shipments/${shipment.id}/allocate'),
-            ),
-          ],
-        );
+    final canEditOrCancel = shipment.status == ShipmentStatus.created ||
+        shipment.status == ShipmentStatus.allocated;
 
-      case ShipmentStatus.allocated:
-        return AppButton(
-          label: 'Generate Invoice',
-          icon: Icons.receipt_long_outlined,
-          gradient: const LinearGradient(
-            colors: [Color(0xFFA855F7), Color(0xFF6366F1)],
+    return Column(
+      children: [
+        if (shipment.status == ShipmentStatus.created) ...[
+          AppButton(
+            label: 'Manage Allocations',
+            icon: Icons.inventory_2_outlined,
+            onPressed: () => context.push('/shipments/${shipment.id}/allocate'),
           ),
-          onPressed: () async {
-            await ref
-                .read(shipmentListProvider.notifier)
-                .updateStatus(shipment.id, ShipmentStatus.invoiced);
-          },
-        );
-
-      case ShipmentStatus.invoiced:
-        return AppButton(
-          label: 'Enter Driver & Dispatch',
-          icon: Icons.local_shipping_outlined,
-          gradient: const LinearGradient(
-            colors: [Color(0xFFF59E0B), Color(0xFFEF4444)],
-          ),
-          onPressed: () => context.push('/shipments/${shipment.id}/dispatch'),
-        );
-
-      case ShipmentStatus.dispatched:
-        return AppButton(
-          label: 'Mark as Delivered',
-          icon: Icons.check_circle_outline_rounded,
-          gradient: AppColors.greenGradient,
-          onPressed: () async {
-            final confirm = await _confirmDialog(context, 'Mark Delivered',
-                'Confirm this shipment has been delivered?');
-            if (confirm == true && context.mounted) {
+          const SizedBox(height: 12),
+        ] else if (shipment.status == ShipmentStatus.allocated) ...[
+          AppButton(
+            label: 'Proceed to Packing',
+            icon: Icons.inventory_2_outlined,
+            gradient: AppColors.greenGradient,
+            onPressed: () async {
               await ref
                   .read(shipmentListProvider.notifier)
-                  .updateStatus(shipment.id, ShipmentStatus.delivered);
-            }
-          },
-        );
+                  .updateStatus(shipment.id, ShipmentStatus.packed);
+            },
+          ),
+          const SizedBox(height: 12),
+        ] else if (shipment.status == ShipmentStatus.packed) ...[
+          AppButton(
+            label: 'Generate Invoice',
+            icon: Icons.receipt_long_outlined,
+            gradient: const LinearGradient(
+              colors: [Color(0xFFA855F7), Color(0xFF6366F1)],
+            ),
+            onPressed: () async {
+              _showInvoiceDownloadDialog(context, shipment);
+              await ref
+                  .read(shipmentListProvider.notifier)
+                  .updateStatus(shipment.id, ShipmentStatus.invoiced);
+            },
+          ),
+        ] else if (shipment.status == ShipmentStatus.invoiced) ...[
+          AppButton(
+            label: 'Mark as Dispatched',
+            icon: Icons.local_shipping_outlined,
+            gradient: const LinearGradient(
+              colors: [Color(0xFFF59E0B), Color(0xFFEF4444)],
+            ),
+            onPressed: () => context.push('/shipments/${shipment.id}/dispatch'),
+          ),
+        ] else if (shipment.status == ShipmentStatus.dispatched) ...[
+          AppButton(
+            label: 'Mark as Delivered',
+            icon: Icons.check_circle_outline_rounded,
+            gradient: AppColors.greenGradient,
+            onPressed: () async {
+              final confirm = await _confirmDialog(context, 'Mark Delivered',
+                  'Confirm this shipment has been delivered?');
+              if (confirm == true && context.mounted) {
+                await ref
+                    .read(shipmentListProvider.notifier)
+                    .updateStatus(shipment.id, ShipmentStatus.delivered);
+              }
+            },
+          ),
+        ] else if (shipment.status == ShipmentStatus.delivered) ...[
+          AppButton(
+            label: 'Return Shipment',
+            icon: Icons.assignment_return_outlined,
+            isOutlined: true,
+            isDestructive: true,
+            onPressed: () {},
+          ),
+        ] else if (shipment.status == ShipmentStatus.cancelled) ...[
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.error.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.cancel_outlined, color: AppColors.error, size: 18),
+                const SizedBox(width: 8),
+                Text('This shipment has been cancelled.', style: AppTextStyles.bodySmall.copyWith(color: AppColors.error)),
+              ],
+            ),
+          ),
+        ],
 
-      case ShipmentStatus.delivered:
-        return AppButton(
-          label: 'Initiate Return',
-          icon: Icons.assignment_return_outlined,
-          isOutlined: true,
-          isDestructive: true,
-          onPressed: () {},
-        );
+        // Edit & Cancel buttons before packing
+        if (canEditOrCancel) ...[
+          Row(
+            children: [
+              Expanded(
+                child: AppButton(
+                  label: 'Edit Shipment',
+                  icon: Icons.edit_outlined,
+                  isOutlined: true,
+                  onPressed: () => _showEditModal(context, ref, shipment),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: AppButton(
+                  label: 'Cancel Shipment',
+                  icon: Icons.cancel_outlined,
+                  isOutlined: true,
+                  isDestructive: true,
+                  onPressed: () async {
+                    final confirm = await _confirmDialog(context, 'Cancel Shipment',
+                        'Are you sure you want to cancel this shipment?');
+                    if (confirm == true && context.mounted) {
+                      await ref
+                          .read(shipmentListProvider.notifier)
+                          .updateStatus(shipment.id, ShipmentStatus.cancelled);
+                    }
+                  },
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
 
-      default:
-        return const SizedBox.shrink();
-    }
+  void _showInvoiceDownloadDialog(BuildContext context, Shipment shipment) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: AppColors.cardBorder),
+        ),
+        title: Row(
+          children: [
+            const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 24),
+            const SizedBox(width: 10),
+            Text('Invoice Generated', style: AppTextStyles.headingMedium),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Invoice for ${shipment.shipmentNumber} is ready.', style: AppTextStyles.bodySmall),
+            const SizedBox(height: 12),
+            InkWell(
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Downloading Invoice PDF...')));
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.cardBorder),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.picture_as_pdf_outlined, color: AppColors.primary, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text('https://flaerhomes.com/invoices/${shipment.shipmentNumber}.pdf',
+                          style: AppTextStyles.caption.copyWith(color: AppColors.primary, decoration: TextDecoration.underline),
+                          maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Downloading Invoice PDF...')));
+            },
+            child: const Text('Download PDF', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditModal(BuildContext context, WidgetRef ref, Shipment shipment) {
+    showDialog(
+      context: context,
+      builder: (_) => _EditShipmentModal(shipment: shipment),
+    );
   }
 
   Future<bool?> _confirmDialog(
@@ -429,6 +730,146 @@ class _ActionButtons extends ConsumerWidget {
               child: const Text('Confirm',
                   style: TextStyle(color: AppColors.success))),
         ],
+      ),
+    );
+  }
+}
+
+// ── Edit Shipment Modal ───────────────────────────────────────────────────────
+class _EditShipmentModal extends ConsumerStatefulWidget {
+  final Shipment shipment;
+  const _EditShipmentModal({required this.shipment});
+
+  @override
+  ConsumerState<_EditShipmentModal> createState() => _EditShipmentModalState();
+}
+
+class _EditShipmentModalState extends ConsumerState<_EditShipmentModal> {
+  late List<ShipmentLineItem> _items;
+
+  @override
+  void initState() {
+    super.initState();
+    _items = List.from(widget.shipment.lineItems);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: AppColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: const BorderSide(color: AppColors.cardBorder),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Edit Shipment Items', style: AppTextStyles.headingMedium),
+            const SizedBox(height: 4),
+            Text('Adjust quantities or remove items before packing.',
+                style: AppTextStyles.caption),
+            const SizedBox(height: 16),
+            const Divider(height: 1),
+            const SizedBox(height: 16),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 300),
+              child: SingleChildScrollView(
+                child: Column(
+                  children: _items.asMap().entries.map((entry) {
+                    final idx = entry.key;
+                    final item = entry.value;
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.background,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.cardBorder),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(item.product.name, style: AppTextStyles.labelMedium),
+                                Text('Max Stock: ${item.product.nodeStock}', style: AppTextStyles.caption),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Row(
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.remove_circle_outline, size: 20, color: AppColors.textSecondary),
+                                onPressed: item.shippedQty > 1
+                                    ? () {
+                                        setState(() {
+                                          _items[idx] = item.copyWith(shippedQty: item.shippedQty - 1, isAllocated: false);
+                                        });
+                                      }
+                                    : null,
+                              ),
+                              Text('${item.shippedQty}', style: AppTextStyles.labelLarge),
+                              IconButton(
+                                icon: const Icon(Icons.add_circle_outline, size: 20, color: AppColors.textSecondary),
+                                onPressed: item.shippedQty < item.product.nodeStock
+                                    ? () {
+                                        setState(() {
+                                          _items[idx] = item.copyWith(shippedQty: item.shippedQty + 1, isAllocated: false);
+                                        });
+                                      }
+                                    : null,
+                              ),
+                              if (_items.length > 1) ...[
+                                const SizedBox(width: 4),
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline, color: AppColors.error, size: 20),
+                                  onPressed: () {
+                                    setState(() {
+                                      _items.removeAt(idx);
+                                    });
+                                  },
+                                ),
+                              ],
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Divider(height: 1),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                const SizedBox(width: 8),
+                AppButton(
+                  width: 130,
+                  height: 40,
+                  label: 'Save Changes',
+                  onPressed: () async {
+                    await ref
+                        .read(shipmentListProvider.notifier)
+                        .updateShipmentItems(widget.shipment.id, _items);
+                    if (context.mounted) Navigator.pop(context);
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

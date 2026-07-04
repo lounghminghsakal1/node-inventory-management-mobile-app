@@ -152,7 +152,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/shipments/create',
         name: 'shipment-create',
-        builder: (context, _) => const CreateShipmentScreen(),
+        builder: (context, state) => CreateShipmentScreen(
+          orderId: state.uri.queryParameters['orderId'],
+        ),
       ),
       GoRoute(
         path: '/shipments/:id',

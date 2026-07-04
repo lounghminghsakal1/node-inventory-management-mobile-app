@@ -70,6 +70,27 @@ const List<Product> dummyProducts = [
     trackingType: TrackingType.untracked,
     nodeStock: 100,
   ),
+  Product(
+    id: 'prod_ply_1',
+    name: 'Commercial Plywood MR Grade 6mm 8x4',
+    sku: '10010010000100000',
+    trackingType: TrackingType.batch,
+    nodeStock: 150,
+  ),
+  Product(
+    id: 'prod_ply_2',
+    name: 'Commercial Plywood BWR Grade 6mm 8x4',
+    sku: '10010010001100000',
+    trackingType: TrackingType.serial,
+    nodeStock: 200,
+  ),
+  Product(
+    id: 'prod_ply_3',
+    name: 'Commercial Plywood BWR Grade 9mm 7x4',
+    sku: '10010010001100001',
+    trackingType: TrackingType.batch,
+    nodeStock: 50,
+  ),
 ];
 
 // ── Order Line Item ───────────────────────────────────────────────────────────
@@ -110,11 +131,65 @@ class Order {
 // ── Dummy orders ──────────────────────────────────────────────────────────────
 final List<Order> dummyOrders = [
   Order(
+    id: '263',
+    orderNumber: 'EFP-O-10263',
+    customerName: 'SaiFlaerhomes',
+    customerId: 'cust_9',
+    orderDate: DateTime.now().subtract(const Duration(hours: 1)),
+    lineItems: [
+      OrderLineItem(id: 'li_263_1', product: dummyProducts[5], orderedQty: 20),
+      OrderLineItem(id: 'li_263_2', product: dummyProducts[6], orderedQty: 30),
+      OrderLineItem(id: 'li_263_3', product: dummyProducts[7], orderedQty: 1),
+    ],
+  ),
+  Order(
+    id: '262',
+    orderNumber: 'EFP-O-10262',
+    customerName: 'SaiFlaerhomes',
+    customerId: 'cust_9',
+    orderDate: DateTime.now().subtract(const Duration(hours: 2)),
+    lineItems: [
+      OrderLineItem(id: 'li_262_1', product: dummyProducts[5], orderedQty: 15),
+      OrderLineItem(id: 'li_262_2', product: dummyProducts[6], orderedQty: 25),
+    ],
+  ),
+  Order(
+    id: '261',
+    orderNumber: 'EFP-O-10261',
+    customerName: 'SaiFlaerhomes',
+    customerId: 'cust_9',
+    orderDate: DateTime.now().subtract(const Duration(hours: 3)),
+    lineItems: [
+      OrderLineItem(id: 'li_261_1', product: dummyProducts[5], orderedQty: 10),
+      OrderLineItem(id: 'li_261_2', product: dummyProducts[7], orderedQty: 5),
+    ],
+  ),
+  Order(
+    id: '260',
+    orderNumber: 'EFP-O-10260',
+    customerName: 'Dinesh',
+    customerId: 'cust_3',
+    orderDate: DateTime.now().subtract(const Duration(hours: 4)),
+    lineItems: [
+      OrderLineItem(id: 'li_260_1', product: dummyProducts[5], orderedQty: 12),
+    ],
+  ),
+  Order(
+    id: '258',
+    orderNumber: 'EFP-O-10258',
+    customerName: 'Dinesh',
+    customerId: 'cust_3',
+    orderDate: DateTime.now().subtract(const Duration(hours: 5)),
+    lineItems: [
+      OrderLineItem(id: 'li_258_1', product: dummyProducts[6], orderedQty: 18),
+    ],
+  ),
+  Order(
     id: 'ord_201',
     orderNumber: 'ORD-2024-201',
     customerName: 'Acme Corporation',
     customerId: 'cust_01',
-    orderDate: DateTime.now().subtract(const Duration(hours: 2)),
+    orderDate: DateTime.now().subtract(const Duration(hours: 6)),
     lineItems: [
       OrderLineItem(id: 'li_1', product: dummyProducts[0], orderedQty: 10),
       OrderLineItem(id: 'li_2', product: dummyProducts[1], orderedQty: 20),
@@ -126,7 +201,7 @@ final List<Order> dummyOrders = [
     orderNumber: 'ORD-2024-202',
     customerName: 'TechMart India',
     customerId: 'cust_02',
-    orderDate: DateTime.now().subtract(const Duration(hours: 5)),
+    orderDate: DateTime.now().subtract(const Duration(hours: 7)),
     lineItems: [
       OrderLineItem(id: 'li_4', product: dummyProducts[3], orderedQty: 10),
       OrderLineItem(id: 'li_5', product: dummyProducts[4], orderedQty: 40),

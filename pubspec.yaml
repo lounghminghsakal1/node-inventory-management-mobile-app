@@ -1,0 +1,35 @@
+name: node_management_app
+description: "NodeOps — Multi-node Inventory Management System"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.3
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # State Management
+  flutter_riverpod: ^2.6.1
+
+  # Routing
+  go_router: ^15.1.2
+
+  # Network
+  dio: ^5.8.0+1
+
+  # Secure Storage
+  flutter_secure_storage: ^9.2.4
+
+  # Typography
+  google_fonts: ^6.2.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

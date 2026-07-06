@@ -72,8 +72,8 @@ class OrderDetailScreen extends ConsumerWidget {
                 child: AppButton(
                   label: 'Create Shipment',
                   icon: Icons.add_box_outlined,
-                  onPressed: () => context
-                      .push('/shipments/create?orderId=${order.orderNumber}'),
+                  onPressed: () => context.push(
+                      '/shipments/create?orderId=${order.id}&orderNumber=${order.orderNumber}&customerName=${order.customer.name}'),
                 ),
               ),
             );
@@ -317,7 +317,7 @@ class OrderDetailScreen extends ConsumerWidget {
         color: AppColors.card,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
-          onTap: () => context.push('/shipments/${s.shipmentNumber}'),
+          onTap: () => context.push('/shipments/${s.id}'),
           borderRadius: BorderRadius.circular(12),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),

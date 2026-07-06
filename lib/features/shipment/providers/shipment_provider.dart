@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/order.dart';
 import '../data/models/shipment.dart';
+import '../data/models/shippable_line_item.dart';
 import '../data/repositories/shipment_repository.dart';
 
 // ── Shipment List State ───────────────────────────────────────────────────────
@@ -60,6 +61,25 @@ class ShipmentListNotifier extends StateNotifier<ShipmentListState> {
     }
   }
 
+  Future<void> createShipmentApi({
+    required int orderId,
+    required int nodeId,
+    required List<Map<String, dynamic>> lineItems,
+  }) async {
+    state = state.copyWith(isLoading: true);
+    try {
+      await _repo.createShipmentApi(
+        orderId: orderId,
+        nodeId: nodeId,
+        lineItems: lineItems,
+      );
+      state = state.copyWith(shipments: _repo.getAll(), isLoading: false);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      rethrow;
+    }
+  }
+
   Future<void> updateStatus(String id, ShipmentStatus status) async {
     await _repo.updateStatus(id, status);
     state = state.copyWith(shipments: _repo.getAll());
@@ -79,60 +99,58 @@ class ShipmentListNotifier extends StateNotifier<ShipmentListState> {
     await _repo.updateShipmentItems(id, items);
     state = state.copyWith(shipments: _repo.getAll());
   }
+
+  Future<void> markDelivered(String id) async {
+    await _repo.markDelivered(shipmentId: id);
+    state = state.copyWith(shipments: _repo.getAll());
+  }
 }
 
 final shipmentListProvider =
-    StateNotifierProvider<ShipmentListNotifier, ShipmentListState>((ref) {
+    StateNotifierProvider.autoDispose<ShipmentListNotifier, ShipmentListState>((ref) {
   return ShipmentListNotifier(ref.read(shipmentRepositoryProvider));
 });
 
 // ── Single Shipment Provider ──────────────────────────────────────────────────
-final shipmentByIdProvider = Provider.family<Shipment?, String>((ref, id) {
-  final list = ref.watch(shipmentListProvider).shipments;
-  try {
-    return list.firstWhere((s) =>
-        s.id == id ||
-        s.shipmentNumber == id ||
-        s.id == 'sh_$id' ||
-        s.shipmentNumber.contains(id));
-  } catch (_) {
-    return Shipment(
-      id: id,
-      shipmentNumber: id.startsWith('EFP') ? id : (id.startsWith('SH') ? id : 'EFP-S-10$id'),
-      orderId: 'ord_263',
-      orderNumber: 'EFP-O-10263',
-      customerName: 'SaiFlaerhomes',
-      status: ShipmentStatus.created,
-      createdAt: DateTime.now(),
-      lineItems: [
-        const ShipmentLineItem(
-          id: 'sli_fb_1',
-          product: Product(
-            id: 'prod_ply_1',
-            name: 'Commercial Plywood MR Grade 6mm 8x4',
-            sku: '10010010000100000',
-            trackingType: TrackingType.batch,
-            nodeStock: 150,
-          ),
-          shippedQty: 20,
-        ),
-        const ShipmentLineItem(
-          id: 'sli_fb_2',
-          product: Product(
-            id: 'prod_ply_2',
-            name: 'Commercial Plywood BWR Grade 6mm 8x4',
-            sku: '10010010001100000',
-            trackingType: TrackingType.serial,
-            nodeStock: 200,
-          ),
-          shippedQty: 30,
-        ),
-      ],
-    );
-  }
+final shipmentByIdProvider = FutureProvider.family.autoDispose<Shipment?, String>((ref, id) async {
+  return ref.read(shipmentRepositoryProvider).getShipmentById(id);
 });
 
 // ── Orders Provider ───────────────────────────────────────────────────────────
-final confirmedOrdersProvider = Provider<List<Order>>((ref) {
+final confirmedOrdersProvider = Provider.autoDispose<List<Order>>((ref) {
   return ref.read(shipmentRepositoryProvider).getConfirmedOrders();
+});
+
+// ── Shippable Line Items Provider ─────────────────────────────────────────────
+final shippableLineItemsProvider = FutureProvider.family.autoDispose<
+    List<ShippableLineItem>,
+    ({int nodeId, int orderId})>((ref, params) async {
+  return ref
+      .read(shipmentRepositoryProvider)
+      .getShippableLineItems(nodeId: params.nodeId, orderId: params.orderId);
+});
+
+// ── Allocation Availability Providers ─────────────────────────────────────────
+final batchAvailabilityProvider = FutureProvider.family.autoDispose<
+    List<BatchAvailabilityModel>,
+    ({int nodeId, String skuId})>((ref, params) async {
+  return ref
+      .read(shipmentRepositoryProvider)
+      .getBatchAvailability(nodeId: params.nodeId, skuId: params.skuId);
+});
+
+final untrackedAvailabilityProvider = FutureProvider.family.autoDispose<
+    List<UntrackedAvailabilityModel>,
+    ({int nodeId, String skuId})>((ref, params) async {
+  return ref
+      .read(shipmentRepositoryProvider)
+      .getUntrackedAvailability(nodeId: params.nodeId, skuId: params.skuId);
+});
+
+final serialAvailabilityProvider = FutureProvider.family.autoDispose<
+    List<SerialAvailabilityModel>,
+    ({int nodeId, String skuId})>((ref, params) async {
+  return ref
+      .read(shipmentRepositoryProvider)
+      .getSerialAvailability(nodeId: params.nodeId, skuId: params.skuId);
 });

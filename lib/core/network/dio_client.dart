@@ -3,6 +3,9 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/app_constants.dart';
 import 'api_endpoints.dart';
+import 'api_exception.dart';
+
+export 'api_exception.dart';
 
 final dioProvider = Provider<Dio>((ref) {
   final storage = ref.read(secureStorageProvider);
@@ -28,22 +31,96 @@ Dio _buildDio(FlutterSecureStorage storage) {
     ),
   );
 
-  // Auth token interceptor
+  // Auth token & platform header interceptor
   dio.interceptors.add(
     InterceptorsWrapper(
       onRequest: (options, handler) async {
-        final token = await storage.read(key: AppConstants.keyAuthToken);
-        if (token != null) {
-          options.headers['Authorization'] = 'Bearer $token';
+        // Attach platform header to every API request
+        options.headers['platform'] = 'node_app';
+
+        // Read all 5 auth token fields and cookie from secure storage
+        final accessToken = await storage.read(
+          key: AppConstants.keyAccessToken,
+        );
+        final client = await storage.read(key: AppConstants.keyClient);
+        final expiry = await storage.read(key: AppConstants.keyExpiry);
+        final tokenType = await storage.read(key: AppConstants.keyTokenType);
+        final uid = await storage.read(key: AppConstants.keyUid);
+        final cookie = await storage.read(key: AppConstants.keyCookie);
+
+        if (cookie != null && cookie.isNotEmpty) {
+          options.headers['cookie'] = cookie;
+          options.headers['Cookie'] = cookie;
+          debugPrint('Attached Cookie: $cookie');
         }
+
+        if (accessToken != null) {
+          options.headers['access-token'] = accessToken;
+          // Maintain Authorization header for backwards compatibility
+          options.headers['Authorization'] =
+              '${tokenType ?? "Bearer"} $accessToken';
+        }
+        if (client != null) options.headers['client'] = client;
+        if (expiry != null) options.headers['expiry'] = expiry;
+        if (tokenType != null) options.headers['token-type'] = tokenType;
+        if (uid != null) options.headers['uid'] = uid;
+
+        // Fallback for legacy token if access_token is not set
+        if (accessToken == null) {
+          final legacyToken = await storage.read(
+            key: AppConstants.keyAuthToken,
+          );
+          if (legacyToken != null) {
+            options.headers['Authorization'] = 'Bearer $legacyToken';
+          }
+        }
+
         return handler.next(options);
       },
-      onError: (error, handler) async {
-        if (error.response?.statusCode == 401) {
-          // Token expired — could trigger refresh here
-          await storage.delete(key: AppConstants.keyAuthToken);
+      onResponse: (response, handler) async {
+        await _saveCookiesFromResponse(storage, response);
+        if (response.data is Map && response.data['status'] == 'failure') {
+          final errorMsg =
+              ApiException.extractErrorMessage(response.data) ??
+              'Something went wrong';
+          return handler.reject(
+            DioException(
+              requestOptions: response.requestOptions,
+              response: response,
+              type: DioExceptionType.badResponse,
+              error: errorMsg,
+              message: errorMsg,
+            ),
+          );
         }
-        return handler.next(error);
+        return handler.next(response);
+      },
+      onError: (error, handler) async {
+        if (error.response != null) {
+          await _saveCookiesFromResponse(storage, error.response!);
+        }
+        if (error.response?.statusCode == 401) {
+          // Token expired / unauthorized — clear all auth tokens
+          await storage.delete(key: AppConstants.keyAccessToken);
+          await storage.delete(key: AppConstants.keyClient);
+          await storage.delete(key: AppConstants.keyExpiry);
+          await storage.delete(key: AppConstants.keyTokenType);
+          await storage.delete(key: AppConstants.keyUid);
+          await storage.delete(key: AppConstants.keyAuthToken);
+          await storage.delete(key: AppConstants.keyCookie);
+        }
+
+        final extractedMsg =
+            ApiException.extractErrorMessage(error.response?.data) ??
+            error.message ??
+            'Something went wrong';
+
+        final modifiedError = error.copyWith(
+          error: extractedMsg,
+          message: extractedMsg,
+        );
+
+        return handler.next(modifiedError);
       },
     ),
   );
@@ -64,4 +141,88 @@ Dio _buildDio(FlutterSecureStorage storage) {
 void debugPrint(String msg) {
   // ignore: avoid_print
   print('[DIO] $msg');
+}
+
+Future<void> _saveCookiesFromResponse(
+  FlutterSecureStorage storage,
+  Response response,
+) async {
+  final List<String> rawCookies = [];
+
+  // 1. Check response headers
+  final headerCookies = response.headers['set-cookie'];
+  if (headerCookies != null) {
+    for (final c in headerCookies) {
+      if (c.isNotEmpty) rawCookies.add(c);
+    }
+  }
+
+  // 2. Check response body if it's a Map
+  if (response.data is Map) {
+    final data = response.data as Map;
+    for (final key in ['cookie', 'cookies', 'set-cookie', 'Set-Cookie']) {
+      final val = data[key];
+      if (val is String && val.isNotEmpty) {
+        rawCookies.add(val);
+      } else if (val is List) {
+        for (final item in val) {
+          if (item is String && item.isNotEmpty)
+            rawCookies.add(item.toString());
+        }
+      }
+    }
+    if (data['headers'] is Map) {
+      final headersMap = data['headers'] as Map;
+      for (final key in ['cookie', 'cookies', 'set-cookie', 'Set-Cookie']) {
+        final val = headersMap[key];
+        if (val is String && val.isNotEmpty) {
+          rawCookies.add(val);
+        } else if (val is List) {
+          for (final item in val) {
+            if (item is String && item.isNotEmpty)
+              rawCookies.add(item.toString());
+          }
+        }
+      }
+    }
+  }
+
+  if (rawCookies.isEmpty) return;
+
+  // Read existing stored cookie string and parse into map
+  final existingCookieStr = await storage.read(key: AppConstants.keyCookie);
+  final cookieMap = <String, String>{};
+  if (existingCookieStr != null && existingCookieStr.isNotEmpty) {
+    final parts = existingCookieStr.split(';');
+    for (final part in parts) {
+      final trimmed = part.trim();
+      if (trimmed.isEmpty || !trimmed.contains('=')) continue;
+      final idx = trimmed.indexOf('=');
+      final name = trimmed.substring(0, idx).trim();
+      final val = trimmed.substring(idx + 1).trim();
+      if (name.isNotEmpty) {
+        cookieMap[name] = val;
+      }
+    }
+  }
+
+  // Parse new cookies and update map
+  for (final rawCookie in rawCookies) {
+    final pairStr = rawCookie.split(';').first.trim();
+    if (pairStr.isEmpty || !pairStr.contains('=')) continue;
+    final idx = pairStr.indexOf('=');
+    final name = pairStr.substring(0, idx).trim();
+    final val = pairStr.substring(idx + 1).trim();
+    if (name.isNotEmpty) {
+      cookieMap[name] = val;
+    }
+  }
+
+  if (cookieMap.isNotEmpty) {
+    final updatedCookieStr = cookieMap.entries
+        .map((e) => '${e.key}=${e.value}')
+        .join('; ');
+    await storage.write(key: AppConstants.keyCookie, value: updatedCookieStr);
+    debugPrint('Saved/Updated Cookie: $updatedCookieStr');
+  }
 }

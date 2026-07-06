@@ -17,8 +17,8 @@ class LoginScreen extends ConsumerStatefulWidget {
 class _LoginScreenState extends ConsumerState<LoginScreen>
     with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
-  final _usernameCtrl = TextEditingController(text: 'admin');
-  final _passwordCtrl = TextEditingController(text: 'password123');
+  final _mobileCtrl = TextEditingController(text: '');
+  final _otpCtrl = TextEditingController(text: '');
 
   late AnimationController _bgController;
   late AnimationController _fadeController;
@@ -37,9 +37,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       vsync: this,
       duration: const Duration(milliseconds: 800),
     );
-    _fadeAnimation = CurvedAnimation(parent: _fadeController, curve: Curves.easeOut);
-    _slideAnimation = Tween<Offset>(begin: const Offset(0, 0.08), end: Offset.zero)
-        .animate(CurvedAnimation(parent: _fadeController, curve: Curves.easeOut));
+    _fadeAnimation = CurvedAnimation(
+      parent: _fadeController,
+      curve: Curves.easeOut,
+    );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.08),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _fadeController, curve: Curves.easeOut));
 
     Future.delayed(const Duration(milliseconds: 100), () {
       if (mounted) _fadeController.forward();
@@ -50,21 +55,33 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   void dispose() {
     _bgController.dispose();
     _fadeController.dispose();
-    _usernameCtrl.dispose();
-    _passwordCtrl.dispose();
+    _mobileCtrl.dispose();
+    _otpCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _handleLogin() async {
+  Future<void> _handleSendOtp() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final success = await ref.read(authProvider.notifier).login(
-          username: _usernameCtrl.text.trim(),
-          password: _passwordCtrl.text,
-        );
+    final success = await ref
+        .read(authProvider.notifier)
+        .sendOtp(_mobileCtrl.text.trim());
 
     if (!success && mounted) {
-      final error = ref.read(authProvider).error ?? 'Login failed';
+      final error = ref.read(authProvider).error ?? 'Failed to send OTP';
+      _showError(error);
+    }
+  }
+
+  Future<void> _handleVerifyOtp() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final success = await ref
+        .read(authProvider.notifier)
+        .verifyOtp(otp: _otpCtrl.text.trim());
+
+    if (!success && mounted) {
+      final error = ref.read(authProvider).error ?? 'OTP Verification failed';
       _showError(error);
     }
   }
@@ -76,7 +93,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           children: [
             const Icon(Icons.error_outline, color: AppColors.error, size: 18),
             const SizedBox(width: 10),
-            Expanded(child: Text(msg, style: AppTextStyles.bodySmall.copyWith(color: AppColors.textPrimary))),
+            Expanded(
+              child: Text(
+                msg,
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
           ],
         ),
         backgroundColor: AppColors.cardElevated,
@@ -103,7 +127,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 32,
+                ),
                 child: FadeTransition(
                   opacity: _fadeAnimation,
                   child: SlideTransition(
@@ -120,7 +147,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
                         const SizedBox(height: 24),
                         Text(
-                          'NodeOps v1.0.0  •  Secure Login',
+                          'NodeOps v1.0.0  •  WhatsApp Secure Verification',
                           style: AppTextStyles.caption,
                         ),
                       ],
@@ -184,76 +211,42 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       padding: const EdgeInsets.all(28),
       child: Form(
         key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: authState.otpSent
+            ? _buildOtpStep(authState)
+            : _buildMobileStep(authState),
+      ),
+    );
+  }
+
+  Widget _buildMobileStep(AuthState authState) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
           children: [
-            Text('Welcome back', style: AppTextStyles.headingXL),
-            const SizedBox(height: 4),
-            Text(
-              'Sign in to continue',
-              style: AppTextStyles.bodySmall,
-            ),
-            const SizedBox(height: 28),
-
-            // Username
-            AppTextField(
-              label: 'Username',
-              hint: 'Enter username',
-              controller: _usernameCtrl,
-              prefixIcon: Icons.person_outline_rounded,
-              textInputAction: TextInputAction.next,
-              validator: (v) =>
-                  v == null || v.isEmpty ? 'Username is required' : null,
-            ),
-            const SizedBox(height: 16),
-
-            // Password
-            AppTextField(
-              label: 'Password',
-              hint: 'Enter password',
-              controller: _passwordCtrl,
-              obscureText: true,
-              showToggle: true,
-              prefixIcon: Icons.lock_outline_rounded,
-              textInputAction: TextInputAction.done,
-              onSubmitted: (_) => _handleLogin(),
-              validator: (v) =>
-                  v == null || v.isEmpty ? 'Password is required' : null,
-            ),
-            const SizedBox(height: 24),
-
-            // Login button
-            AppButton(
-              label: 'Sign In',
-              icon: Icons.arrow_forward_rounded,
-              isLoading: authState.isLoading,
-              onPressed: _handleLogin,
-            ),
-
-            const SizedBox(height: 20),
-
-            // Hint
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: AppColors.primary.withValues(alpha: 0.25),
-                ),
+                color: const Color(0xFF25D366).withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Row(
+              child: const Icon(
+                Icons.chat_bubble_rounded,
+                color: Color(0xFF25D366),
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.info_outline_rounded,
-                      size: 16, color: AppColors.primary),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Demo: admin / password123',
-                      style: AppTextStyles.caption.copyWith(
-                        color: AppColors.primary,
-                        fontSize: 12,
-                      ),
+                  Text('WhatsApp Login', style: AppTextStyles.headingXL),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Instant code verification',
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: const Color(0xFF25D366),
                     ),
                   ),
                 ],
@@ -261,7 +254,150 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             ),
           ],
         ),
-      ),
+        const SizedBox(height: 24),
+        Text(
+          'Enter your mobile number to receive a one-time verification code via WhatsApp.',
+          style: AppTextStyles.bodySmall,
+        ),
+        const SizedBox(height: 24),
+
+        // Mobile Number Field
+        AppTextField(
+          label: 'Mobile Number',
+          hint: 'e.g. 9876543210',
+          controller: _mobileCtrl,
+          prefixIcon: Icons.phone_android_rounded,
+          keyboardType: TextInputType.phone,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => _handleSendOtp(),
+          validator: (v) {
+            if (v == null || v.trim().isEmpty)
+              return 'Mobile number is required';
+            if (v.trim().length < 8) return 'Enter a valid mobile number';
+            return null;
+          },
+        ),
+        const SizedBox(height: 24),
+
+        // Send OTP Button
+        AppButton(
+          label: 'Send OTP via WhatsApp',
+          icon: Icons.send_rounded,
+          isLoading: authState.isLoading,
+          onPressed: _handleSendOtp,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOtpStep(AuthState authState) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.lock_clock_rounded,
+                color: AppColors.primary,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Verify Code', style: AppTextStyles.headingXL),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Sent to +91 ${authState.mobileNumber ?? _mobileCtrl.text}',
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: AppColors.textPrimary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        Text(
+          'Please enter the 4-digit verification code sent to your WhatsApp account.',
+          style: AppTextStyles.bodySmall,
+        ),
+        const SizedBox(height: 24),
+
+        // OTP Field
+        AppTextField(
+          label: 'Verification Code (OTP)',
+          hint: '• • • •',
+          controller: _otpCtrl,
+          prefixIcon: Icons.pin_outlined,
+          keyboardType: TextInputType.number,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => _handleVerifyOtp(),
+          validator: (v) {
+            if (v == null || v.trim().isEmpty) return 'OTP is required';
+            if (v.trim().length != 4) return 'Enter a 4-digit code';
+            return null;
+          },
+        ),
+        const SizedBox(height: 16),
+
+        // Change phone / Resend row
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            TextButton.icon(
+              onPressed: authState.isLoading
+                  ? null
+                  : () => ref.read(authProvider.notifier).resetLoginStep(),
+              icon: const Icon(
+                Icons.edit_rounded,
+                size: 14,
+                color: AppColors.textSecondary,
+              ),
+              label: Text(
+                'Change Phone',
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ),
+            TextButton.icon(
+              onPressed: authState.isLoading ? null : _handleSendOtp,
+              icon: const Icon(
+                Icons.refresh_rounded,
+                size: 14,
+                color: Color(0xFF25D366),
+              ),
+              label: Text(
+                'Resend OTP',
+                style: AppTextStyles.caption.copyWith(
+                  color: const Color(0xFF25D366),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        // Verify Button
+        AppButton(
+          label: 'Verify & Login',
+          icon: Icons.check_circle_outline_rounded,
+          isLoading: authState.isLoading,
+          onPressed: _handleVerifyOtp,
+        ),
+      ],
     );
   }
 }
@@ -303,23 +439,32 @@ class _BgPainter extends CustomPainter {
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
 
     // Glowing orbs
-    _drawOrb(canvas, size,
-        cx: size.width * 0.15 + 40 * math.sin(progress * math.pi * 2),
-        cy: size.height * 0.2 + 20 * math.cos(progress * math.pi * 2),
-        radius: 180,
-        color: const Color(0xFF5B8AF6));
+    _drawOrb(
+      canvas,
+      size,
+      cx: size.width * 0.15 + 40 * math.sin(progress * math.pi * 2),
+      cy: size.height * 0.2 + 20 * math.cos(progress * math.pi * 2),
+      radius: 180,
+      color: const Color(0xFF5B8AF6),
+    );
 
-    _drawOrb(canvas, size,
-        cx: size.width * 0.85 + 30 * math.cos(progress * math.pi * 2),
-        cy: size.height * 0.75 + 30 * math.sin(progress * math.pi * 2),
-        radius: 200,
-        color: const Color(0xFFA855F7));
+    _drawOrb(
+      canvas,
+      size,
+      cx: size.width * 0.85 + 30 * math.cos(progress * math.pi * 2),
+      cy: size.height * 0.75 + 30 * math.sin(progress * math.pi * 2),
+      radius: 200,
+      color: const Color(0xFFA855F7),
+    );
 
-    _drawOrb(canvas, size,
-        cx: size.width * 0.5,
-        cy: size.height * 0.5 + 20 * math.sin(progress * math.pi),
-        radius: 120,
-        color: const Color(0xFF00D4FF));
+    _drawOrb(
+      canvas,
+      size,
+      cx: size.width * 0.5,
+      cy: size.height * 0.5 + 20 * math.sin(progress * math.pi),
+      radius: 120,
+      color: const Color(0xFF00D4FF),
+    );
 
     // Dot grid pattern
     final dotPaint = Paint()
@@ -333,16 +478,18 @@ class _BgPainter extends CustomPainter {
     }
   }
 
-  void _drawOrb(Canvas canvas, Size size,
-      {required double cx,
-      required double cy,
-      required double radius,
-      required Color color}) {
+  void _drawOrb(
+    Canvas canvas,
+    Size size, {
+    required double cx,
+    required double cy,
+    required double radius,
+    required Color color,
+  }) {
     final paint = Paint()
       ..shader = RadialGradient(
         colors: [color.withValues(alpha: 0.25), Colors.transparent],
-      ).createShader(
-          Rect.fromCircle(center: Offset(cx, cy), radius: radius));
+      ).createShader(Rect.fromCircle(center: Offset(cx, cy), radius: radius));
     canvas.drawCircle(Offset(cx, cy), radius, paint);
   }
 

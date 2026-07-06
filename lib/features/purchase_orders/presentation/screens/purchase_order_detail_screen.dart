@@ -1,0 +1,254 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../app/theme/app_colors.dart';
+import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/widgets/app_button.dart';
+import '../../../../core/widgets/app_shell.dart';
+import '../../../../core/widgets/status_badge.dart';
+import '../../data/models/purchase_order_model.dart';
+import '../../providers/purchase_order_provider.dart';
+import '../../../grn/presentation/screens/create_grn_screen.dart';
+import '../widgets/grn_accordion_item.dart';
+
+class PurchaseOrderDetailScreen extends ConsumerStatefulWidget {
+  final int poId;
+  const PurchaseOrderDetailScreen({super.key, required this.poId});
+
+  @override
+  ConsumerState<PurchaseOrderDetailScreen> createState() =>
+      _PurchaseOrderDetailScreenState();
+}
+
+class _PurchaseOrderDetailScreenState
+    extends ConsumerState<PurchaseOrderDetailScreen> {
+  int? _expandedGrnId;
+
+  @override
+  Widget build(BuildContext context) {
+    final asyncPo = ref.watch(purchaseOrderByIdProvider(widget.poId));
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: const NodeOpsAppBar(showBack: true, title: 'PO Details'),
+      bottomNavigationBar: asyncPo.maybeWhen(
+        data: (po) => Container(
+          padding: const EdgeInsets.all(16),
+          decoration: const BoxDecoration(
+            color: AppColors.surface,
+            border: Border(top: BorderSide(color: AppColors.cardBorder)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: AppButton(
+              label: 'Create GRN',
+              icon: Icons.add_box_outlined,
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => CreateGrnScreen(
+                      poId: po.id,
+                      poNumber: po.purchaseOrderNumber,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+        orElse: () => null,
+      ),
+      body: asyncPo.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(
+          child: Text('Failed to load purchase order\n$e',
+              textAlign: TextAlign.center,
+              style:
+                  AppTextStyles.bodySmall.copyWith(color: AppColors.error)),
+        ),
+        data: (po) {
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── PO Summary Card ─────────────────────────────────────────
+                _buildPoSummaryCard(po),
+                const SizedBox(height: 24),
+
+                // ── Vendor Details Card ─────────────────────────────────────
+                _buildVendorCard(po.vendor),
+                const SizedBox(height: 24),
+
+                // ── Goods Received Notes Section ────────────────────────────
+                Text(
+                  'Goods Received Notes (GRNs)',
+                  style: AppTextStyles.headingMedium,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Click on any GRN below to expand its line items and inspection reports.',
+                  style: AppTextStyles.bodySmall
+                      .copyWith(color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: 16),
+
+                _buildGrnSection(po),
+                const SizedBox(height: 40),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildPoSummaryCard(PurchaseOrderModel po) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  po.purchaseOrderNumber,
+                  style: AppTextStyles.headingLarge,
+                ),
+              ),
+              StatusBadge(status: po.status),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Divider(height: 1),
+          const SizedBox(height: 16),
+          _infoRow(Icons.inventory_2_outlined, 'Total Units',
+              '${po.totalUnits} units', AppColors.primary),
+          const SizedBox(height: 10),
+          _infoRow(Icons.calendar_today_outlined, 'Delivery Date',
+              po.deliveryDate ?? 'N/A', AppColors.textPrimary),
+          const SizedBox(height: 10),
+          _infoRow(Icons.event_busy_outlined, 'Expiry Date',
+              po.expiryDate ?? 'No Expiry', AppColors.textSecondary),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVendorCard(VendorModel vendor) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.storefront_rounded,
+                  color: AppColors.primary, size: 20),
+              const SizedBox(width: 8),
+              Text('Vendor Information', style: AppTextStyles.headingSmall),
+              const Spacer(),
+              StatusBadge(status: vendor.status),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Divider(height: 1),
+          const SizedBox(height: 12),
+          _infoRow(Icons.business_outlined, 'Firm Name', vendor.firmName,
+              AppColors.textPrimary),
+          const SizedBox(height: 8),
+          _infoRow(Icons.tag_outlined, 'Vendor Code', vendor.code,
+              AppColors.textSecondary),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGrnSection(PurchaseOrderModel po) {
+    final asyncGrns = ref.watch(grnListForPoProvider(widget.poId));
+
+    return asyncGrns.when(
+      loading: () => const Padding(
+        padding: EdgeInsets.symmetric(vertical: 32),
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (e, _) => Center(
+        child: Text('Failed to load GRNs\n$e',
+            textAlign: TextAlign.center,
+            style:
+                AppTextStyles.bodySmall.copyWith(color: AppColors.error)),
+      ),
+      data: (grns) {
+        if (grns.isEmpty) {
+          return Container(
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: AppColors.card,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.cardBorder),
+            ),
+            child: Center(
+              child: Column(
+                children: [
+                  const Icon(Icons.inbox_outlined,
+                      size: 40, color: AppColors.textMuted),
+                  const SizedBox(height: 12),
+                  Text('No Goods Received Notes recorded yet.',
+                      style: AppTextStyles.bodyMedium
+                          .copyWith(color: AppColors.textSecondary)),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return Column(
+          children: grns.map((grn) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: GrnAccordionItem(
+                grn: grn,
+                po: po,
+                isExpanded: _expandedGrnId == grn.id,
+                onToggle: () {
+                  setState(() {
+                    _expandedGrnId =
+                        (_expandedGrnId == grn.id) ? null : grn.id;
+                  });
+                },
+              ),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
+  Widget _infoRow(IconData icon, String label, String value, Color valueColor) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: AppColors.textMuted),
+        const SizedBox(width: 8),
+        Text(label,
+            style:
+                AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted)),
+        const Spacer(),
+        Text(
+          value,
+          style: AppTextStyles.bodySmall
+              .copyWith(color: valueColor, fontWeight: FontWeight.w600),
+        ),
+      ],
+    );
+  }
+}

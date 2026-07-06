@@ -13,7 +13,13 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
 });
 
 // ── State ─────────────────────────────────────────────────────────────────────
-enum AuthStatus { initial, checking, nodeRequired, authenticated, unauthenticated }
+enum AuthStatus {
+  initial,
+  checking,
+  nodeRequired,
+  authenticated,
+  unauthenticated,
+}
 
 class AuthState {
   final AuthStatus status;
@@ -21,6 +27,8 @@ class AuthState {
   final NodeModel? node;
   final String? error;
   final bool isLoading;
+  final bool otpSent;
+  final String? mobileNumber;
 
   const AuthState({
     this.status = AuthStatus.initial,
@@ -28,6 +36,8 @@ class AuthState {
     this.node,
     this.error,
     this.isLoading = false,
+    this.otpSent = false,
+    this.mobileNumber,
   });
 
   bool get isAuthenticated => status == AuthStatus.authenticated;
@@ -38,14 +48,19 @@ class AuthState {
     NodeModel? node,
     String? error,
     bool? isLoading,
+    bool? otpSent,
+    String? mobileNumber,
     bool clearNode = false,
+    bool clearError = false,
   }) {
     return AuthState(
       status: status ?? this.status,
       user: user ?? this.user,
       node: clearNode ? null : (node ?? this.node),
-      error: error,
+      error: clearError ? null : (error ?? this.error),
       isLoading: isLoading ?? this.isLoading,
+      otpSent: otpSent ?? this.otpSent,
+      mobileNumber: mobileNumber ?? this.mobileNumber,
     );
   }
 }
@@ -70,16 +85,58 @@ class AuthNotifier extends StateNotifier<AuthState> {
         );
       } else if (session.user != null) {
         // Has credentials but no node saved yet
-        state = AuthState(
-          status: AuthStatus.nodeRequired,
-          user: session.user,
-        );
+        state = AuthState(status: AuthStatus.nodeRequired, user: session.user);
       } else {
         state = const AuthState(status: AuthStatus.unauthenticated);
       }
     } catch (_) {
       state = const AuthState(status: AuthStatus.unauthenticated);
     }
+  }
+
+  /// Step 1: Send OTP via WhatsApp to mobile number.
+  Future<bool> sendOtp(String mobileNumber) async {
+    state = state.copyWith(isLoading: true, error: null, clearError: true);
+    try {
+      await _repo.sendWhatsAppOtp(SendOtpRequest(mobileNumber: mobileNumber));
+      state = state.copyWith(
+        isLoading: false,
+        otpSent: true,
+        mobileNumber: mobileNumber,
+      );
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString().replaceFirst('Exception: ', ''),
+      );
+      return false;
+    }
+  }
+
+  /// Step 2: Verify WhatsApp OTP and login.
+  Future<bool> verifyOtp({required String otp}) async {
+    state = state.copyWith(isLoading: true, error: null, clearError: true);
+    try {
+      final user = await _repo.verifyWhatsAppOtp(VerifyOtpRequest(otp: otp));
+      state = AuthState(
+        status: AuthStatus.nodeRequired,
+        user: user,
+        otpSent: true,
+      );
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString().replaceFirst('Exception: ', ''),
+      );
+      return false;
+    }
+  }
+
+  /// Go back to Step 1 (change phone number).
+  void resetLoginStep() {
+    state = state.copyWith(otpSent: false, error: null, clearError: true);
   }
 
   /// Login with username + password only. Node selection follows separately.
@@ -92,10 +149,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final user = await _repo.login(
         LoginRequest(username: username, password: password),
       );
-      state = AuthState(
-        status: AuthStatus.nodeRequired,
-        user: user,
-      );
+      state = AuthState(status: AuthStatus.nodeRequired, user: user);
       return true;
     } catch (e) {
       state = state.copyWith(
@@ -114,6 +168,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
       status: AuthStatus.authenticated,
       user: state.user,
       node: node,
+      otpSent: state.otpSent,
+      mobileNumber: state.mobileNumber,
     );
   }
 
@@ -127,3 +183,4 @@ class AuthNotifier extends StateNotifier<AuthState> {
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   return AuthNotifier(ref.read(authRepositoryProvider));
 });
+ 

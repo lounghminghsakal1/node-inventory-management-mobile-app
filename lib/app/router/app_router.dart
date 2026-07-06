@@ -12,7 +12,8 @@ import '../../features/shipment/presentation/screens/allocation_screen.dart';
 import '../../features/shipment/presentation/screens/dispatch_screen.dart';
 import '../../features/orders/presentation/screens/order_list_screen.dart';
 import '../../features/orders/presentation/screens/order_detail_screen.dart';
-import '../../features/grn/presentation/screens/grn_screen.dart';
+import '../../features/purchase_orders/presentation/screens/purchase_order_list_screen.dart';
+import '../../features/purchase_orders/presentation/screens/purchase_order_detail_screen.dart';
 import '../../features/audit/presentation/screens/audit_screen.dart';
 import '../../features/returns/presentation/screens/returns_screen.dart';
 import '../../features/adjustment/presentation/screens/adjustment_screen.dart';
@@ -105,12 +106,16 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ]),
 
-          // GRN
+          // Purchase Orders (replaces GRN in bottom nav)
           StatefulShellBranch(routes: [
             GoRoute(
+              path: '/purchase-orders',
+              name: 'purchase-orders',
+              builder: (context, _) => const PurchaseOrderListScreen(),
+            ),
+            GoRoute(
               path: '/grn',
-              name: 'grn',
-              builder: (context, _) => const GrnScreen(),
+              redirect: (_, _) => '/purchase-orders',
             ),
           ]),
 
@@ -143,6 +148,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
+        path: '/purchase-orders/:id',
+        name: 'purchase-order-detail',
+        builder: (_, state) => PurchaseOrderDetailScreen(
+          poId: int.tryParse(state.pathParameters['id']!) ?? 132,
+        ),
+      ),
+      GoRoute(
         path: '/shipments',
         name: 'shipments-list',
         builder: (context, _) => const ShipmentListScreen(),
@@ -154,6 +166,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'shipment-create',
         builder: (context, state) => CreateShipmentScreen(
           orderId: state.uri.queryParameters['orderId'],
+          orderNumber: state.uri.queryParameters['orderNumber'],
+          customerName: state.uri.queryParameters['customerName'],
         ),
       ),
       GoRoute(
@@ -227,9 +241,9 @@ class _ScaffoldWithNavBar extends ConsumerWidget {
                 _NavItem(
                   index: 2,
                   current: navigationShell.currentIndex,
-                  icon: Icons.inventory_2_outlined,
-                  activeIcon: Icons.inventory_2_rounded,
-                  label: 'GRN',
+                  icon: Icons.receipt_long_outlined,
+                  activeIcon: Icons.receipt_long_rounded,
+                  label: 'Purchase Orders',
                   onTap: () => _onTap(2),
                 ),
                 _NavItem(
@@ -310,12 +324,16 @@ class _NavItem extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 2),
-              Text(
-                label,
-                style: AppTextStyles.caption.copyWith(
-                  color: isActive ? AppColors.primary : AppColors.textMuted,
-                  fontSize: 10,
-                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  style: AppTextStyles.caption.copyWith(
+                    color: isActive ? AppColors.primary : AppColors.textMuted,
+                    fontSize: 10,
+                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                  ),
+                  maxLines: 1,
                 ),
               ),
             ],

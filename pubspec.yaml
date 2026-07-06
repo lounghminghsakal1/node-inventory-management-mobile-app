@@ -23,6 +23,9 @@ dependencies:
   # Secure Storage
   flutter_secure_storage: ^9.2.4
 
+  # Environment variables
+  flutter_dotenv: ^5.2.1
+
   # Typography
   google_fonts: ^6.2.1
 
@@ -33,3 +36,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - .env

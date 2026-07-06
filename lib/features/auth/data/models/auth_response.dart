@@ -1,3 +1,45 @@
+import 'package:dio/dio.dart' show Headers;
+
+// ── Auth Tokens (WhatsApp Login / Token Auth) ─────────────────────────────────
+class AuthTokens {
+  final String accessToken;
+  final String client;
+  final String expiry;
+  final String tokenType;
+  final String uid;
+
+  const AuthTokens({
+    required this.accessToken,
+    required this.client,
+    required this.expiry,
+    required this.tokenType,
+    required this.uid,
+  });
+
+  /// Try extracting from HTTP response headers first, then fallback to JSON body map.
+  factory AuthTokens.fromResponse({required Headers headers, Map<String, dynamic>? data}) {
+    String? getVal(String key) {
+      final fromHeader = headers.value(key);
+      if (fromHeader != null && fromHeader.isNotEmpty) return fromHeader;
+      if (data != null && data[key] != null) return data[key].toString();
+      if (data != null && data['headers'] is Map && data['headers'][key] != null) {
+        return data['headers'][key].toString();
+      }
+      return null;
+    }
+
+    return AuthTokens(
+      accessToken: getVal('access-token') ?? getVal('accessToken') ?? '',
+      client: getVal('client') ?? '',
+      expiry: getVal('expiry') ?? '',
+      tokenType: getVal('token-type') ?? getVal('tokenType') ?? 'Bearer',
+      uid: getVal('uid') ?? '',
+    );
+  }
+
+  bool get isValid => accessToken.isNotEmpty && uid.isNotEmpty;
+}
+
 // ── Node ──────────────────────────────────────────────────────────────────────
 class NodeModel {
   final String id;
@@ -28,10 +70,10 @@ class NodeModel {
 
   // ── Dummy nodes ─────────────────────────────────────────────────────────────
   static const List<NodeModel> dummyNodes = [
-    NodeModel(id: 'node_1', name: 'Warehouse Alpha', code: 'WH-A', location: 'Chennai'),
-    NodeModel(id: 'node_2', name: 'Warehouse Beta', code: 'WH-B', location: 'Bangalore'),
-    NodeModel(id: 'node_3', name: 'Distribution Hub', code: 'DH-1', location: 'Mumbai'),
-    NodeModel(id: 'node_4', name: 'Retail Store North', code: 'RS-N', location: 'Delhi'),
+    NodeModel(id: '1', name: 'Warehouse Alpha', code: 'WH-A', location: 'Chennai'),
+    NodeModel(id: '2', name: 'Warehouse Beta', code: 'WH-B', location: 'Bangalore'),
+    NodeModel(id: '3', name: 'Distribution Hub', code: 'DH-1', location: 'Mumbai'),
+    NodeModel(id: '4', name: 'Retail Store North', code: 'RS-N', location: 'Delhi'),
   ];
 }
 
@@ -52,11 +94,11 @@ class UserModel {
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
-        id: json['id'] as String,
-        name: json['name'] as String,
-        email: json['email'] as String,
-        role: json['role'] as String,
-        nodeId: json['nodeId'] as String,
+        id: (json['id'] ?? '').toString(),
+        name: (json['name'] ?? json['user_name'] ?? 'User').toString(),
+        email: (json['email'] ?? '').toString(),
+        role: (json['role'] ?? 'Node Admin').toString(),
+        nodeId: (json['nodeId'] ?? json['node_id'] ?? '').toString(),
       );
 
   String get initials {

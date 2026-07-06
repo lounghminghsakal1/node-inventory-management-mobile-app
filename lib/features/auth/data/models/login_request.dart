@@ -2,13 +2,23 @@ class LoginRequest {
   final String username;
   final String password;
 
-  const LoginRequest({
-    required this.username,
-    required this.password,
-  });
+  const LoginRequest({required this.username, required this.password});
 
-  Map<String, dynamic> toJson() => {
-        'username': username,
-        'password': password,
-      };
+  Map<String, dynamic> toJson() => {'username': username, 'password': password};
+}
+
+class SendOtpRequest {
+  final String mobileNumber;
+
+  const SendOtpRequest({required this.mobileNumber});
+
+  Map<String, dynamic> toJson() => {'mobile_number': mobileNumber};
+}
+
+class VerifyOtpRequest {
+  final String otp;
+
+  const VerifyOtpRequest({required this.otp});
+
+  Map<String, dynamic> toJson() => {'otp': otp};
 }

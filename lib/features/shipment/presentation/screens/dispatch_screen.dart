@@ -6,8 +6,17 @@ import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_shell.dart';
 import '../../../../core/widgets/app_text_field.dart';
-import '../../data/models/shipment.dart';
+import '../../data/repositories/shipment_repository.dart';
 import '../../providers/shipment_provider.dart';
+
+class _KeyValuePair {
+  final keyCtrl = TextEditingController();
+  final valCtrl = TextEditingController();
+  void dispose() {
+    keyCtrl.dispose();
+    valCtrl.dispose();
+  }
+}
 
 class DispatchScreen extends ConsumerStatefulWidget {
   final String shipmentId;
@@ -22,6 +31,8 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _vehicleCtrl = TextEditingController();
+  final _distanceCtrl = TextEditingController();
+  final List<_KeyValuePair> _additionalRows = [];
   bool _isLoading = false;
 
   @override
@@ -29,6 +40,10 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
     _nameCtrl.dispose();
     _phoneCtrl.dispose();
     _vehicleCtrl.dispose();
+    _distanceCtrl.dispose();
+    for (final row in _additionalRows) {
+      row.dispose();
+    }
     super.dispose();
   }
 
@@ -135,10 +150,102 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
                       hint: 'e.g. TN 09 AB 1234',
                       controller: _vehicleCtrl,
                       prefixIcon: Icons.directions_car_outlined,
-                      textInputAction: TextInputAction.done,
+                      textInputAction: TextInputAction.next,
                       validator: (v) => v == null || v.isEmpty
                           ? 'Vehicle number is required'
                           : null,
+                    ),
+                    const SizedBox(height: 14),
+
+                    AppTextField(
+                      label: 'Distance (in km/meters)',
+                      hint: 'e.g. 1000',
+                      controller: _distanceCtrl,
+                      prefixIcon: Icons.add_road_outlined,
+                      keyboardType: TextInputType.number,
+                      textInputAction: TextInputAction.done,
+                      validator: (v) => v == null || v.isEmpty
+                          ? 'Distance is required'
+                          : null,
+                    ),
+                    const SizedBox(height: 28),
+
+                    // Additional Details Section
+                    Text(
+                      'Additional Details (Optional)',
+                      style: AppTextStyles.headingMedium,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Add any extra key-value information for this dispatch',
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    ..._additionalRows.asMap().entries.map((entry) {
+                      final idx = entry.key;
+                      final row = entry.value;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: AppTextField(
+                                label: 'Key ${idx + 1}',
+                                hint: 'e.g. key ${idx + 1}',
+                                controller: row.keyCtrl,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: AppTextField(
+                                label: 'Value ${idx + 1}',
+                                hint: 'e.g. value ${idx + 1}',
+                                controller: row.valCtrl,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: const Icon(
+                                Icons.delete_outline_rounded,
+                                color: AppColors.error,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  row.dispose();
+                                  _additionalRows.removeAt(idx);
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+
+                    const SizedBox(height: 6),
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _additionalRows.add(_KeyValuePair());
+                        });
+                      },
+                      icon: const Icon(Icons.add_rounded, color: AppColors.primary),
+                      label: const Text(
+                        'Add one more row',
+                        style: TextStyle(color: AppColors.primary),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: AppColors.primary),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 28),
 
@@ -195,21 +302,45 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
 
     setState(() => _isLoading = true);
     try {
-      await ref.read(shipmentListProvider.notifier).dispatch(
-            widget.shipmentId,
-            DriverDetails(
-              name: _nameCtrl.text.trim(),
-              phone: _phoneCtrl.text.trim(),
-              vehicleNumber: _vehicleCtrl.text.trim().toUpperCase(),
-            ),
-          );
+      final payload = <String, dynamic>{
+        "driver_name": _nameCtrl.text.trim(),
+        "driver_number": _phoneCtrl.text.trim(),
+        "vehicle_number": _vehicleCtrl.text.trim(),
+        "distance": _distanceCtrl.text.trim(),
+      };
+      for (final row in _additionalRows) {
+        final k = row.keyCtrl.text.trim();
+        final v = row.valCtrl.text.trim();
+        if (k.isNotEmpty && v.isNotEmpty) {
+          payload[k] = v;
+        }
+      }
+
+      await ref
+          .read(shipmentRepositoryProvider)
+          .markDispatched(shipmentId: widget.shipmentId, payload: payload);
+
       if (mounted) {
+        ref.invalidate(shipmentByIdProvider(widget.shipmentId));
+        ref.invalidate(shipmentListProvider);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Shipment marked as dispatched successfully!'),
+            backgroundColor: AppColors.success,
+          ),
+        );
         context.pop(); // back to detail
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Error: ${e.toString().replaceFirst('Exception: ', '')}',
+            ),
+            backgroundColor: AppColors.error,
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);

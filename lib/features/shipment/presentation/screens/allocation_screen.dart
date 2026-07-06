@@ -5,8 +5,10 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_shell.dart';
+import '../../../auth/providers/auth_provider.dart';
 import '../../data/models/shipment.dart';
 import '../../data/models/order.dart';
+import '../../data/repositories/shipment_repository.dart';
 import '../../providers/shipment_provider.dart';
 
 class AllocationScreen extends ConsumerStatefulWidget {
@@ -24,117 +26,196 @@ class _AllocationScreenState extends ConsumerState<AllocationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final shipment = ref.watch(shipmentByIdProvider(widget.shipmentId));
-    if (shipment == null) return const Scaffold();
+    final asyncShipment = ref.watch(shipmentByIdProvider(widget.shipmentId));
 
-    if (!_initialized) {
-      _items = List.from(shipment.lineItems);
-      _initialized = true;
-    }
-
-    final allAllocated = _items.every((i) => i.isAllocated);
-
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: const NodeOpsAppBar(
-        showBack: true,
-        title: 'Manage Allocations',
+    return asyncShipment.when(
+      loading: () => Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: const NodeOpsAppBar(
+          showBack: true,
+          title: 'Manage Allocations',
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
       ),
-      body: Column(
-        children: [
-          // Header info
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            decoration: const BoxDecoration(
-              color: AppColors.surface,
-              border: Border(
-                  bottom: BorderSide(color: AppColors.cardBorder)),
-            ),
-            child: Row(children: [
-              const Icon(Icons.info_outline_rounded,
-                  size: 14, color: AppColors.textMuted),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Allocate inventory for each product. Select LIFO, FIFO, or Manual allocation.',
-                  style: AppTextStyles.caption,
-                ),
-              ),
-            ]),
+      error: (e, _) => Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: const NodeOpsAppBar(showBack: true, title: 'Error'),
+        body: Center(child: Text('Error loading shipment: $e')),
+      ),
+      data: (shipment) {
+        if (shipment == null) return const Scaffold();
+
+        if (!_initialized) {
+          _items = List.from(shipment.lineItems);
+          _initialized = true;
+        }
+
+        final allAllocated = _items.every((i) => i.isAllocated);
+
+        return Scaffold(
+          backgroundColor: AppColors.background,
+          appBar: const NodeOpsAppBar(
+            showBack: true,
+            title: 'Manage Allocations',
           ),
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _items.length,
-              itemBuilder: (_, i) {
-                final item = _items[i];
-                return _AllocationCard(
-                  key: ValueKey(item.id),
-                  item: item,
-                  onAllocated: (updated) {
-                    setState(() => _items[i] = updated);
-                  },
-                );
-              },
-            ),
-          ),
-          // Bottom confirm
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: const BoxDecoration(
-              color: AppColors.surface,
-              border: Border(top: BorderSide(color: AppColors.cardBorder)),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '${_items.where((i) => i.isAllocated).length}/${_items.length} allocated',
-                      style: AppTextStyles.bodySmall,
-                    ),
-                    if (allAllocated)
-                      const Row(children: [
-                        Icon(Icons.check_circle_rounded,
-                            color: AppColors.success, size: 16),
-                        SizedBox(width: 4),
-                        Text('Ready',
-                            style: TextStyle(
-                                color: AppColors.success, fontSize: 13)),
-                      ]),
-                  ],
+          body: Column(
+            children: [
+              // Header info
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
                 ),
-                const SizedBox(height: 12),
-                SafeArea(
-                  top: false,
-                  child: AppButton(
-                    label: 'Assign Allocations',
-                    icon: Icons.check_rounded,
-                    isLoading: _isLoading,
-                    onPressed: allAllocated ? _confirmAllocation : null,
-                    gradient: AppColors.greenGradient,
+                decoration: const BoxDecoration(
+                  color: AppColors.surface,
+                  border: Border(
+                    bottom: BorderSide(color: AppColors.cardBorder),
                   ),
                 ),
-              ],
-            ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.info_outline_rounded,
+                      size: 14,
+                      color: AppColors.textMuted,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Allocate inventory for each product. Select FIFO, Manual, or LIFO allocation.',
+                        style: AppTextStyles.caption,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _items.length,
+                  itemBuilder: (_, i) {
+                    final item = _items[i];
+                    return _AllocationCard(
+                      key: ValueKey(item.id),
+                      item: item,
+                      onAllocated: (updated) {
+                        setState(() => _items[i] = updated);
+                      },
+                    );
+                  },
+                ),
+              ),
+              // Bottom confirm
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: const BoxDecoration(
+                  color: AppColors.surface,
+                  border: Border(top: BorderSide(color: AppColors.cardBorder)),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '${_items.where((i) => i.isAllocated).length}/${_items.length} allocated',
+                          style: AppTextStyles.bodySmall,
+                        ),
+                        if (allAllocated)
+                          const Row(
+                            children: [
+                              Icon(
+                                Icons.check_circle_rounded,
+                                color: AppColors.success,
+                                size: 16,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                'Ready to allocate',
+                                style: TextStyle(
+                                  color: AppColors.success,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    SafeArea(
+                      top: false,
+                      child: AppButton(
+                        label: 'Assign Allocations',
+                        icon: Icons.check_rounded,
+                        isLoading: _isLoading,
+                        onPressed: allAllocated ? _confirmAllocation : null,
+                        gradient: AppColors.greenGradient,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   Future<void> _confirmAllocation() async {
     setState(() => _isLoading = true);
     try {
+      final payload = {
+        "line_items": _items.map((item) {
+          final sliId = int.tryParse(item.id) ?? 0;
+          final selType = item.allocationType.toLowerCase();
+
+          if (selType == 'fifo' || selType == 'lifo') {
+            return {"shipment_line_item_id": sliId, "selection_type": selType};
+          }
+
+          final map = <String, dynamic>{
+            "shipment_line_item_id": sliId,
+            "selection_type": "manual",
+          };
+
+          if (item.product.trackingType == TrackingType.batch) {
+            map["batch_codes"] = item.batchAllocations
+                .map((b) => {"batch_code": b.batchCode, "quantity": b.qty})
+                .toList();
+          } else if (item.product.trackingType == TrackingType.serial) {
+            map["serials"] = item.serialNumbers;
+          } else if (item.product.trackingType == TrackingType.untracked) {
+            map["untracked_numbers"] = item.untrackedAllocations
+                .map(
+                  (u) => {
+                    "untracked_number": u.untrackedNumber,
+                    "quantity": u.qty,
+                  },
+                )
+                .toList();
+          }
+          return map;
+        }),
+      };
+
       await ref
-          .read(shipmentListProvider.notifier)
-          .allocate(widget.shipmentId, _items);
+          .read(shipmentRepositoryProvider)
+          .assignShipmentAllocations(
+            shipmentId: widget.shipmentId,
+            payload: payload,
+          );
+
+      ref.invalidate(shipmentByIdProvider(widget.shipmentId));
+      ref.invalidate(shipmentListProvider);
       if (mounted) context.pop();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -143,18 +224,23 @@ class _AllocationScreenState extends ConsumerState<AllocationScreen> {
 }
 
 // ── Per-product Allocation Card ───────────────────────────────────────────────
-class _AllocationCard extends StatefulWidget {
+class _AllocationCard extends ConsumerStatefulWidget {
   final ShipmentLineItem item;
   final ValueChanged<ShipmentLineItem> onAllocated;
 
-  const _AllocationCard({super.key, required this.item, required this.onAllocated});
+  const _AllocationCard({
+    super.key,
+    required this.item,
+    required this.onAllocated,
+  });
 
   @override
-  State<_AllocationCard> createState() => _AllocationCardState();
+  ConsumerState<_AllocationCard> createState() => _AllocationCardState();
 }
 
-class _AllocationCardState extends State<_AllocationCard> {
+class _AllocationCardState extends ConsumerState<_AllocationCard> {
   late List<BatchAllocation> _batches;
+  late List<UntrackedAllocation> _untrackedLots;
   late List<String> _selectedSerials;
   late String _allocationType;
   bool _expanded = true;
@@ -163,6 +249,7 @@ class _AllocationCardState extends State<_AllocationCard> {
   void initState() {
     super.initState();
     _batches = List.from(widget.item.batchAllocations);
+    _untrackedLots = List.from(widget.item.untrackedAllocations);
     _selectedSerials = List.from(widget.item.serialNumbers);
     _allocationType = widget.item.allocationType;
 
@@ -181,8 +268,9 @@ class _AllocationCardState extends State<_AllocationCard> {
     }
     switch (widget.item.product.trackingType) {
       case TrackingType.batch:
-      case TrackingType.untracked:
         return _batches.fold(0, (s, b) => s + b.qty);
+      case TrackingType.untracked:
+        return _untrackedLots.fold(0, (s, u) => s + u.qty);
       case TrackingType.serial:
         return _selectedSerials.length;
     }
@@ -196,6 +284,7 @@ class _AllocationCardState extends State<_AllocationCard> {
   void _save({bool? isAllocated}) {
     final updated = widget.item.copyWith(
       batchAllocations: _batches,
+      untrackedAllocations: _untrackedLots,
       serialNumbers: _selectedSerials,
       isAllocated: isAllocated ?? _isComplete,
       allocationType: _allocationType,
@@ -204,17 +293,50 @@ class _AllocationCardState extends State<_AllocationCard> {
   }
 
   void _openBatchModal(BuildContext context, {bool isUntracked = false}) {
+    final authState = ref.read(authProvider);
+    final nodeIdStr = authState.node?.id ?? authState.user?.nodeId ?? '1';
+    final nodeId =
+        int.tryParse(nodeIdStr) ??
+        int.tryParse(nodeIdStr.replaceAll(RegExp(r'[^0-9]'), '')) ??
+        1;
+
     showDialog(
       context: context,
-      builder: (_) => _BatchAllocationModal(
+      builder: (_) => BatchAllocationModal(
         title: isUntracked ? 'Assign Untracked Lots' : 'Assign Batches',
         requiredQty: widget.item.shippedQty,
         unit: widget.item.product.unit,
-        initialBatches: _batches,
+        nodeId: nodeId,
+        skuId: widget.item.product.id,
+        initialAllocations: isUntracked
+            ? _untrackedLots
+                  .map((u) => ({'code': u.untrackedNumber, 'qty': u.qty}))
+                  .toList()
+            : _batches
+                  .map((b) => ({'code': b.batchCode, 'qty': b.qty}))
+                  .toList(),
         isUntracked: isUntracked,
-        onConfirm: (newBatches) {
+        onConfirm: (newAllocations) {
           setState(() {
-            _batches = newBatches;
+            if (isUntracked) {
+              _untrackedLots = newAllocations
+                  .map(
+                    (e) => UntrackedAllocation(
+                      untrackedNumber: e['code'] as String,
+                      qty: e['qty'] as int,
+                    ),
+                  )
+                  .toList();
+            } else {
+              _batches = newAllocations
+                  .map(
+                    (e) => BatchAllocation(
+                      batchCode: e['code'] as String,
+                      qty: e['qty'] as int,
+                    ),
+                  )
+                  .toList();
+            }
           });
           _save();
         },
@@ -223,10 +345,19 @@ class _AllocationCardState extends State<_AllocationCard> {
   }
 
   void _openSerialModal(BuildContext context) {
+    final authState = ref.read(authProvider);
+    final nodeIdStr = authState.node?.id ?? authState.user?.nodeId ?? '1';
+    final nodeId =
+        int.tryParse(nodeIdStr) ??
+        int.tryParse(nodeIdStr.replaceAll(RegExp(r'[^0-9]'), '')) ??
+        1;
+
     showDialog(
       context: context,
-      builder: (_) => _SerialAllocationModal(
+      builder: (_) => SerialAllocationModal(
         requiredQty: widget.item.shippedQty,
+        nodeId: nodeId,
+        skuId: widget.item.product.id,
         initialSerials: _selectedSerials,
         onConfirm: (newSerials) {
           setState(() {
@@ -248,7 +379,9 @@ class _AllocationCardState extends State<_AllocationCard> {
         color: AppColors.card,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: _isComplete ? AppColors.success.withValues(alpha: 0.4) : AppColors.cardBorder,
+          color: _isComplete
+              ? AppColors.success.withValues(alpha: 0.4)
+              : AppColors.cardBorder,
         ),
       ),
       child: Column(
@@ -268,8 +401,11 @@ class _AllocationCardState extends State<_AllocationCard> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Center(
-                      child: Icon(Icons.category_outlined,
-                          size: 18, color: AppColors.primary),
+                      child: Icon(
+                        Icons.category_outlined,
+                        size: 18,
+                        color: AppColors.primary,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -277,8 +413,10 @@ class _AllocationCardState extends State<_AllocationCard> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(item.product.name,
-                            style: AppTextStyles.headingSmall),
+                        Text(
+                          item.product.name,
+                          style: AppTextStyles.headingSmall,
+                        ),
                         Text(
                           '${item.product.trackingType.label} · Need: ${item.shippedQty}  Got: $_allocatedQty',
                           style: AppTextStyles.caption.copyWith(
@@ -291,8 +429,11 @@ class _AllocationCardState extends State<_AllocationCard> {
                     ),
                   ),
                   if (_isComplete)
-                    const Icon(Icons.check_circle_rounded,
-                        color: AppColors.success, size: 20)
+                    const Icon(
+                      Icons.check_circle_rounded,
+                      color: AppColors.success,
+                      size: 20,
+                    )
                   else
                     Icon(
                       _expanded
@@ -316,8 +457,10 @@ class _AllocationCardState extends State<_AllocationCard> {
                   // Allocation Type Dropdown
                   Row(
                     children: [
-                      Text('Allocation Type: ',
-                          style: AppTextStyles.labelMedium),
+                      Text(
+                        'Allocation Type: ',
+                        style: AppTextStyles.labelMedium,
+                      ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Container(
@@ -332,21 +475,37 @@ class _AllocationCardState extends State<_AllocationCard> {
                               value: _allocationType,
                               dropdownColor: AppColors.surface,
                               style: AppTextStyles.bodySmall,
-                              icon: const Icon(Icons.arrow_drop_down,
-                                  color: AppColors.primary),
+                              icon: const Icon(
+                                Icons.arrow_drop_down,
+                                color: AppColors.primary,
+                              ),
                               items: const [
                                 DropdownMenuItem(
-                                    value: 'lifo', child: Text('LIFO (Default)')),
+                                  value: 'fifo',
+                                  child: Text('FIFO (Default)'),
+                                ),
                                 DropdownMenuItem(
-                                    value: 'fifo', child: Text('FIFO')),
+                                  value: 'manual',
+                                  child: Text('Manual'),
+                                ),
                                 DropdownMenuItem(
-                                    value: 'manual', child: Text('Manual')),
+                                  value: 'lifo',
+                                  child: Text('LIFO'),
+                                ),
                               ],
                               onChanged: (val) {
                                 if (val != null && val != _allocationType) {
                                   setState(() {
                                     _allocationType = val;
                                   });
+                                  if (val == 'manual') {
+                                    ref
+                                        .read(shipmentRepositoryProvider)
+                                        .updateAllocationTypeApi(
+                                          shipmentId: widget.item.id,
+                                          allocationType: val,
+                                        );
+                                  }
                                   if (val == 'lifo' || val == 'fifo') {
                                     _save(isAllocated: true);
                                   } else {
@@ -363,7 +522,8 @@ class _AllocationCardState extends State<_AllocationCard> {
                   const SizedBox(height: 14),
 
                   // Content based on allocation type
-                  if (_allocationType == 'lifo' || _allocationType == 'fifo') ...[
+                  if (_allocationType == 'lifo' ||
+                      _allocationType == 'fifo') ...[
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
@@ -372,14 +532,18 @@ class _AllocationCardState extends State<_AllocationCard> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.auto_awesome_rounded,
-                              size: 16, color: AppColors.secondary),
+                          const Icon(
+                            Icons.auto_awesome_rounded,
+                            size: 16,
+                            color: AppColors.secondary,
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               'Auto-allocated via ${_allocationType.toUpperCase()}. No batch/serial entry required.',
-                              style: AppTextStyles.caption
-                                  .copyWith(color: AppColors.secondary),
+                              style: AppTextStyles.caption.copyWith(
+                                color: AppColors.secondary,
+                              ),
                             ),
                           ),
                         ],
@@ -395,13 +559,20 @@ class _AllocationCardState extends State<_AllocationCard> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('Assigned Batches', style: AppTextStyles.labelMedium),
+                                Text(
+                                  'Assigned Batches',
+                                  style: AppTextStyles.labelMedium,
+                                ),
                                 const SizedBox(height: 2),
                                 Text(
                                   '${_batches.fold(0, (sum, b) => sum + b.qty)} / ${item.shippedQty} ${item.product.unit} assigned',
                                   style: AppTextStyles.caption.copyWith(
-                                    color: _isComplete ? AppColors.success : AppColors.warning,
-                                    fontWeight: _isComplete ? FontWeight.bold : FontWeight.normal,
+                                    color: _isComplete
+                                        ? AppColors.success
+                                        : AppColors.warning,
+                                    fontWeight: _isComplete
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
                                   ),
                                 ),
                               ],
@@ -417,7 +588,8 @@ class _AllocationCardState extends State<_AllocationCard> {
                           ),
                         ],
                       ),
-                    ] else if (item.product.trackingType == TrackingType.untracked) ...[
+                    ] else if (item.product.trackingType ==
+                        TrackingType.untracked) ...[
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -425,13 +597,20 @@ class _AllocationCardState extends State<_AllocationCard> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('Assigned Lots', style: AppTextStyles.labelMedium),
+                                Text(
+                                  'Assigned Lots',
+                                  style: AppTextStyles.labelMedium,
+                                ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  '${_batches.fold(0, (sum, b) => sum + b.qty)} / ${item.shippedQty} ${item.product.unit} assigned',
+                                  '${_untrackedLots.fold(0, (sum, u) => sum + u.qty)} / ${item.shippedQty} ${item.product.unit} assigned',
                                   style: AppTextStyles.caption.copyWith(
-                                    color: _isComplete ? AppColors.success : AppColors.warning,
-                                    fontWeight: _isComplete ? FontWeight.bold : FontWeight.normal,
+                                    color: _isComplete
+                                        ? AppColors.success
+                                        : AppColors.warning,
+                                    fontWeight: _isComplete
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
                                   ),
                                 ),
                               ],
@@ -443,7 +622,8 @@ class _AllocationCardState extends State<_AllocationCard> {
                             height: 44,
                             label: 'Assign Lots',
                             icon: Icons.playlist_add_rounded,
-                            onPressed: () => _openBatchModal(context, isUntracked: true),
+                            onPressed: () =>
+                                _openBatchModal(context, isUntracked: true),
                           ),
                         ],
                       ),
@@ -455,13 +635,20 @@ class _AllocationCardState extends State<_AllocationCard> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('Assigned Serials', style: AppTextStyles.labelMedium),
+                                Text(
+                                  'Assigned Serials',
+                                  style: AppTextStyles.labelMedium,
+                                ),
                                 const SizedBox(height: 2),
                                 Text(
                                   '${_selectedSerials.length} / ${item.shippedQty} serials assigned',
                                   style: AppTextStyles.caption.copyWith(
-                                    color: _isComplete ? AppColors.success : AppColors.warning,
-                                    fontWeight: _isComplete ? FontWeight.bold : FontWeight.normal,
+                                    color: _isComplete
+                                        ? AppColors.success
+                                        : AppColors.warning,
+                                    fontWeight: _isComplete
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
                                   ),
                                 ),
                               ],
@@ -489,26 +676,43 @@ class _AllocationCardState extends State<_AllocationCard> {
   }
 }
 
+class _AvailOption {
+  final String code;
+  final int availQty;
+  final int totalQty;
+  _AvailOption({
+    required this.code,
+    required this.availQty,
+    required this.totalQty,
+  });
+}
+
 // ── Batch & Untracked Allocation Modal ────────────────────────────────────────
-class _BatchAllocationModal extends StatefulWidget {
+class BatchAllocationModal extends ConsumerStatefulWidget {
   final String title;
   final int requiredQty;
   final String unit;
-  final List<BatchAllocation> initialBatches;
+  final int nodeId;
+  final String skuId;
+  final List<Map<String, dynamic>> initialAllocations;
   final bool isUntracked;
-  final ValueChanged<List<BatchAllocation>> onConfirm;
+  final ValueChanged<List<Map<String, dynamic>>> onConfirm;
 
-  const _BatchAllocationModal({
+  const BatchAllocationModal({
+    super.key,
     required this.title,
     required this.requiredQty,
     required this.unit,
-    required this.initialBatches,
+    required this.nodeId,
+    required this.skuId,
+    required this.initialAllocations,
     required this.isUntracked,
     required this.onConfirm,
   });
 
   @override
-  State<_BatchAllocationModal> createState() => _BatchAllocationModalState();
+  ConsumerState<BatchAllocationModal> createState() =>
+      _BatchAllocationModalState();
 }
 
 class _BatchRow {
@@ -516,55 +720,38 @@ class _BatchRow {
   int qty;
   final TextEditingController qtyCtrl;
   _BatchRow({required this.code, required this.qty})
-      : qtyCtrl = TextEditingController(text: qty > 0 ? '$qty' : '');
+    : qtyCtrl = TextEditingController(text: qty > 0 ? '$qty' : '');
 }
 
-class _BatchAllocationModalState extends State<_BatchAllocationModal> {
-  late List<_BatchRow> _rows;
-  late List<String> _options;
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.isUntracked) {
-      _options = [
-        'UNTRACKED-A (Avail: 150)',
-        'UNTRACKED-B (Avail: 100)',
-        'UNTRACKED-C (Avail: 80)',
-        'UNTRACKED-D (Avail: 200)',
-      ];
-    } else {
-      _options = [
-        'B-2024-01 (Avail: 150)',
-        'B-2024-02 (Avail: 100)',
-        'B-2024-03 (Avail: 80)',
-        'B-2024-04 (Avail: 200)',
-        'B-2024-05 (Avail: 50)',
-      ];
-    }
-
-    if (widget.initialBatches.isNotEmpty && widget.initialBatches.any((b) => b.batchCode.isNotEmpty)) {
-      _rows = widget.initialBatches
-          .map((b) => _BatchRow(code: b.batchCode.isEmpty ? _options.first : b.batchCode, qty: b.qty))
-          .toList();
-    } else {
-      _rows = [_BatchRow(code: _options.first, qty: widget.requiredQty)];
-    }
-  }
+class _BatchAllocationModalState extends ConsumerState<BatchAllocationModal> {
+  List<_BatchRow>? _rows;
 
   @override
   void dispose() {
-    for (final r in _rows) {
-      r.qtyCtrl.dispose();
+    if (_rows != null) {
+      for (final r in _rows!) {
+        r.qtyCtrl.dispose();
+      }
     }
     super.dispose();
   }
 
-  int get _totalEntered => _rows.fold(0, (sum, r) => sum + r.qty);
-  bool get _isValid => _totalEntered == widget.requiredQty;
-
   @override
   Widget build(BuildContext context) {
+    final asyncData = widget.isUntracked
+        ? ref.watch(
+            untrackedAvailabilityProvider((
+              nodeId: widget.nodeId,
+              skuId: widget.skuId,
+            )),
+          )
+        : ref.watch(
+            batchAvailabilityProvider((
+              nodeId: widget.nodeId,
+              skuId: widget.skuId,
+            )),
+          );
+
     return Dialog(
       backgroundColor: AppColors.surface,
       shape: RoundedRectangleBorder(
@@ -573,155 +760,379 @@ class _BatchAllocationModalState extends State<_BatchAllocationModal> {
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(widget.title, style: AppTextStyles.headingMedium),
-            const SizedBox(height: 4),
-            Text('Total required: ${widget.requiredQty} ${widget.unit}',
-                style: AppTextStyles.caption),
-            const SizedBox(height: 16),
-            const Divider(height: 1),
-            const SizedBox(height: 16),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 280),
-              child: SingleChildScrollView(
-                child: Column(
-                  children: _rows.asMap().entries.map((entry) {
-                    final idx = entry.key;
-                    final row = entry.value;
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            flex: 3,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10),
-                              decoration: BoxDecoration(
-                                color: AppColors.background,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: AppColors.cardBorder),
-                              ),
-                              child: DropdownButtonHideUnderline(
-                                child: DropdownButton<String>(
-                                  value: _options.contains(row.code) ? row.code : _options.first,
-                                  dropdownColor: AppColors.card,
-                                  style: AppTextStyles.caption,
-                                  isExpanded: true,
-                                  items: _options.map((opt) {
-                                    return DropdownMenuItem(
-                                        value: opt, child: Text(opt));
-                                  }).toList(),
-                                  onChanged: (val) {
-                                    if (val != null) {
-                                      setState(() => row.code = val);
-                                    }
-                                  },
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            flex: 2,
-                            child: TextField(
-                              controller: row.qtyCtrl,
-                              style: AppTextStyles.bodySmall,
-                              keyboardType: TextInputType.number,
-                              textAlign: TextAlign.center,
-                              decoration: InputDecoration(
-                                labelText: 'Qty',
-                                isDense: true,
-                                contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 10),
-                                filled: true,
-                                fillColor: AppColors.background,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide:
-                                      const BorderSide(color: AppColors.cardBorder),
-                                ),
-                              ),
-                              onChanged: (val) {
-                                setState(() {
-                                  row.qty = int.tryParse(val) ?? 0;
-                                });
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          if (_rows.length > 1)
-                            IconButton(
-                              icon: const Icon(Icons.remove_circle_outline,
-                                  color: AppColors.error, size: 20),
-                              onPressed: () {
-                                setState(() {
-                                  row.qtyCtrl.dispose();
-                                  _rows.removeAt(idx);
-                                });
-                              },
-                            ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-                ),
+        child: asyncData.when(
+          loading: () => const SizedBox(
+            height: 180,
+            child: Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            ),
+          ),
+          error: (e, _) => SizedBox(
+            height: 180,
+            child: Center(
+              child: Text(
+                'Error loading availability: $e',
+                style: const TextStyle(color: AppColors.error),
+                textAlign: TextAlign.center,
               ),
             ),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                icon: const Icon(Icons.add_rounded, size: 16),
-                label: const Text('Add one row'),
-                style: TextButton.styleFrom(foregroundColor: AppColors.primary),
-                onPressed: () {
-                  setState(() {
-                    _rows.add(_BatchRow(code: _options.first, qty: 0));
-                  });
-                },
-              ),
-            ),
-            const SizedBox(height: 12),
-            const Divider(height: 1),
-            const SizedBox(height: 12),
-            Row(
+          ),
+          data: (dataList) {
+            final options = widget.isUntracked
+                ? (dataList as List<UntrackedAvailabilityModel>)
+                      .map(
+                        (u) => _AvailOption(
+                          code: u.untrackedNumber,
+                          availQty: u.availableQuantity,
+                          totalQty: u.totalQuantity,
+                        ),
+                      )
+                      .toList()
+                : (dataList as List<BatchAvailabilityModel>)
+                      .map(
+                        (b) => _AvailOption(
+                          code: b.batchCode,
+                          availQty: b.availableQuantity,
+                          totalQty: b.totalQuantity,
+                        ),
+                      )
+                      .toList();
+
+            if (options.isEmpty) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(widget.title, style: AppTextStyles.headingMedium),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'No available inventory found for this item.',
+                    style: TextStyle(color: AppColors.textMuted),
+                  ),
+                  const SizedBox(height: 20),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Close'),
+                  ),
+                ],
+              );
+            }
+
+            if (_rows == null) {
+              if (widget.initialAllocations.isNotEmpty &&
+                  widget.initialAllocations.any(
+                    (b) => (b['code']?.toString() ?? '').isNotEmpty,
+                  )) {
+                _rows = widget.initialAllocations.map((b) {
+                  final code = b['code']?.toString() ?? '';
+                  final validCode = options.any((o) => o.code == code)
+                      ? code
+                      : options.first.code;
+                  return _BatchRow(
+                    code: validCode,
+                    qty: (b['qty'] as int?) ?? 0,
+                  );
+                }).toList();
+              } else {
+                final firstOpt = options.first;
+                final initialQty = widget.requiredQty <= firstOpt.availQty
+                    ? widget.requiredQty
+                    : firstOpt.availQty;
+                _rows = [_BatchRow(code: firstOpt.code, qty: initialQty)];
+              }
+            }
+
+            final totalEntered = _rows!.fold(0, (sum, r) => sum + r.qty);
+            final allWithinAvail = _rows!.every((r) {
+              final opt = options.firstWhere(
+                (o) => o.code == r.code,
+                orElse: () => _AvailOption(code: '', availQty: 0, totalQty: 0),
+              );
+              return r.qty > 0 && r.qty <= opt.availQty;
+            });
+            final isValid =
+                totalEntered == widget.requiredQty &&
+                allWithinAvail &&
+                _rows!.isNotEmpty;
+
+            final unselected = options
+                .where((opt) => !_rows!.any((r) => r.code == opt.code))
+                .toList();
+
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Text(
-                    'Total: $_totalEntered / ${widget.requiredQty}',
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: _isValid ? AppColors.success : AppColors.error,
-                      fontWeight: FontWeight.bold,
+                Text(widget.title, style: AppTextStyles.headingMedium),
+                const SizedBox(height: 4),
+                Text(
+                  'Total required: ${widget.requiredQty} ${widget.unit}',
+                  style: AppTextStyles.caption,
+                ),
+                const SizedBox(height: 16),
+                const Divider(height: 1),
+                const SizedBox(height: 16),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 280),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: _rows!.asMap().entries.map((entry) {
+                        final idx = entry.key;
+                        final row = entry.value;
+                        final rowOptions = options
+                            .where(
+                              (opt) =>
+                                  opt.code == row.code ||
+                                  !_rows!.any(
+                                    (r) => r != row && r.code == opt.code,
+                                  ),
+                            )
+                            .toList();
+                        final currentOpt = options.firstWhere(
+                          (o) => o.code == row.code,
+                          orElse: () => _AvailOption(
+                            code: row.code,
+                            availQty: 0,
+                            totalQty: 0,
+                          ),
+                        );
+                        final exceedsAvail = row.qty > currentOpt.availQty;
+
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    flex: 3,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.background,
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: AppColors.cardBorder,
+                                        ),
+                                      ),
+                                      child: DropdownButtonHideUnderline(
+                                        child: DropdownButton<String>(
+                                          value:
+                                              rowOptions.any(
+                                                (o) => o.code == row.code,
+                                              )
+                                              ? row.code
+                                              : (rowOptions.isNotEmpty
+                                                    ? rowOptions.first.code
+                                                    : null),
+                                          dropdownColor: AppColors.card,
+                                          style: AppTextStyles.caption,
+                                          isExpanded: true,
+                                          itemHeight: 56,
+                                          selectedItemBuilder: (context) {
+                                            return rowOptions.map((opt) {
+                                              return Align(
+                                                alignment: Alignment.centerLeft,
+                                                child: Text(
+                                                  '${opt.code} (Avail: ${opt.availQty})',
+                                                  style: AppTextStyles.caption
+                                                      .copyWith(
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                      ),
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              );
+                                            }).toList();
+                                          },
+                                          items: rowOptions.map((opt) {
+                                            return DropdownMenuItem<String>(
+                                              value: opt.code,
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                children: [
+                                                  Text(
+                                                    opt.code,
+                                                    style: AppTextStyles
+                                                        .bodySmall
+                                                        .copyWith(
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                        ),
+                                                  ),
+                                                  Text(
+                                                    'Total: ${opt.totalQty} | Avail: ${opt.availQty}',
+                                                    style: AppTextStyles.caption
+                                                        .copyWith(
+                                                          color: AppColors
+                                                              .textMuted,
+                                                          fontSize: 11,
+                                                        ),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                          }).toList(),
+                                          onChanged: (val) {
+                                            if (val != null) {
+                                              setState(() => row.code = val);
+                                            }
+                                          },
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    flex: 2,
+                                    child: TextField(
+                                      controller: row.qtyCtrl,
+                                      style: AppTextStyles.bodySmall,
+                                      keyboardType: TextInputType.number,
+                                      textAlign: TextAlign.center,
+                                      decoration: InputDecoration(
+                                        labelText: 'Qty',
+                                        isDense: true,
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 10,
+                                            ),
+                                        filled: true,
+                                        fillColor: AppColors.background,
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: exceedsAvail
+                                                ? AppColors.error
+                                                : AppColors.cardBorder,
+                                          ),
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: exceedsAvail
+                                                ? AppColors.error
+                                                : AppColors.cardBorder,
+                                          ),
+                                        ),
+                                      ),
+                                      onChanged: (val) {
+                                        setState(() {
+                                          row.qty = int.tryParse(val) ?? 0;
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  if (_rows!.length > 1)
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.remove_circle_outline,
+                                        color: AppColors.error,
+                                        size: 20,
+                                      ),
+                                      onPressed: () {
+                                        setState(() {
+                                          row.qtyCtrl.dispose();
+                                          _rows!.removeAt(idx);
+                                        });
+                                      },
+                                    ),
+                                ],
+                              ),
+                              if (exceedsAvail)
+                                Padding(
+                                  padding: const EdgeInsets.only(
+                                    top: 4,
+                                    left: 4,
+                                  ),
+                                  child: Text(
+                                    'Cannot exceed available quantity (${currentOpt.availQty})',
+                                    style: const TextStyle(
+                                      color: AppColors.error,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
                     ),
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const SizedBox(width: 8),
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    icon: const Icon(Icons.add_rounded, size: 16),
+                    label: const Text('Add one row'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: unselected.isNotEmpty
+                          ? AppColors.primary
+                          : AppColors.textMuted,
+                    ),
+                    onPressed: unselected.isNotEmpty
+                        ? () {
+                            setState(() {
+                              _rows!.add(
+                                _BatchRow(code: unselected.first.code, qty: 0),
+                              );
+                            });
+                          }
+                        : null,
+                  ),
                 ),
-                const SizedBox(width: 8),
-                AppButton(
-                  width: 100,
-                  height: 40,
-                  label: 'Confirm',
-                  onPressed: _isValid
-                      ? () {
-                          final res = _rows
-                              .map((r) => BatchAllocation(
-                                  batchCode: r.code, qty: r.qty))
-                              .toList();
-                          widget.onConfirm(res);
-                          Navigator.pop(context);
-                        }
-                      : null,
+                const SizedBox(height: 12),
+                const Divider(height: 1),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Total: $totalEntered / ${widget.requiredQty}',
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: isValid ? AppColors.success : AppColors.error,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancel'),
+                    ),
+                    const SizedBox(width: 8),
+                    AppButton(
+                      width: 100,
+                      height: 40,
+                      label: 'Confirm',
+                      onPressed: isValid
+                          ? () {
+                              final res = _rows!
+                                  .map((r) => {'code': r.code, 'qty': r.qty})
+                                  .toList();
+                              widget.onConfirm(res);
+                              Navigator.pop(context);
+                            }
+                          : null,
+                    ),
+                  ],
                 ),
               ],
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
@@ -729,40 +1140,42 @@ class _BatchAllocationModalState extends State<_BatchAllocationModal> {
 }
 
 // ── Serial Allocation Modal ───────────────────────────────────────────────────
-class _SerialAllocationModal extends StatefulWidget {
+class SerialAllocationModal extends ConsumerStatefulWidget {
   final int requiredQty;
+  final int nodeId;
+  final String skuId;
   final List<String> initialSerials;
   final ValueChanged<List<String>> onConfirm;
 
-  const _SerialAllocationModal({
+  const SerialAllocationModal({
+    super.key,
     required this.requiredQty,
+    required this.nodeId,
+    required this.skuId,
     required this.initialSerials,
     required this.onConfirm,
   });
 
   @override
-  State<_SerialAllocationModal> createState() => _SerialAllocationModalState();
+  ConsumerState<SerialAllocationModal> createState() =>
+      _SerialAllocationModalState();
 }
 
-class _SerialAllocationModalState extends State<_SerialAllocationModal> {
+class _SerialAllocationModalState extends ConsumerState<SerialAllocationModal> {
   late List<String> _selected;
-  late List<String> _allSerials;
   String _search = '';
 
   @override
   void initState() {
     super.initState();
     _selected = List.from(widget.initialSerials);
-    _allSerials = List.generate(50, (i) => 'SN-2024-${1001 + i}');
   }
-
-  bool get _isValid => _selected.length == widget.requiredQty;
 
   @override
   Widget build(BuildContext context) {
-    final filtered = _allSerials
-        .where((s) => s.toLowerCase().contains(_search.toLowerCase()))
-        .toList();
+    final asyncData = ref.watch(
+      serialAvailabilityProvider((nodeId: widget.nodeId, skuId: widget.skuId)),
+    );
 
     return Dialog(
       backgroundColor: AppColors.surface,
@@ -772,105 +1185,159 @@ class _SerialAllocationModalState extends State<_SerialAllocationModal> {
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Assign Serials', style: AppTextStyles.headingMedium),
-            const SizedBox(height: 4),
-            Text('Select exactly ${widget.requiredQty} serial numbers',
-                style: AppTextStyles.caption),
-            const SizedBox(height: 14),
-            TextField(
-              style: AppTextStyles.bodySmall,
-              decoration: InputDecoration(
-                hintText: 'Search serials...',
-                prefixIcon: const Icon(Icons.search, size: 18),
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                filled: true,
-                fillColor: AppColors.background,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: AppColors.cardBorder),
-                ),
-              ),
-              onChanged: (val) => setState(() => _search = val),
+        child: asyncData.when(
+          loading: () => const SizedBox(
+            height: 180,
+            child: Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
             ),
-            const SizedBox(height: 14),
-            const Divider(height: 1),
-            const SizedBox(height: 14),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 260),
-              child: SingleChildScrollView(
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: filtered.map((sn) {
-                    final isSel = _selected.contains(sn);
-                    final canSel = !isSel && _selected.length < widget.requiredQty;
+          ),
+          error: (e, _) => SizedBox(
+            height: 180,
+            child: Center(
+              child: Text(
+                'Error loading serials: $e',
+                style: const TextStyle(color: AppColors.error),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+          data: (dataList) {
+            final allSerials = dataList.map((e) => e.serialNumber).toList();
+            final filtered = allSerials
+                .where((s) => s.toLowerCase().contains(_search.toLowerCase()))
+                .toList();
+            final isValid = _selected.length == widget.requiredQty;
 
-                    return FilterChip(
-                      label: Text(sn, style: AppTextStyles.caption.copyWith(
-                        color: isSel ? AppColors.primary : AppColors.textPrimary,
-                        fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
-                      )),
-                      selected: isSel,
-                      onSelected: (val) {
-                        setState(() {
-                          if (val && canSel) {
-                            _selected.add(sn);
-                          } else if (!val) {
-                            _selected.remove(sn);
-                          }
-                        });
-                      },
-                      selectedColor: AppColors.primary.withValues(alpha: 0.2),
-                      backgroundColor: AppColors.background,
-                      checkmarkColor: AppColors.primary,
-                      side: BorderSide(
-                        color: isSel ? AppColors.primary : AppColors.cardBorder,
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            const Divider(height: 1),
-            const SizedBox(height: 14),
-            Row(
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Text(
-                    'Selected: ${_selected.length} / ${widget.requiredQty}',
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: _isValid ? AppColors.success : AppColors.error,
-                      fontWeight: FontWeight.bold,
+                Text('Assign Serials', style: AppTextStyles.headingMedium),
+                const SizedBox(height: 4),
+                Text(
+                  'Select exactly ${widget.requiredQty} serial numbers',
+                  style: AppTextStyles.caption,
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  style: AppTextStyles.bodySmall,
+                  decoration: InputDecoration(
+                    hintText: 'Search serials...',
+                    prefixIcon: const Icon(Icons.search, size: 18),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
                     ),
-                    overflow: TextOverflow.ellipsis,
+                    filled: true,
+                    fillColor: AppColors.background,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppColors.cardBorder),
+                    ),
                   ),
+                  onChanged: (val) => setState(() => _search = val),
                 ),
-                const SizedBox(width: 8),
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
-                ),
-                const SizedBox(width: 8),
-                AppButton(
-                  width: 100,
-                  height: 40,
-                  label: 'Confirm',
-                  onPressed: _isValid
-                      ? () {
-                          widget.onConfirm(_selected);
-                          Navigator.pop(context);
-                        }
-                      : null,
+                const SizedBox(height: 14),
+                const Divider(height: 1),
+                const SizedBox(height: 14),
+                if (allSerials.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 20),
+                    child: Center(
+                      child: Text(
+                        'No available serials found.',
+                        style: TextStyle(color: AppColors.textMuted),
+                      ),
+                    ),
+                  )
+                else
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 260),
+                    child: SingleChildScrollView(
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: filtered.map((sn) {
+                          final isSel = _selected.contains(sn);
+                          final canSel =
+                              !isSel && _selected.length < widget.requiredQty;
+
+                          return FilterChip(
+                            label: Text(
+                              sn,
+                              style: AppTextStyles.caption.copyWith(
+                                color: isSel
+                                    ? AppColors.primary
+                                    : AppColors.textPrimary,
+                                fontWeight: isSel
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                            selected: isSel,
+                            onSelected: (val) {
+                              setState(() {
+                                if (val && canSel) {
+                                  _selected.add(sn);
+                                } else if (!val) {
+                                  _selected.remove(sn);
+                                }
+                              });
+                            },
+                            selectedColor: AppColors.primary.withValues(
+                              alpha: 0.2,
+                            ),
+                            backgroundColor: AppColors.background,
+                            checkmarkColor: AppColors.primary,
+                            side: BorderSide(
+                              color: isSel
+                                  ? AppColors.primary
+                                  : AppColors.cardBorder,
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 14),
+                const Divider(height: 1),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Selected: ${_selected.length} / ${widget.requiredQty}',
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: isValid ? AppColors.success : AppColors.error,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancel'),
+                    ),
+                    const SizedBox(width: 8),
+                    AppButton(
+                      width: 100,
+                      height: 40,
+                      label: 'Confirm',
+                      onPressed: isValid
+                          ? () {
+                              widget.onConfirm(_selected);
+                              Navigator.pop(context);
+                            }
+                          : null,
+                    ),
+                  ],
                 ),
               ],
-            ),
-          ],
+            );
+          },
         ),
       ),
     );

@@ -158,21 +158,44 @@ class _OrderListScreenState extends ConsumerState<OrderListScreen>
                     );
                   }
 
+                  final isLoadingMore = ref.watch(orderListLoadingMoreProvider);
                   return RefreshIndicator(
                     color: AppColors.primary,
                     backgroundColor: AppColors.card,
                     onRefresh: () async =>
                         ref.invalidate(orderListProvider),
-                    child: ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: filtered.length,
-                      itemBuilder: (_, i) => Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: _OrderCard(
-                          order: filtered[i],
-                          onTap: () =>
-                              context.push('/orders/${filtered[i].id}'),
-                        ),
+                    child: NotificationListener<ScrollNotification>(
+                      onNotification: (notification) {
+                        if (notification is ScrollEndNotification &&
+                            notification.metrics.extentAfter < 200) {
+                          ref.read(orderListProvider.notifier).loadMore();
+                        }
+                        return false;
+                      },
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: filtered.length + (isLoadingMore ? 1 : 0),
+                        itemBuilder: (_, i) {
+                          if (i == filtered.length) {
+                            return const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 16),
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  color: AppColors.primary,
+                                  strokeWidth: 2.5,
+                                ),
+                              ),
+                            );
+                          }
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: _OrderCard(
+                              order: filtered[i],
+                              onTap: () =>
+                                  context.push('/orders/${filtered[i].id}'),
+                            ),
+                          );
+                        },
                       ),
                     ),
                   );

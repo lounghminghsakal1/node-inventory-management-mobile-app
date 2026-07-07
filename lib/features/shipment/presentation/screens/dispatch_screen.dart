@@ -62,13 +62,9 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(28),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFF0F1427), Color(0xFF1A2040)],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
-                border: Border(
+              decoration: BoxDecoration(
+                gradient: AppColors.cardGradient,
+                border: const Border(
                     bottom: BorderSide(color: AppColors.cardBorder)),
               ),
               child: Column(

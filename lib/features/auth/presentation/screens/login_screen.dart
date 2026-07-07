@@ -431,8 +431,8 @@ class _BgPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     // Base gradient
     final bgPaint = Paint()
-      ..shader = const LinearGradient(
-        colors: [Color(0xFF080B18), Color(0xFF0C1228)],
+      ..shader = LinearGradient(
+        colors: AppColors.backgroundGradient.colors,
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
@@ -445,7 +445,7 @@ class _BgPainter extends CustomPainter {
       cx: size.width * 0.15 + 40 * math.sin(progress * math.pi * 2),
       cy: size.height * 0.2 + 20 * math.cos(progress * math.pi * 2),
       radius: 180,
-      color: const Color(0xFF5B8AF6),
+      color: AppColors.primary.withValues(alpha: 0.12),
     );
 
     _drawOrb(
@@ -454,7 +454,7 @@ class _BgPainter extends CustomPainter {
       cx: size.width * 0.85 + 30 * math.cos(progress * math.pi * 2),
       cy: size.height * 0.75 + 30 * math.sin(progress * math.pi * 2),
       radius: 200,
-      color: const Color(0xFFA855F7),
+      color: AppColors.secondary.withValues(alpha: 0.12),
     );
 
     _drawOrb(
@@ -463,12 +463,12 @@ class _BgPainter extends CustomPainter {
       cx: size.width * 0.5,
       cy: size.height * 0.5 + 20 * math.sin(progress * math.pi),
       radius: 120,
-      color: const Color(0xFF00D4FF),
+      color: AppColors.primaryLight.withValues(alpha: 0.12),
     );
 
     // Dot grid pattern
     final dotPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.04)
+      ..color = AppColors.textMuted.withValues(alpha: 0.08)
       ..style = PaintingStyle.fill;
     const spacing = 28.0;
     for (double x = 0; x < size.width; x += spacing) {

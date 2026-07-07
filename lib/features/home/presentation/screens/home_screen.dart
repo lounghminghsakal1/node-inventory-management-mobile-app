@@ -112,7 +112,7 @@ class HomeScreen extends StatelessWidget {
                     QuickActionTile(
                       label: 'GRN',
                       icon: Icons.inventory_2_rounded,
-                      color: const Color(0xFF00D4FF),
+                      color: AppColors.secondary,
                       onTap: () => context.go('/grn'),
                     ),
                     QuickActionTile(

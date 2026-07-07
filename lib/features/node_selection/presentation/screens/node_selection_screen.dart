@@ -420,8 +420,8 @@ class _BgPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final bg = Paint()
-      ..shader = const LinearGradient(
-        colors: [Color(0xFF080B18), Color(0xFF0C1228)],
+      ..shader = LinearGradient(
+        colors: AppColors.backgroundGradient.colors,
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
@@ -431,15 +431,15 @@ class _BgPainter extends CustomPainter {
         cx: size.width * 0.8 + 30 * math.cos(t * math.pi * 2),
         cy: size.height * 0.15 + 20 * math.sin(t * math.pi * 2),
         r: 200,
-        color: const Color(0xFF5B8AF6));
+        color: AppColors.primary.withValues(alpha: 0.12));
     _orb(canvas,
         cx: size.width * 0.2 + 20 * math.sin(t * math.pi * 2),
         cy: size.height * 0.85 + 20 * math.cos(t * math.pi * 2),
         r: 180,
-        color: const Color(0xFFA855F7));
+        color: AppColors.secondary.withValues(alpha: 0.12));
 
     final dots = Paint()
-      ..color = Colors.white.withValues(alpha: 0.03)
+      ..color = AppColors.textMuted.withValues(alpha: 0.08)
       ..style = PaintingStyle.fill;
     const sp = 28.0;
     for (double x = 0; x < size.width; x += sp) {

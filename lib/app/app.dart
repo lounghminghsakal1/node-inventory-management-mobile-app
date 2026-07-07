@@ -13,7 +13,7 @@ class NodeOpsApp extends ConsumerWidget {
     return MaterialApp.router(
       title: 'NodeOps',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.dark,
+      theme: AppTheme.light,
       routerConfig: router,
     );
   }

@@ -335,6 +335,10 @@ class Shipment {
   final String? nodeName;
   final bool fullyAllocated;
   final List<ShipmentInvoice>? _invoices;
+  final String? customerId;
+  final String? shipmentType;
+  final String? parentShipmentNumber;
+  final int? reviewRating;
 
   List<ShipmentLineItem> get lineItems => _lineItems ?? const [];
   List<ShipmentInvoice> get invoices => _invoices ?? const [];
@@ -357,6 +361,10 @@ class Shipment {
     this.nodeName,
     this.fullyAllocated = false,
     List<ShipmentInvoice>? invoices = const [],
+    this.customerId,
+    this.shipmentType,
+    this.parentShipmentNumber,
+    this.reviewRating,
   })  : _lineItems = lineItems,
         _invoices = invoices;
 
@@ -369,6 +377,10 @@ class Shipment {
     DriverDetails? driverDetails,
     bool? fullyAllocated,
     List<ShipmentInvoice>? invoices,
+    String? customerId,
+    String? shipmentType,
+    String? parentShipmentNumber,
+    int? reviewRating,
   }) {
     return Shipment(
       id: id,
@@ -388,6 +400,10 @@ class Shipment {
       nodeName: nodeName,
       fullyAllocated: fullyAllocated ?? this.fullyAllocated,
       invoices: invoices ?? _invoices,
+      customerId: customerId ?? this.customerId,
+      shipmentType: shipmentType ?? this.shipmentType,
+      parentShipmentNumber: parentShipmentNumber ?? this.parentShipmentNumber,
+      reviewRating: reviewRating ?? this.reviewRating,
     );
   }
 
@@ -418,6 +434,17 @@ class Shipment {
     final orderMap = json['order'] as Map<String, dynamic>? ?? {};
     final customerMap = json['customer'] as Map<String, dynamic>? ?? {};
     final nodeMap = json['node'] as Map<String, dynamic>? ?? {};
+
+    final customerIdStr = customerMap['id']?.toString() ?? '1';
+    final shipmentTypeStr = json['shipment_type']?.toString();
+    String? parentNumber;
+    if (json['parent_shipment'] is Map) {
+      parentNumber = (json['parent_shipment'] as Map)['shipment_number']?.toString();
+    }
+    int? rating;
+    if (json['review'] is Map) {
+      rating = int.tryParse((json['review'] as Map)['overall_rating']?.toString() ?? '');
+    }
 
     final lineItemsList = (json['line_items'] is List) ? (json['line_items'] as List) : [];
     final items = lineItemsList
@@ -508,6 +535,10 @@ class Shipment {
       deliveryType: json['delivery_type']?.toString(),
       driverDetails: parsedDriver,
       invoices: invoices,
+      customerId: customerIdStr,
+      shipmentType: shipmentTypeStr,
+      parentShipmentNumber: parentNumber,
+      reviewRating: rating,
     );
   }
 }

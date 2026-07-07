@@ -35,6 +35,7 @@ class AppConstants {
   // Shipment statuses
   static const String statusCreated = 'created';
   static const String statusAllocated = 'allocated';
+  static const String statusPacked = 'packed';
   static const String statusInvoiced = 'invoiced';
   static const String statusDispatched = 'dispatched';
   static const String statusDelivered = 'delivered';

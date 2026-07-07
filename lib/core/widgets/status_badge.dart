@@ -51,6 +51,8 @@ class StatusBadge extends StatelessWidget {
         return _StatusConfig(AppColors.statusCreated, 'Created');
       case AppConstants.statusAllocated:
         return _StatusConfig(AppColors.statusAllocated, 'Allocated');
+      case AppConstants.statusPacked:
+        return _StatusConfig(AppColors.statusPacked, 'Packed');
       case AppConstants.statusInvoiced:
         return _StatusConfig(AppColors.statusInvoiced, 'Invoiced');
       case AppConstants.statusDispatched:

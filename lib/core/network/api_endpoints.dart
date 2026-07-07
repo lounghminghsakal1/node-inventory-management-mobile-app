@@ -32,6 +32,7 @@ class ApiEndpoints {
   static String updateAllocationType(String shipmentId) => '/shipments/$shipmentId/allocation_type';
   static String shipmentAllocate(String id) => '/shipments/$id/allocate';
   static String shipmentAutoAllocate(String id) => '/shipments/$id/auto-allocate';
+  static String shipmentPack(String id) => '/shipments/$id/pack';
   static String shipmentInvoice(String id) => '/shipments/$id/invoice';
   static String shipmentDispatch(String id) => '/shipments/$id/dispatch';
   static String shipmentMarkDispatched(String id) => '/shipments/$id/mark_dispatched';

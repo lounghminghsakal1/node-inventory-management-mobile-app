@@ -10,6 +10,7 @@ import '../../features/shipment/presentation/screens/create_shipment_screen.dart
 import '../../features/shipment/presentation/screens/shipment_detail_screen.dart';
 import '../../features/shipment/presentation/screens/allocation_screen.dart';
 import '../../features/shipment/presentation/screens/dispatch_screen.dart';
+import '../../features/shipment/providers/shipment_provider.dart';
 import '../../features/orders/presentation/screens/order_list_screen.dart';
 import '../../features/orders/presentation/screens/order_detail_screen.dart';
 import '../../features/purchase_orders/presentation/screens/purchase_order_list_screen.dart';
@@ -97,12 +98,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ]),
 
-          // Orders (replaces Shipments in bottom nav)
+          // Shipments (replaces Orders in bottom nav)
           StatefulShellBranch(routes: [
             GoRoute(
-              path: '/orders',
-              name: 'orders',
-              builder: (context, _) => const OrderListScreen(),
+              path: '/shipments',
+              name: 'shipments',
+              builder: (context, _) => const ShipmentListScreen(),
             ),
           ]),
 
@@ -155,9 +156,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
-        path: '/shipments',
-        name: 'shipments-list',
-        builder: (context, _) => const ShipmentListScreen(),
+        path: '/orders',
+        name: 'orders-list',
+        builder: (context, _) => const OrderListScreen(),
       ),
 
       // ── Shipment sub-routes (pushed, no bottom nav) ───────────────────────
@@ -210,7 +211,13 @@ class _ScaffoldWithNavBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      appBar: const NodeOpsAppBar(),
+      appBar: NodeOpsAppBar(
+        extraActions: navigationShell.currentIndex == 1
+            ? const [
+                _ShipmentsAppBarAction(),
+              ]
+            : const [],
+      ),
       body: navigationShell,
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
@@ -233,9 +240,9 @@ class _ScaffoldWithNavBar extends ConsumerWidget {
                 _NavItem(
                   index: 1,
                   current: navigationShell.currentIndex,
-                  icon: Icons.shopping_bag_outlined,
-                  activeIcon: Icons.shopping_bag_rounded,
-                  label: 'Orders',
+                  icon: Icons.local_shipping_outlined,
+                  activeIcon: Icons.local_shipping_rounded,
+                  label: 'Shipments',
                   onTap: () => _onTap(1),
                 ),
                 _NavItem(
@@ -340,6 +347,46 @@ class _NavItem extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ShipmentsAppBarAction extends ConsumerWidget {
+  const _ShipmentsAppBarAction();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(shipmentListProvider);
+    if (state.shipments.isEmpty) return const SizedBox.shrink();
+
+    return PopupMenuButton<String>(
+      icon: const Icon(Icons.more_vert_rounded, color: AppColors.textSecondary, size: 20),
+      padding: EdgeInsets.zero,
+      color: AppColors.card,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: AppColors.cardBorder),
+      ),
+      onSelected: (val) {
+        if (val == 'create') {
+          showCreateShipmentThroughOrderModal(context, ref);
+        }
+      },
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          value: 'create',
+          child: Row(
+            children: [
+              const Icon(Icons.add_shopping_cart_rounded, size: 18, color: AppColors.primary),
+              const SizedBox(width: 8),
+              Text(
+                'Create shipment through order',
+                style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

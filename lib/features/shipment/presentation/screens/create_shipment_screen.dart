@@ -101,16 +101,6 @@ class _CreateShipmentScreenState extends ConsumerState<CreateShipmentScreen> {
       appBar: NodeOpsAppBar(
         showBack: true,
         title: _step == 0 ? 'Select Order' : 'Select Items',
-        extraActions: _step == 1
-            ? [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back_rounded,
-                      size: 20, color: AppColors.textSecondary),
-                  tooltip: 'Back to orders',
-                  onPressed: () => setState(() => _step = 0),
-                ),
-              ]
-            : [],
       ),
       body: _step == 0
           ? _buildOrderList()

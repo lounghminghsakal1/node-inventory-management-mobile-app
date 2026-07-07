@@ -54,4 +54,25 @@ class OrderRepository {
       throw ApiException(e.toString().replaceFirst('Exception: ', ''));
     }
   }
+
+  Future<List<OrderSummary>> searchOrders(String orderNumber) async {
+    try {
+      final response = await _dio.get(
+        ApiEndpoints.orders,
+        queryParameters: {'order_number': orderNumber},
+      );
+
+      if (response.data is Map && response.data['status'] == 'failure') {
+        throw ApiException.fromResponseData(response.data, response.statusCode);
+      }
+
+      if (response.data is Map<String, dynamic>) {
+        final paginated = PaginatedOrders.fromJson(response.data as Map<String, dynamic>);
+        return paginated.orders;
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
 }

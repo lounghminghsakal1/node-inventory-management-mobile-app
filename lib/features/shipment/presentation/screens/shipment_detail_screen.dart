@@ -184,20 +184,6 @@ class ShipmentDetailScreen extends ConsumerWidget {
                         'Customer',
                         shipment.customerName,
                       ),
-                      if (shipment.customerPhone != null &&
-                          shipment.customerPhone!.isNotEmpty)
-                        _infoTile(
-                          Icons.phone_outlined,
-                          'Mobile Number',
-                          shipment.customerPhone!,
-                        ),
-                      if (shipment.nodeName != null &&
-                          shipment.nodeName!.isNotEmpty)
-                        _infoTile(
-                          Icons.warehouse_outlined,
-                          'Warehouse Node',
-                          shipment.nodeName!,
-                        ),
                       _infoTile(
                         Icons.calendar_today_outlined,
                         'Created',
@@ -1042,7 +1028,11 @@ class _ActionButtons extends ConsumerWidget {
           AppButton(
             label: 'Manage Allocations',
             icon: Icons.inventory_2_outlined,
-            onPressed: () => context.push('/shipments/${shipment.id}/allocate'),
+            onPressed: () async {
+              await context.push('/shipments/${shipment.id}/allocate');
+              ref.invalidate(shipmentByIdProvider(shipment.id));
+              ref.invalidate(shipmentListProvider);
+            },
           ),
           const SizedBox(height: 12),
         ] else if (shipment.status == ShipmentStatus.allocated) ...[
@@ -1051,9 +1041,41 @@ class _ActionButtons extends ConsumerWidget {
             icon: Icons.inventory_2_outlined,
             gradient: AppColors.greenGradient,
             onPressed: () async {
-              await ref
-                  .read(shipmentListProvider.notifier)
-                  .updateStatus(shipment.id, ShipmentStatus.packed);
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) => const Center(
+                  child: CircularProgressIndicator(color: AppColors.primary),
+                ),
+              );
+              try {
+                await ref
+                    .read(shipmentRepositoryProvider)
+                    .packShipment(shipmentId: shipment.id);
+                if (context.mounted) {
+                  Navigator.pop(context); // close progress dialog
+                  ref.invalidate(shipmentByIdProvider(shipment.id));
+                  ref.invalidate(shipmentListProvider);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Shipment packed successfully!'),
+                      backgroundColor: AppColors.success,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  Navigator.pop(context); // close progress dialog
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Failed to pack shipment: ${e.toString().replaceFirst('Exception: ', '')}',
+                      ),
+                      backgroundColor: AppColors.error,
+                    ),
+                  );
+                }
+              }
             },
           ),
           const SizedBox(height: 12),
@@ -1109,7 +1131,11 @@ class _ActionButtons extends ConsumerWidget {
             gradient: const LinearGradient(
               colors: [Color(0xFFF59E0B), Color(0xFFEF4444)],
             ),
-            onPressed: () => context.push('/shipments/${shipment.id}/dispatch'),
+            onPressed: () async {
+              await context.push('/shipments/${shipment.id}/dispatch');
+              ref.invalidate(shipmentByIdProvider(shipment.id));
+              ref.invalidate(shipmentListProvider);
+            },
           ),
         ] else if (shipment.status == ShipmentStatus.dispatched) ...[
           AppButton(
@@ -1194,161 +1220,7 @@ class _ActionButtons extends ConsumerWidget {
   }
 }
 
-void _downloadInvoice(BuildContext context, ShipmentInvoice invoice) async {
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(
-        'Downloading ${invoice.invoiceNumber.replaceAll('/', '-')}.pdf...',
-      ),
-      backgroundColor: AppColors.primary,
-      duration: const Duration(seconds: 2),
-    ),
-  );
-  try {
-    final fileName = '${invoice.invoiceNumber.replaceAll('/', '-')}.pdf';
-    final savePath = '/storage/emulated/0/Download/$fileName';
-    await Dio().download(invoice.invoiceUrl, savePath);
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Saved to Downloads: $fileName'),
-          backgroundColor: AppColors.success,
-        ),
-      );
-    }
-  } catch (e) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Download initiated for ${invoice.invoiceNumber}'),
-          backgroundColor: AppColors.success,
-        ),
-      );
-    }
-  }
-}
 
-void _showInvoicePdfModal(BuildContext context, ShipmentInvoice invoice) {
-  showDialog(
-    context: context,
-    builder: (_) => Dialog(
-      backgroundColor: AppColors.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: const BorderSide(color: AppColors.cardBorder),
-      ),
-      child: Container(
-        width: 500,
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(
-                  Icons.picture_as_pdf_rounded,
-                  color: AppColors.primary,
-                  size: 28,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        invoice.invoiceNumber,
-                        style: AppTextStyles.headingMedium,
-                      ),
-                      Text(
-                        invoice.invoiceType.replaceAll('_', ' ').toUpperCase(),
-                        style: AppTextStyles.caption.copyWith(
-                          color: AppColors.textMuted,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close, color: AppColors.textMuted),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: AppColors.background,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.cardBorder),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.description_outlined,
-                    size: 64,
-                    color: AppColors.textMuted,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'PDF Document Preview',
-                    style: AppTextStyles.bodyMedium.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    invoice.invoiceUrl,
-                    style: AppTextStyles.caption.copyWith(
-                      color: AppColors.primary,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.success.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      'Verified & Ready for Download',
-                      style: AppTextStyles.caption.copyWith(
-                        color: AppColors.success,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: AppButton(
-                    label: 'Download PDF',
-                    icon: Icons.download_rounded,
-                    onPressed: () {
-                      _downloadInvoice(context, invoice);
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
 
 void _showEditModal(BuildContext context, WidgetRef ref, Shipment shipment) {
   showDialog(

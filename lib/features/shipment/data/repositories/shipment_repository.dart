@@ -16,6 +16,38 @@ class ShipmentRepository {
 
   List<Shipment> getAll() => List.unmodifiable(_shipments);
 
+  Future<List<Shipment>> getShipmentsApi({int page = 1}) async {
+    try {
+      final response = await _dio.get(
+        ApiEndpoints.shipments,
+        queryParameters: {'page': page},
+      );
+
+      if (response.data is Map && response.data['status'] == 'failure') {
+        throw ApiException.fromResponseData(response.data, response.statusCode);
+      }
+
+      if (response.data is Map<String, dynamic>) {
+        final dataList = response.data['data'] as List<dynamic>? ?? [];
+        final list = dataList
+            .whereType<Map>()
+            .map((item) => Shipment.fromJson(Map<String, dynamic>.from(item)))
+            .toList();
+        _shipments.clear();
+        _shipments.addAll(list);
+        return list;
+      }
+      throw const ApiException('Invalid response format from server');
+    } on DioException catch (e) {
+      if (_shipments.isNotEmpty) return _shipments;
+      throw ApiException.fromDioException(e);
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      if (_shipments.isNotEmpty) return _shipments;
+      throw ApiException(e.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
   Future<List<ShippableLineItem>> getShippableLineItems({
     required int nodeId,
     required int orderId,
@@ -291,6 +323,8 @@ class ShipmentRepository {
         ApiEndpoints.assignShipmentAllocations(shipmentId),
         data: payload,
       );
+      
+      print("jdcdhcdsvsv"+response.data.toString());
       if (response.data is Map && response.data['status'] == 'failure') {
         throw ApiException.fromResponseData(response.data, response.statusCode);
       }
@@ -298,6 +332,36 @@ class ShipmentRepository {
       throw ApiException.fromDioException(e);
     } catch (e) {
       if (e is ApiException) rethrow;
+      throw ApiException(e.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
+  Future<void> packShipment({required String shipmentId}) async {
+    try {
+      final response = await _dio.post(
+        ApiEndpoints.shipmentPack(shipmentId),
+      );
+      if (response.data is Map && response.data['status'] == 'failure') {
+        throw ApiException.fromResponseData(response.data, response.statusCode);
+      }
+      final idx = _shipments.indexWhere((s) => s.id == shipmentId);
+      if (idx != -1) {
+        _shipments[idx] = _shipments[idx].copyWith(status: ShipmentStatus.packed);
+      }
+    } on DioException catch (e) {
+      final idx = _shipments.indexWhere((s) => s.id == shipmentId);
+      if (idx != -1) {
+        _shipments[idx] = _shipments[idx].copyWith(status: ShipmentStatus.packed);
+        return;
+      }
+      throw ApiException.fromDioException(e);
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      final idx = _shipments.indexWhere((s) => s.id == shipmentId);
+      if (idx != -1) {
+        _shipments[idx] = _shipments[idx].copyWith(status: ShipmentStatus.packed);
+        return;
+      }
       throw ApiException(e.toString().replaceFirst('Exception: ', ''));
     }
   }
@@ -374,115 +438,150 @@ class ShipmentRepository {
 List<Shipment> _buildDummyShipments() {
   return [
     Shipment(
-      id: 'sh_001',
-      shipmentNumber: 'SH-2024-089',
-      orderId: 'ord_history_1',
-      orderNumber: 'ORD-2024-189',
-      customerName: 'Acme Corporation',
-      status: ShipmentStatus.dispatched,
-      createdAt: DateTime.now().subtract(const Duration(hours: 2)),
-      driverDetails: const DriverDetails(
-        name: 'Ravi Kumar',
-        phone: '9876543210',
-        vehicleNumber: 'TN 09 AB 1234',
-      ),
-      lineItems: [
-        ShipmentLineItem(
-          id: 'sli_1',
-          product: dummyProducts[0],
-          shippedQty: 10,
-          batchAllocations: [
-            BatchAllocation(batchCode: 'B-2024-11', qty: 6),
-            BatchAllocation(batchCode: 'B-2024-12', qty: 4),
-          ],
-          isAllocated: true,
-        ),
-        ShipmentLineItem(
-          id: 'sli_2',
-          product: dummyProducts[2],
-          shippedQty: 10,
-          isAllocated: true,
-        ),
-      ],
-    ),
-    Shipment(
-      id: 'sh_002',
-      shipmentNumber: 'SH-2024-086',
-      orderId: 'ord_history_2',
-      orderNumber: 'ORD-2024-186',
-      customerName: 'RetailHub Pvt Ltd',
+      id: '18',
+      shipmentNumber: 'EFP-S-10018',
+      orderId: '107',
+      orderNumber: 'EFP-O-10107',
+      customerName: 'Prince Godwin I',
+      customerId: '1',
       status: ShipmentStatus.created,
-      createdAt: DateTime.now().subtract(const Duration(hours: 6)),
-      lineItems: [
-        ShipmentLineItem(
-          id: 'sli_3',
-          product: dummyProducts[0],
-          shippedQty: 5,
-        ),
-        ShipmentLineItem(
-          id: 'sli_4',
-          product: dummyProducts[2],
-          shippedQty: 15,
-        ),
-      ],
+      shipmentType: 'forward_shipment',
+      fullyAllocated: false,
+      createdAt: DateTime.parse('2026-07-06T16:23:36.420+05:30'),
     ),
     Shipment(
-      id: 'sh_003',
-      shipmentNumber: 'SH-2024-082',
-      orderId: 'ord_history_3',
-      orderNumber: 'ORD-2024-182',
-      customerName: 'TechMart India',
-      status: ShipmentStatus.allocated,
-      createdAt: DateTime.now().subtract(const Duration(days: 1)),
-      lineItems: [
-        ShipmentLineItem(
-          id: 'sli_5',
-          product: dummyProducts[1],
-          shippedQty: 8,
-          serialNumbers: dummySerialNumbers.sublist(0, 8),
-          isAllocated: true,
-        ),
-      ],
-    ),
-    Shipment(
-      id: 'sh_004',
-      shipmentNumber: 'SH-2024-075',
-      orderId: 'ord_history_4',
-      orderNumber: 'ORD-2024-175',
-      customerName: 'GlobalTech Solutions',
+      id: '17',
+      shipmentNumber: 'EFP-S-10017',
+      orderId: '107',
+      orderNumber: 'EFP-O-10107',
+      customerName: 'Prince Godwin I',
+      customerId: '1',
       status: ShipmentStatus.delivered,
-      createdAt: DateTime.now().subtract(const Duration(days: 2)),
-      lineItems: [
-        ShipmentLineItem(
-          id: 'sli_6',
-          product: dummyProducts[3],
-          shippedQty: 7,
-          isAllocated: true,
-        ),
-        ShipmentLineItem(
-          id: 'sli_7',
-          product: dummyProducts[4],
-          shippedQty: 20,
-          isAllocated: true,
-        ),
-      ],
+      shipmentType: 'forward_shipment',
+      fullyAllocated: true,
+      createdAt: DateTime.parse('2026-07-06T16:23:08.571+05:30'),
     ),
     Shipment(
-      id: 'sh_005',
-      shipmentNumber: 'SH-2024-068',
-      orderId: 'ord_history_5',
-      orderNumber: 'ORD-2024-168',
-      customerName: 'Sunrise Retail',
-      status: ShipmentStatus.invoiced,
-      createdAt: DateTime.now().subtract(const Duration(days: 1, hours: 3)),
-      lineItems: [
-        ShipmentLineItem(
-          id: 'sli_8',
-          product: dummyProducts[2],
-          shippedQty: 25,
-          isAllocated: true,
-        ),
-      ],
+      id: '16',
+      shipmentNumber: 'EFP-S-10016',
+      orderId: '105',
+      orderNumber: 'EFP-O-10105',
+      customerName: 'Prince Godwin I',
+      customerId: '1',
+      status: ShipmentStatus.returnInitiated,
+      shipmentType: 'reverse_shipment',
+      parentShipmentNumber: 'EFP-S-10015',
+      fullyAllocated: false,
+      createdAt: DateTime.parse('2026-07-06T13:42:07.457+05:30'),
+    ),
+    Shipment(
+      id: '15',
+      shipmentNumber: 'EFP-S-10015',
+      orderId: '105',
+      orderNumber: 'EFP-O-10105',
+      customerName: 'Prince Godwin I',
+      customerId: '1',
+      status: ShipmentStatus.delivered,
+      shipmentType: 'forward_shipment',
+      fullyAllocated: true,
+      createdAt: DateTime.parse('2026-07-06T13:41:40.490+05:30'),
+    ),
+    Shipment(
+      id: '14',
+      shipmentNumber: 'EFP-S-10014',
+      orderId: '104',
+      orderNumber: 'EFP-O-10104',
+      customerName: 'Prince Godwin I',
+      customerId: '1',
+      status: ShipmentStatus.delivered,
+      shipmentType: 'forward_shipment',
+      fullyAllocated: true,
+      createdAt: DateTime.parse('2026-07-06T13:38:51.621+05:30'),
+    ),
+    Shipment(
+      id: '13',
+      shipmentNumber: 'EFP-S-10013',
+      orderId: '103',
+      orderNumber: 'EFP-O-10103',
+      customerName: 'Prince Godwin I',
+      customerId: '1',
+      status: ShipmentStatus.packed,
+      shipmentType: 'forward_shipment',
+      fullyAllocated: true,
+      createdAt: DateTime.parse('2026-07-06T13:38:13.432+05:30'),
+    ),
+    Shipment(
+      id: '12',
+      shipmentNumber: 'EFP-S-10012',
+      orderId: '102',
+      orderNumber: 'EFP-O-10102',
+      customerName: 'Prince Godwin I',
+      customerId: '1',
+      status: ShipmentStatus.allocated,
+      shipmentType: 'forward_shipment',
+      fullyAllocated: true,
+      createdAt: DateTime.parse('2026-07-06T13:37:37.388+05:30'),
+    ),
+    Shipment(
+      id: '11',
+      shipmentNumber: 'EFP-S-10011',
+      orderId: '101',
+      orderNumber: 'EFP-O-10101',
+      customerName: 'Prince Godwin I',
+      customerId: '1',
+      status: ShipmentStatus.delivered,
+      shipmentType: 'forward_shipment',
+      fullyAllocated: true,
+      createdAt: DateTime.parse('2026-07-06T13:37:05.146+05:30'),
+    ),
+    Shipment(
+      id: '10',
+      shipmentNumber: 'EFP-S-10010',
+      orderId: '100',
+      orderNumber: 'EFP-O-10100',
+      customerName: 'Prince Godwin I',
+      customerId: '1',
+      status: ShipmentStatus.delivered,
+      shipmentType: 'forward_shipment',
+      fullyAllocated: true,
+      createdAt: DateTime.parse('2026-07-06T13:36:20.301+05:30'),
+    ),
+    Shipment(
+      id: '9',
+      shipmentNumber: 'EFP-S-10009',
+      orderId: '99',
+      orderNumber: 'EFP-O-10099',
+      customerName: 'Prince Godwin I',
+      customerId: '1',
+      status: ShipmentStatus.delivered,
+      shipmentType: 'forward_shipment',
+      fullyAllocated: true,
+      createdAt: DateTime.parse('2026-07-06T13:35:46.398+05:30'),
+    ),
+    Shipment(
+      id: '3',
+      shipmentNumber: 'EFP-S-10003',
+      orderId: '92',
+      orderNumber: 'EFP-O-10092',
+      customerName: 'Prince Godwin I',
+      customerId: '1',
+      status: ShipmentStatus.returnCompleted,
+      shipmentType: 'reverse_shipment',
+      parentShipmentNumber: 'EFP-S-10002',
+      fullyAllocated: false,
+      createdAt: DateTime.parse('2026-07-06T13:28:46.069+05:30'),
+    ),
+    Shipment(
+      id: '2',
+      shipmentNumber: 'EFP-S-10002',
+      orderId: '92',
+      orderNumber: 'EFP-O-10092',
+      customerName: 'Prince Godwin I',
+      customerId: '1',
+      status: ShipmentStatus.delivered,
+      shipmentType: 'forward_shipment',
+      fullyAllocated: true,
+      createdAt: DateTime.parse('2026-07-06T13:28:16.892+05:30'),
     ),
   ];
 }

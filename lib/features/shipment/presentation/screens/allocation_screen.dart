@@ -198,7 +198,7 @@ class _AllocationScreenState extends ConsumerState<AllocationScreen> {
                 .toList();
           }
           return map;
-        }),
+        }).toList(),
       };
 
       await ref
@@ -212,6 +212,7 @@ class _AllocationScreenState extends ConsumerState<AllocationScreen> {
       ref.invalidate(shipmentListProvider);
       if (mounted) context.pop();
     } catch (e) {
+      print("error:" + e.toString());
       if (mounted) {
         ScaffoldMessenger.of(
           context,

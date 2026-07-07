@@ -36,27 +36,43 @@ class ShipmentListNotifier extends StateNotifier<ShipmentListState> {
     load();
   }
 
-  void load() {
-    state = state.copyWith(
-      shipments: _repo.getAll(),
-      isLoading: false,
-    );
+  Future<void> load() async {
+    if (!mounted) return;
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final list = await _repo.getShipmentsApi();
+      if (!mounted) return;
+      state = state.copyWith(shipments: list, isLoading: false);
+    } catch (e) {
+      if (!mounted) return;
+      state = state.copyWith(
+        shipments: _repo.getAll(),
+        isLoading: false,
+      );
+    }
   }
 
   Future<Shipment> createShipment({
     required Order order,
     required List<({Product product, int qty})> selectedItems,
   }) async {
+    if (!mounted) {
+      return _repo.createShipment(order: order, selectedItems: selectedItems);
+    }
     state = state.copyWith(isLoading: true);
     try {
       final shipment = await _repo.createShipment(
         order: order,
         selectedItems: selectedItems,
       );
-      state = state.copyWith(shipments: _repo.getAll(), isLoading: false);
+      if (mounted) {
+        state = state.copyWith(shipments: _repo.getAll(), isLoading: false);
+      }
       return shipment;
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      if (mounted) {
+        state = state.copyWith(isLoading: false, error: e.toString());
+      }
       rethrow;
     }
   }
@@ -66,6 +82,7 @@ class ShipmentListNotifier extends StateNotifier<ShipmentListState> {
     required int nodeId,
     required List<Map<String, dynamic>> lineItems,
   }) async {
+    if (!mounted) return;
     state = state.copyWith(isLoading: true);
     try {
       await _repo.createShipmentApi(
@@ -73,36 +90,50 @@ class ShipmentListNotifier extends StateNotifier<ShipmentListState> {
         nodeId: nodeId,
         lineItems: lineItems,
       );
-      state = state.copyWith(shipments: _repo.getAll(), isLoading: false);
+      if (mounted) {
+        state = state.copyWith(shipments: _repo.getAll(), isLoading: false);
+      }
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      if (mounted) {
+        state = state.copyWith(isLoading: false, error: e.toString());
+      }
       rethrow;
     }
   }
 
   Future<void> updateStatus(String id, ShipmentStatus status) async {
     await _repo.updateStatus(id, status);
-    state = state.copyWith(shipments: _repo.getAll());
+    if (mounted) {
+      state = state.copyWith(shipments: _repo.getAll());
+    }
   }
 
   Future<void> allocate(String id, List<ShipmentLineItem> items) async {
     await _repo.allocate(id, items);
-    state = state.copyWith(shipments: _repo.getAll());
+    if (mounted) {
+      state = state.copyWith(shipments: _repo.getAll());
+    }
   }
 
   Future<void> dispatch(String id, DriverDetails driver) async {
     await _repo.dispatch(id, driver);
-    state = state.copyWith(shipments: _repo.getAll());
+    if (mounted) {
+      state = state.copyWith(shipments: _repo.getAll());
+    }
   }
 
   Future<void> updateShipmentItems(String id, List<ShipmentLineItem> items) async {
     await _repo.updateShipmentItems(id, items);
-    state = state.copyWith(shipments: _repo.getAll());
+    if (mounted) {
+      state = state.copyWith(shipments: _repo.getAll());
+    }
   }
 
   Future<void> markDelivered(String id) async {
     await _repo.markDelivered(shipmentId: id);
-    state = state.copyWith(shipments: _repo.getAll());
+    if (mounted) {
+      state = state.copyWith(shipments: _repo.getAll());
+    }
   }
 }
 

@@ -35,6 +35,7 @@ class AppColors {
   // ── Shipment Status ────────────────────────────────────────────────────────
   static const Color statusCreated = Color(0xFF64748B);
   static const Color statusAllocated = Color(0xFF3B82F6);
+  static const Color statusPacked = Color(0xFF00D4FF);
   static const Color statusInvoiced = Color(0xFFA855F7);
   static const Color statusDispatched = Color(0xFFF59E0B);
   static const Color statusDelivered = Color(0xFF22C55E);

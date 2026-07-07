@@ -325,8 +325,8 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                           const SizedBox(height: 4),
                           Row(
                             children: [
-                              Text("SKU: ${li.skuCode}", style: AppTextStyles.caption),
-                              const SizedBox(width: 12),
+                              Expanded(child: Text("SKU: ${li.skuCode}", style: AppTextStyles.caption, overflow: TextOverflow.ellipsis)),
+                              const SizedBox(width: 8),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
@@ -338,14 +338,32 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                               ),
                             ],
                           ),
-                          if (li.receivedBatches.isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            Text("Batches: ${li.receivedBatches.map((b) => '${b.batchCode} (Qty: ${b.quantity}, Mfg: ${b.manufactureDate ?? "N/A"}, Exp: ${b.expiryDate ?? "N/A"})').join('; ')}",
-                                style: AppTextStyles.caption.copyWith(color: AppColors.primary)),
-                          ] else if (li.receivedSerials.isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            Text("Serials: ${li.receivedSerials.take(5).join(', ')}${li.receivedSerials.length > 5 ? ' +${li.receivedSerials.length - 5} more' : ''}",
-                                style: AppTextStyles.caption.copyWith(color: AppColors.primary)),
+                          if (li.receivedBatches.isNotEmpty || li.receivedSerials.isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            InkWell(
+                              onTap: () => _showDetailsPopup(li, isAccepted: true, isReceivedOnly: true),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.visibility_outlined, size: 14, color: AppColors.primary),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      li.trackingType == 'batch'
+                                          ? "View Batches (${li.receivedBatches.length})"
+                                          : "View Serials (${li.receivedSerials.length})",
+                                      style: AppTextStyles.caption.copyWith(color: AppColors.primary, fontWeight: FontWeight.w600),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
                           ],
                         ],
                       ),
@@ -654,11 +672,10 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                   const Divider(height: 1),
                   const SizedBox(height: 12),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _qcStatCol("Received Qty", "${activeItem.receivedQuantity}", AppColors.textPrimary),
-                      _qcStatCol("Good Qty (Accepted)", "${activeItem.acceptedQuantity}", AppColors.success),
-                      _qcStatCol("Bad Qty (Rejected)", "${activeItem.rejectedQuantity}", activeItem.rejectedQuantity > 0 ? AppColors.error : AppColors.textMuted),
+                      Expanded(child: _qcStatCol("Received Qty", "${activeItem.receivedQuantity}", AppColors.textPrimary)),
+                      Expanded(child: _qcStatCol("Good Qty (Accepted)", "${activeItem.acceptedQuantity}", AppColors.success)),
+                      Expanded(child: _qcStatCol("Bad Qty (Rejected)", "${activeItem.rejectedQuantity}", activeItem.rejectedQuantity > 0 ? AppColors.error : AppColors.textMuted)),
                     ],
                   ),
                   if (activeItem.rejectionReason != null && activeItem.rejectionReason!.isNotEmpty) ...[
@@ -709,9 +726,9 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
   Widget _qcStatCol(String label, String value, Color valColor) {
     return Column(
       children: [
-        Text(label, style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
+        Text(label, style: AppTextStyles.caption.copyWith(color: AppColors.textMuted), textAlign: TextAlign.center, overflow: TextOverflow.ellipsis),
         const SizedBox(height: 4),
-        Text(value, style: AppTextStyles.labelMedium.copyWith(color: valColor, fontWeight: FontWeight.bold)),
+        Text(value, style: AppTextStyles.labelMedium.copyWith(color: valColor, fontWeight: FontWeight.bold), textAlign: TextAlign.center, overflow: TextOverflow.ellipsis),
       ],
     );
   }
@@ -852,7 +869,14 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(li.skuName, style: AppTextStyles.labelMedium),
+                      Expanded(
+                        child: Text(
+                          li.skuName,
+                          style: AppTextStyles.labelMedium,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
@@ -864,37 +888,276 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      Text("Received: ${li.receivedQuantity}", style: AppTextStyles.caption),
-                      Text("Accepted (Good): ${li.acceptedQuantity}",
-                          style: AppTextStyles.caption.copyWith(color: AppColors.success, fontWeight: FontWeight.bold)),
-                      Text("Rejected (Bad): ${li.rejectedQuantity}",
-                          style: AppTextStyles.caption.copyWith(color: li.rejectedQuantity > 0 ? AppColors.error : AppColors.textMuted)),
+                      Expanded(
+                        child: _buildCountCard(
+                          label: "Accepted",
+                          count: li.acceptedQuantity,
+                          color: AppColors.success,
+                          onTap: li.acceptedQuantity > 0
+                              ? () => _showDetailsPopup(li, isAccepted: true)
+                              : null,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildCountCard(
+                          label: "Rejected",
+                          count: li.rejectedQuantity,
+                          color: li.rejectedQuantity > 0 ? AppColors.error : AppColors.textMuted,
+                          onTap: li.rejectedQuantity > 0
+                              ? () => _showDetailsPopup(li, isAccepted: false)
+                              : null,
+                        ),
+                      ),
                     ],
                   ),
-                  if (li.acceptedBatches.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Text("Accepted Batches: ${li.acceptedBatches.map((b) => '${b.batchCode} (Qty: ${b.quantity}, Mfg: ${b.manufactureDate ?? "N/A"}, Exp: ${b.expiryDate ?? "N/A"})').join('; ')}",
-                        style: AppTextStyles.caption.copyWith(color: AppColors.primary)),
-                  ] else if (li.acceptedSerials.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Text("Accepted Serials: ${li.acceptedSerials.take(6).join(', ')}${li.acceptedSerials.length > 6 ? ' +${li.acceptedSerials.length - 6} more' : ''}",
-                        style: AppTextStyles.caption.copyWith(color: AppColors.primary)),
-                  ],
-                  if (li.rejectionReason != null && li.rejectionReason!.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Text("Rejection Reason: ${li.rejectionReason}",
-                        style: AppTextStyles.caption.copyWith(color: AppColors.error, fontWeight: FontWeight.w600)),
-                  ],
                 ],
               ),
             );
           }).toList(),
         ),
       ],
+    );
+  }
+
+  Widget _buildCountCard({
+    required String label,
+    required int count,
+    required Color color,
+    VoidCallback? onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: AppTextStyles.caption.copyWith(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Row(
+              children: [
+                Text(count.toString(), style: AppTextStyles.labelMedium.copyWith(color: color, fontWeight: FontWeight.bold)),
+                if (onTap != null) ...[
+                  const SizedBox(width: 4),
+                  Icon(Icons.open_in_new_rounded, size: 14, color: color),
+                ],
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDetailsPopup(GrnLineItemModel li, {required bool isAccepted, bool isReceivedOnly = false}) {
+    final String title;
+    final int count;
+    final List<dynamic> batches;
+    final List<dynamic> serials;
+
+    if (isReceivedOnly) {
+      title = "Received Details";
+      count = li.receivedQuantity;
+      batches = li.receivedBatches;
+      serials = li.receivedSerials;
+    } else {
+      title = isAccepted ? "Accepted Details (Good)" : "Rejected Details (Bad)";
+      count = isAccepted ? li.acceptedQuantity : li.rejectedQuantity;
+      batches = isAccepted ? li.acceptedBatches : li.rejectedBatches;
+      serials = isAccepted ? li.acceptedSerials : li.rejectedSerials;
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: AppColors.background,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: AppTextStyles.headingMedium.copyWith(
+                    color: isAccepted ? AppColors.success : AppColors.error,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close_rounded, color: AppColors.textMuted),
+                onPressed: () => Navigator.of(ctx).pop(),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.cardBorder),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(li.skuName, style: AppTextStyles.labelMedium),
+                        const SizedBox(height: 4),
+                        Text(
+                          "SKU: ${li.skuCode} • Type: ${li.trackingType.toUpperCase()} • Total: $count",
+                          style: AppTextStyles.caption.copyWith(color: AppColors.textMuted),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  if (!isAccepted && li.rejectionReason != null && li.rejectionReason!.isNotEmpty) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.error.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.error.withValues(alpha: 0.4)),
+                      ),
+                      child: Text(
+                        "Rejection Reason: ${li.rejectionReason}",
+                        style: AppTextStyles.bodySmall.copyWith(color: AppColors.error, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  if (li.trackingType == 'batch') ...[
+                    Text("Batch Breakdown (${batches.length})", style: AppTextStyles.labelMedium),
+                    const SizedBox(height: 8),
+                    if (batches.isEmpty)
+                      Text("No specific batches recorded.", style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted))
+                    else
+                      ...batches.map((b) => Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.card,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.cardBorder),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text("Batch: ${b.batchCode}", style: AppTextStyles.labelMedium),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    "Mfg: ${b.manufactureDate ?? 'N/A'} | Exp: ${b.expiryDate ?? 'N/A'}",
+                                    style: AppTextStyles.caption.copyWith(color: AppColors.textMuted),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: (isAccepted ? AppColors.success : AppColors.error).withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                "Qty: ${b.quantity}",
+                                style: AppTextStyles.labelMedium.copyWith(
+                                  color: isAccepted ? AppColors.success : AppColors.error,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )),
+                  ] else if (li.trackingType == 'serial') ...[
+                    Text("Serial Numbers (${serials.length})", style: AppTextStyles.labelMedium),
+                    const SizedBox(height: 8),
+                    if (serials.isEmpty)
+                      Text("No specific serials recorded.", style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted))
+                    else
+                      ...serials.asMap().entries.map((e) => Container(
+                        margin: const EdgeInsets.only(bottom: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: AppColors.card,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.cardBorder),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.qr_code_rounded, size: 18, color: isAccepted ? AppColors.success : AppColors.error),
+                            const SizedBox(width: 10),
+                            Text("${e.key + 1}.", style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
+                            const SizedBox(width: 8),
+                            Expanded(child: Text(e.value, style: AppTextStyles.bodyMedium)),
+                          ],
+                        ),
+                      )),
+                  ] else ...[
+                    Text("Untracked Item Details", style: AppTextStyles.labelMedium),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.card,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.cardBorder),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text("Recorded Quantity:", style: AppTextStyles.bodyMedium),
+                          Text(
+                            "$count units",
+                            style: AppTextStyles.labelLarge.copyWith(
+                              color: isAccepted ? AppColors.success : AppColors.error,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text("Close"),
+            ),
+          ],
+        );
+      },
     );
   }
 }

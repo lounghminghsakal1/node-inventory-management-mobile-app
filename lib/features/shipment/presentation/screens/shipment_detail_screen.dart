@@ -329,109 +329,6 @@ class ShipmentDetailScreen extends ConsumerWidget {
                     shipment.status == ShipmentStatus.delivered ||
                     shipment.invoices.isNotEmpty) ...[
                   const SizedBox(height: 16),
-                  _SectionCard(
-                    title: 'Invoice Details',
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Invoices generated for ${shipment.shipmentNumber}:',
-                          style: AppTextStyles.bodySmall,
-                        ),
-                        const SizedBox(height: 12),
-                        if (shipment.invoices.isEmpty)
-                          Text(
-                            'No invoice document available yet.',
-                            style: AppTextStyles.caption.copyWith(
-                              color: AppColors.textMuted,
-                            ),
-                          )
-                        else
-                          ...shipment.invoices.map((invoice) {
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: InkWell(
-                                onTap: () =>
-                                    _showInvoicePdfModal(context, invoice),
-                                borderRadius: BorderRadius.circular(10),
-                                child: Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primary.withValues(
-                                      alpha: 0.08,
-                                    ),
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(
-                                      color: AppColors.primary.withValues(
-                                        alpha: 0.3,
-                                      ),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.picture_as_pdf_outlined,
-                                        color: AppColors.primary,
-                                        size: 24,
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              '${invoice.invoiceNumber} (${invoice.invoiceType.replaceAll('_', ' ').toUpperCase()})',
-                                              style: AppTextStyles.bodyMedium
-                                                  .copyWith(
-                                                    fontWeight: FontWeight.bold,
-                                                    color:
-                                                        AppColors.textPrimary,
-                                                  ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              invoice.invoiceUrl,
-                                              style: AppTextStyles.caption
-                                                  .copyWith(
-                                                    color: AppColors.primary,
-                                                    decoration: TextDecoration
-                                                        .underline,
-                                                  ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            const SizedBox(height: 2),
-                                            Text(
-                                              'Click to view PDF & options',
-                                              style: AppTextStyles.caption
-                                                  .copyWith(
-                                                    color: AppColors.textMuted,
-                                                    fontSize: 10,
-                                                  ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(
-                                          Icons.download_rounded,
-                                          color: AppColors.primary,
-                                          size: 22,
-                                        ),
-                                        tooltip: 'Download Invoice',
-                                        onPressed: () =>
-                                            _downloadInvoice(context, invoice),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            );
-                          }),
-                      ],
-                    ),
-                  ),
                 ],
 
                 const SizedBox(height: 24),
@@ -1235,15 +1132,17 @@ class _ActionButtons extends ConsumerWidget {
                 );
                 try {
                   await ref
-                      .read(shipmentRepositoryProvider)
-                      .markDelivered(shipmentId: shipment.id);
+                      .read(shipmentListProvider.notifier)
+                      .markDelivered(shipment.id);
                   if (context.mounted) {
                     Navigator.pop(context); // close progress dialog
                     ref.invalidate(shipmentByIdProvider(shipment.id));
                     ref.invalidate(shipmentListProvider);
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Shipment marked as delivered successfully!'),
+                        content: Text(
+                          'Shipment marked as delivered successfully!',
+                        ),
                         backgroundColor: AppColors.success,
                       ),
                     );

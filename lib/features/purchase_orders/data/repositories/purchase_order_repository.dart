@@ -888,4 +888,64 @@ class PurchaseOrderRepository {
     }
     return false;
   }
+
+  Future<List<PoSkuItemModel>> getPurchaseOrderSkuItems(int poId) async {
+    // Simulated API call with delay as requested
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    return [
+      const PoSkuItemModel(
+        id: 456,
+        productSkuId: 1,
+        skuName: "Commercial Plywood MR Grade - 6mm 8x4",
+        skuCode: "10010010000100000",
+        totalUnits: 50,
+        selectionType: "LIFO",
+        trackingType: "batch",
+        fulfilledQuantity: 10,
+        fullyFulfilled: false,
+      ),
+      const PoSkuItemModel(
+        id: 457,
+        productSkuId: 6,
+        skuName: "Commercial Plywood BWR Grade - 6mm 8x4",
+        skuCode: "10010010001100000",
+        totalUnits: 20,
+        selectionType: "FIFO",
+        trackingType: "serial",
+        fulfilledQuantity: 5,
+        fullyFulfilled: false,
+      ),
+      const PoSkuItemModel(
+        id: 458,
+        productSkuId: 11,
+        skuName: "Commercial Plywood BWP Grade - 6mm 8x4",
+        skuCode: "10010010002100000",
+        totalUnits: 100,
+        selectionType: "FIFO",
+        trackingType: "untracked",
+        fulfilledQuantity: 20,
+        fullyFulfilled: false,
+      ),
+      const PoSkuItemModel(
+        id: 459,
+        productSkuId: 144,
+        skuName: "Acrylic Fluted MF 958",
+        skuCode: "F0201005060110134025",
+        totalUnits: 10,
+        selectionType: "LIFO",
+        trackingType: "serial",
+        fulfilledQuantity: 10,
+        fullyFulfilled: true,
+      ),
+    ];
+  }
+
+  Future<bool> validateSerial(String serialNumber) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    if (serialNumber.trim().toUpperCase().startsWith('EXIST')) {
+      return false; // Invalid or already exists
+    }
+    return true; // Valid serial
+  }
 }

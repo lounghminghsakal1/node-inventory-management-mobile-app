@@ -31,6 +31,11 @@ final grnDetailProvider = FutureProvider.family.autoDispose<GrnModel, int>((ref,
   return repo.getGrnDetail(grnId);
 });
 
+final poSkuItemsProvider = FutureProvider.family.autoDispose<List<PoSkuItemModel>, int>((ref, poId) async {
+  final repo = ref.watch(purchaseOrderRepoProvider);
+  return repo.getPurchaseOrderSkuItems(poId);
+});
+
 class GrnController extends StateNotifier<AsyncValue<void>> {
   final Ref ref;
   GrnController(this.ref) : super(const AsyncValue.data(null));
@@ -104,6 +109,11 @@ class GrnController extends StateNotifier<AsyncValue<void>> {
   Future<bool> checkSerialExists(String serial) async {
     final repo = ref.read(purchaseOrderRepoProvider);
     return repo.checkSerialExists(serial);
+  }
+
+  Future<bool> validateSerial(String serial) async {
+    final repo = ref.read(purchaseOrderRepoProvider);
+    return repo.validateSerial(serial);
   }
 }
 

@@ -102,6 +102,60 @@ class PurchaseOrderLineItemModel {
   }
 }
 
+class PoSkuItemModel {
+  final int id;
+  final int productSkuId;
+  final String skuName;
+  final String skuCode;
+  final int totalUnits;
+  final String selectionType; // 'LIFO', 'FIFO'
+  final String trackingType; // 'serial', 'batch', 'untracked'
+  final int fulfilledQuantity;
+  final bool fullyFulfilled;
+
+  const PoSkuItemModel({
+    required this.id,
+    required this.productSkuId,
+    required this.skuName,
+    required this.skuCode,
+    required this.totalUnits,
+    required this.selectionType,
+    required this.trackingType,
+    required this.fulfilledQuantity,
+    required this.fullyFulfilled,
+  });
+
+  int get remainingQuantity => totalUnits - fulfilledQuantity;
+
+  factory PoSkuItemModel.fromJson(Map<String, dynamic> json) {
+    return PoSkuItemModel(
+      id: json['id'] ?? 0,
+      productSkuId: json['product_sku_id'] ?? 0,
+      skuName: json['sku_name'] ?? '',
+      skuCode: json['sku_code'] ?? '',
+      totalUnits: json['total_units'] ?? 0,
+      selectionType: json['selection_type'] ?? 'FIFO',
+      trackingType: json['tracking_type'] ?? 'untracked',
+      fulfilledQuantity: json['fulfilled_quantity'] ?? 0,
+      fullyFulfilled: json['fully_fulfilled'] ?? false,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'product_sku_id': productSkuId,
+      'sku_name': skuName,
+      'sku_code': skuCode,
+      'total_units': totalUnits,
+      'selection_type': selectionType,
+      'tracking_type': trackingType,
+      'fulfilled_quantity': fulfilledQuantity,
+      'fully_fulfilled': fullyFulfilled,
+    };
+  }
+}
+
 class PurchaseOrderModel {
   final int id;
   final String purchaseOrderNumber;

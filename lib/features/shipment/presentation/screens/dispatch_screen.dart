@@ -298,7 +298,10 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
 
     setState(() => _isLoading = true);
     try {
-      final payload = <String, dynamic>{
+      final detailsMap = <String, dynamic>{
+        "courier_name": _nameCtrl.text.trim(),
+        "tracking_id": _vehicleCtrl.text.trim(),
+        "dispatched_by": _phoneCtrl.text.trim(),
         "driver_name": _nameCtrl.text.trim(),
         "driver_number": _phoneCtrl.text.trim(),
         "vehicle_number": _vehicleCtrl.text.trim(),
@@ -308,9 +311,12 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
         final k = row.keyCtrl.text.trim();
         final v = row.valCtrl.text.trim();
         if (k.isNotEmpty && v.isNotEmpty) {
-          payload[k] = v;
+          detailsMap[k] = v;
         }
       }
+      final payload = <String, dynamic>{
+        "shipment_dispatch_details": detailsMap,
+      };
 
       await ref
           .read(shipmentRepositoryProvider)

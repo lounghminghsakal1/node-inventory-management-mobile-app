@@ -10,6 +10,8 @@ import '../../features/shipment/presentation/screens/create_shipment_screen.dart
 import '../../features/shipment/presentation/screens/shipment_detail_screen.dart';
 import '../../features/shipment/presentation/screens/allocation_screen.dart';
 import '../../features/shipment/presentation/screens/dispatch_screen.dart';
+import '../../features/shipment/presentation/screens/good_bad_allocation_screen.dart';
+import '../../features/shipment/data/models/shipment.dart';
 import '../../features/shipment/providers/shipment_provider.dart';
 import '../../features/orders/presentation/screens/order_list_screen.dart';
 import '../../features/orders/presentation/screens/order_detail_screen.dart';
@@ -190,6 +192,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'shipment-dispatch',
         builder: (_, state) => DispatchScreen(
           shipmentId: state.pathParameters['id']!,
+        ),
+      ),
+      GoRoute(
+        path: '/shipments/:id/good_bad_allocation',
+        name: 'shipment-return-allocation',
+        builder: (_, state) => GoodBadAllocationScreen(
+          shipmentId: state.pathParameters['id']!,
+          shipment: state.extra is Shipment ? state.extra as Shipment : null,
         ),
       ),
 

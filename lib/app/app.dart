@@ -14,6 +14,8 @@ class NodeOpsApp extends ConsumerWidget {
       title: 'NodeOps',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
+      darkTheme: AppTheme.light,
+      themeMode: ThemeMode.light,
       routerConfig: router,
     );
   }

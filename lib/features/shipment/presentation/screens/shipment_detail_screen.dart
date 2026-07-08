@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -166,7 +165,7 @@ class ShipmentDetailScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // ── Progress Timeline ──────────────────────────────────────────
-                _ShipmentTimeline(status: shipment.status),
+                _ShipmentTimeline(shipment: shipment),
                 const SizedBox(height: 24),
 
                 // ── Order Info Card ───────────────────────────────────────────
@@ -181,8 +180,8 @@ class ShipmentDetailScreen extends ConsumerWidget {
                       ),
                       _infoTile(
                         Icons.storefront_outlined,
-                        'Customer',
-                        shipment.customerName,
+                        'Customer Code / ID',
+                        shipment.customerCode ?? shipment.customerId ?? '-',
                       ),
                       _infoTile(
                         Icons.calendar_today_outlined,
@@ -276,6 +275,27 @@ class ShipmentDetailScreen extends ConsumerWidget {
                             'Distance',
                             '${shipment.driverDetails!.distance} km/m',
                           ),
+                        if (shipment.driverDetails!.courierName != null &&
+                            shipment.driverDetails!.courierName!.isNotEmpty)
+                          _infoTile(
+                            Icons.local_shipping_outlined,
+                            'Courier Name',
+                            shipment.driverDetails!.courierName!,
+                          ),
+                        if (shipment.driverDetails!.trackingId != null &&
+                            shipment.driverDetails!.trackingId!.isNotEmpty)
+                          _infoTile(
+                            Icons.qr_code_outlined,
+                            'Tracking ID',
+                            shipment.driverDetails!.trackingId!,
+                          ),
+                        if (shipment.driverDetails!.dispatchedBy != null &&
+                            shipment.driverDetails!.dispatchedBy!.isNotEmpty)
+                          _infoTile(
+                            Icons.badge_outlined,
+                            'Dispatched By',
+                            shipment.driverDetails!.dispatchedBy!,
+                          ),
                         if (shipment.driverDetails!.additionalDetails != null &&
                             shipment
                                 .driverDetails!
@@ -309,12 +329,63 @@ class ShipmentDetailScreen extends ConsumerWidget {
                   ),
                 ],
 
-                // ── Invoice Details (if invoiced, dispatched, or delivered) ───
-                if (shipment.status == ShipmentStatus.invoiced ||
-                    shipment.status == ShipmentStatus.dispatched ||
-                    shipment.status == ShipmentStatus.delivered ||
-                    shipment.invoices.isNotEmpty) ...[
+                // ── Delivery Details (if delivered) ───────────────────────────
+                if (shipment.deliveryDetails != null) ...[
                   const SizedBox(height: 16),
+                  _SectionCard(
+                    title: 'Delivery Details',
+                    child: Column(
+                      children: [
+                        if (shipment.deliveryDetails!.receivedBy != null &&
+                            shipment.deliveryDetails!.receivedBy!.isNotEmpty)
+                          _infoTile(
+                            Icons.person_pin_outlined,
+                            'Received By',
+                            shipment.deliveryDetails!.receivedBy!,
+                          ),
+                        if (shipment.deliveryDetails!.deliveryOtp != null &&
+                            shipment.deliveryDetails!.deliveryOtp!.isNotEmpty)
+                          _infoTile(
+                            Icons.pin_outlined,
+                            'Delivery OTP',
+                            shipment.deliveryDetails!.deliveryOtp!,
+                          ),
+                        if (shipment.deliveryDetails!.deliveryNote != null &&
+                            shipment.deliveryDetails!.deliveryNote!.isNotEmpty)
+                          _infoTile(
+                            Icons.note_alt_outlined,
+                            'Delivery Note',
+                            shipment.deliveryDetails!.deliveryNote!,
+                            isMultiline: true,
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+
+                // ── Fee Details (if present) ──────────────────────────────────
+                if ((shipment.labourFee != null && shipment.labourFee!.isNotEmpty && shipment.labourFee != '0' && shipment.labourFee != '0.0') ||
+                    (shipment.driverFee != null && shipment.driverFee!.isNotEmpty && shipment.driverFee != '0' && shipment.driverFee != '0.0')) ...[
+                  const SizedBox(height: 16),
+                  _SectionCard(
+                    title: 'Fee Details',
+                    child: Column(
+                      children: [
+                        if (shipment.labourFee != null && shipment.labourFee!.isNotEmpty && shipment.labourFee != '0' && shipment.labourFee != '0.0')
+                          _infoTile(
+                            Icons.payments_outlined,
+                            'Labour Fee',
+                            '₹${shipment.labourFee}',
+                          ),
+                        if (shipment.driverFee != null && shipment.driverFee!.isNotEmpty && shipment.driverFee != '0' && shipment.driverFee != '0.0')
+                          _infoTile(
+                            Icons.payments_outlined,
+                            'Driver Fee',
+                            '₹${shipment.driverFee}',
+                          ),
+                      ],
+                    ),
+                  ),
                 ],
 
                 const SizedBox(height: 24),
@@ -395,8 +466,8 @@ class ShipmentDetailScreen extends ConsumerWidget {
 
 // ── Progress Timeline ─────────────────────────────────────────────────────────
 class _ShipmentTimeline extends StatelessWidget {
-  final ShipmentStatus status;
-  const _ShipmentTimeline({required this.status});
+  final Shipment shipment;
+  const _ShipmentTimeline({required this.shipment});
 
   static const _stages = [
     ('Created', ShipmentStatus.created, Icons.add_circle_outline_rounded),
@@ -409,7 +480,26 @@ class _ShipmentTimeline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currentIdx = _stages.indexWhere((s) => s.$2 == status);
+    final status = shipment.status;
+    final isReturn = shipment.shipmentType == 'reverse_shipment' || status == ShipmentStatus.returnInitiated || status == ShipmentStatus.returnCompleted;
+    final stages = isReturn
+        ? [
+            (
+              status != ShipmentStatus.returnCompleted ? 'return_initiated\n(current)' : 'return_initiated',
+              ShipmentStatus.returnInitiated,
+              Icons.keyboard_return_rounded,
+            ),
+            (
+              status != ShipmentStatus.returnCompleted ? 'return_completed\n(in future)' : 'return_completed\n(current)',
+              ShipmentStatus.returnCompleted,
+              Icons.check_circle_outline_rounded,
+            ),
+          ]
+        : _stages;
+
+    final currentIdx = isReturn
+        ? (status == ShipmentStatus.returnCompleted ? 1 : 0)
+        : stages.indexWhere((s) => s.$2 == status);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -419,8 +509,8 @@ class _ShipmentTimeline extends StatelessWidget {
         border: Border.all(color: AppColors.cardBorder),
       ),
       child: Row(
-        children: List.generate(_stages.length, (i) {
-          final stage = _stages[i];
+        children: List.generate(stages.length, (i) {
+          final stage = stages[i];
           final isDone = i <= currentIdx && currentIdx != -1;
           final isCurrent = i == currentIdx;
           return Expanded(
@@ -465,7 +555,7 @@ class _ShipmentTimeline extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (i < _stages.length - 1)
+                    if (i < stages.length - 1)
                       Expanded(
                         child: Container(
                           height: 2,
@@ -503,10 +593,13 @@ class _LineItemRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isUntracked = item.product.trackingType == TrackingType.untracked;
     final canEditAllocation =
-        shipment.status == ShipmentStatus.created ||
-        shipment.status == ShipmentStatus.allocated;
+        !isUntracked &&
+        (shipment.status == ShipmentStatus.created ||
+            shipment.status == ShipmentStatus.allocated);
     final showViewInventory =
+        !isUntracked &&
         (item.isAllocated || canEditAllocation) &&
         shipment.fullyAllocated == true;
 
@@ -556,7 +649,9 @@ class _LineItemRow extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Allocation: ${item.allocationType.toUpperCase()}',
+                isUntracked
+                    ? 'Tracking: UNTRACKED'
+                    : 'Allocation: ${item.allocationType.toUpperCase()}',
                 style: AppTextStyles.caption.copyWith(
                   color: AppColors.textSecondary,
                 ),
@@ -564,19 +659,21 @@ class _LineItemRow extends ConsumerWidget {
               Row(
                 children: [
                   Icon(
-                    item.isAllocated
+                    isUntracked || item.isAllocated
                         ? Icons.check_circle_rounded
                         : Icons.radio_button_unchecked_rounded,
                     size: 14,
-                    color: item.isAllocated
+                    color: isUntracked || item.isAllocated
                         ? AppColors.success
                         : AppColors.textMuted,
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    item.isAllocated ? 'Allocated' : 'Pending',
+                    isUntracked
+                        ? 'No allocation needed'
+                        : (item.isAllocated ? 'Allocated' : 'Pending'),
                     style: AppTextStyles.caption.copyWith(
-                      color: item.isAllocated
+                      color: isUntracked || item.isAllocated
                           ? AppColors.success
                           : AppColors.textMuted,
                     ),
@@ -608,20 +705,87 @@ class _LineItemRow extends ConsumerWidget {
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                onPressed: () => _showAssignedInventoryDialog(
-                  context,
-                  ref,
-                  item,
-                  shipment,
-                  canEditAllocation,
+            onPressed: () => _showAssignedInventoryDialog(
+              context,
+              ref,
+              item,
+              shipment,
+              canEditAllocation,
+            ),
+          ),
+        ),
+      ],
+      if (item.goodQty != null || item.badQty != null) ...[
+        const SizedBox(height: 12),
+        const Divider(height: 1),
+        const SizedBox(height: 12),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.success.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Good Qty: ${item.goodQty ?? 0}', style: AppTextStyles.bodySmall.copyWith(color: AppColors.success, fontWeight: FontWeight.w700)),
+                    if (item.goodBatches.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      ...item.goodBatches.map((b) => Text('${b.batchCode} (${b.qty})', style: AppTextStyles.caption.copyWith(fontSize: 11))),
+                    ],
+                    if (item.goodSerials.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      ...item.goodSerials.map((s) => Text(s, style: AppTextStyles.caption.copyWith(fontSize: 11))),
+                    ],
+                    if (item.goodUntracked.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      ...item.goodUntracked.map((u) => Text('${u.untrackedNumber} (${u.qty})', style: AppTextStyles.caption.copyWith(fontSize: 11))),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.error.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Bad Qty: ${item.badQty ?? 0}', style: AppTextStyles.bodySmall.copyWith(color: AppColors.error, fontWeight: FontWeight.w700)),
+                    if (item.badBatches.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      ...item.badBatches.map((b) => Text('${b.batchCode} (${b.qty})', style: AppTextStyles.caption.copyWith(fontSize: 11))),
+                    ],
+                    if (item.badSerials.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      ...item.badSerials.map((s) => Text(s, style: AppTextStyles.caption.copyWith(fontSize: 11))),
+                    ],
+                    if (item.badUntracked.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      ...item.badUntracked.map((u) => Text('${u.untrackedNumber} (${u.qty})', style: AppTextStyles.caption.copyWith(fontSize: 11))),
+                    ],
+                  ],
                 ),
               ),
             ),
           ],
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ],
+    ),
+  );
+}
 
   void _showAssignedInventoryDialog(
     BuildContext context,
@@ -682,7 +846,21 @@ class _LineItemRow extends ConsumerWidget {
                 style: AppTextStyles.labelMedium,
               ),
               const SizedBox(height: 10),
-              if (item.allocationType == 'lifo' ||
+              if (item.product.trackingType == TrackingType.untracked) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.secondary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    'Untracked item — no allocation required.',
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.secondary,
+                    ),
+                  ),
+                ),
+              ] else if (item.allocationType == 'lifo' ||
                   item.allocationType == 'fifo') ...[
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -697,10 +875,8 @@ class _LineItemRow extends ConsumerWidget {
                     ),
                   ),
                 ),
-              ] else if (item.product.trackingType == TrackingType.batch ||
-                  item.product.trackingType == TrackingType.untracked) ...[
-                if (item.batchAllocations.isEmpty &&
-                    item.untrackedAllocations.isEmpty)
+              ] else if (item.product.trackingType == TrackingType.batch) ...[
+                if (item.batchAllocations.isEmpty)
                   Text('No lots assigned yet.', style: AppTextStyles.caption)
                 else
                   Column(
@@ -720,32 +896,6 @@ class _LineItemRow extends ConsumerWidget {
                               Text(b.batchCode, style: AppTextStyles.bodySmall),
                               Text(
                                 '${b.qty} ${item.product.unit}',
-                                style: AppTextStyles.labelMedium.copyWith(
-                                  color: AppColors.primary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }),
-                      ...item.untrackedAllocations.map((u) {
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: AppColors.background,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AppColors.cardBorder),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                u.untrackedNumber,
-                                style: AppTextStyles.bodySmall,
-                              ),
-                              Text(
-                                '${u.qty} ${item.product.unit}',
                                 style: AppTextStyles.labelMedium.copyWith(
                                   color: AppColors.primary,
                                 ),
@@ -842,6 +992,7 @@ class _LineItemRow extends ConsumerWidget {
           requiredQty: item.shippedQty,
           unit: item.product.unit,
           nodeId: nodeId,
+          shipmentId: shipment.id,
           skuId: item.product.id,
           initialAllocations: isUntracked
               ? item.untrackedAllocations
@@ -887,6 +1038,7 @@ class _LineItemRow extends ConsumerWidget {
         builder: (_) => SerialAllocationModal(
           requiredQty: item.shippedQty,
           nodeId: nodeId,
+          shipmentId: shipment.id,
           skuId: item.product.id,
           initialSerials: item.serialNumbers,
           onConfirm: (newSerials) async {
@@ -928,60 +1080,48 @@ class _LineItemRow extends ConsumerWidget {
 
     try {
       final payload = {
-        "line_items": shipment.lineItems.map((li) {
-          final sliId = int.tryParse(li.id) ?? 0;
+        "shipment_line_items": shipment.lineItems
+            .where((li) => li.product.trackingType != TrackingType.untracked)
+            .map((li) {
+          final skuId = int.tryParse(li.product.id) ?? 0;
 
           if (li.id == editedItem.id) {
             final map = <String, dynamic>{
-              "shipment_line_item_id": sliId,
+              "product_sku_id": skuId,
               "selection_type": "manual",
             };
             if (li.product.trackingType == TrackingType.batch) {
-              map["batch_codes"] = (newBatches ?? [])
-                  .map((b) => {"batch_code": b.batchCode, "quantity": b.qty})
-                  .toList();
-            } else if (li.product.trackingType == TrackingType.untracked) {
-              map["untracked_numbers"] = (newUntracked ?? [])
-                  .map(
-                    (u) => {
-                      "untracked_number": u.untrackedNumber,
-                      "quantity": u.qty,
-                    },
-                  )
-                  .toList();
+              final batchMap = <String, int>{};
+              for (final b in (newBatches ?? [])) {
+                if (b.qty > 0) batchMap[b.batchCode] = b.qty;
+              }
+              map["batch_codes"] = batchMap;
             } else if (li.product.trackingType == TrackingType.serial) {
-              map["serials"] = newSerials ?? [];
+              map["serial"] = newSerials ?? [];
             }
             return map;
           }
 
           final selType = li.allocationType.toLowerCase();
           if (selType == 'fifo' || selType == 'lifo') {
-            return {"shipment_line_item_id": sliId, "selection_type": selType};
+            return {"product_sku_id": skuId, "selection_type": selType.toUpperCase()};
           }
 
           final map = <String, dynamic>{
-            "shipment_line_item_id": sliId,
+            "product_sku_id": skuId,
             "selection_type": "manual",
           };
           if (li.product.trackingType == TrackingType.batch) {
-            map["batch_codes"] = li.batchAllocations
-                .map((b) => {"batch_code": b.batchCode, "quantity": b.qty})
-                .toList();
+            final batchMap = <String, int>{};
+            for (final b in li.batchAllocations) {
+              if (b.qty > 0) batchMap[b.batchCode] = b.qty;
+            }
+            map["batch_codes"] = batchMap;
           } else if (li.product.trackingType == TrackingType.serial) {
-            map["serials"] = li.serialNumbers;
-          } else if (li.product.trackingType == TrackingType.untracked) {
-            map["untracked_numbers"] = li.untrackedAllocations
-                .map(
-                  (u) => {
-                    "untracked_number": u.untrackedNumber,
-                    "quantity": u.qty,
-                  },
-                )
-                .toList();
+            map["serial"] = li.serialNumbers;
           }
           return map;
-        }),
+        }).toList(),
       };
 
       await ref
@@ -1024,7 +1164,18 @@ class _ActionButtons extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Column(
       children: [
-        if (shipment.status == ShipmentStatus.created) ...[
+        if (shipment.status == ShipmentStatus.returnInitiated || (shipment.shipmentType == 'reverse_shipment' && shipment.status != ShipmentStatus.returnCompleted)) ...[
+          AppButton(
+            label: 'Enter good , bad quantities',
+            icon: Icons.assignment_return_outlined,
+            onPressed: () async {
+              await context.push('/shipments/${shipment.id}/good_bad_allocation', extra: shipment);
+              ref.invalidate(shipmentByIdProvider(shipment.id));
+              ref.invalidate(shipmentListProvider);
+            },
+          ),
+          const SizedBox(height: 12),
+        ] else if (shipment.status == ShipmentStatus.created) ...[
           AppButton(
             label: 'Manage Allocations',
             icon: Icons.inventory_2_outlined,
@@ -1142,52 +1293,7 @@ class _ActionButtons extends ConsumerWidget {
             label: 'Mark as Delivered',
             icon: Icons.check_circle_outline_rounded,
             gradient: AppColors.greenGradient,
-            onPressed: () async {
-              final confirm = await _confirmDialog(
-                context,
-                'Mark Delivered',
-                'Confirm this shipment has been delivered?',
-              );
-              if (confirm == true && context.mounted) {
-                showDialog(
-                  context: context,
-                  barrierDismissible: false,
-                  builder: (_) => const Center(
-                    child: CircularProgressIndicator(color: AppColors.primary),
-                  ),
-                );
-                try {
-                  await ref
-                      .read(shipmentListProvider.notifier)
-                      .markDelivered(shipment.id);
-                  if (context.mounted) {
-                    Navigator.pop(context); // close progress dialog
-                    ref.invalidate(shipmentByIdProvider(shipment.id));
-                    ref.invalidate(shipmentListProvider);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Shipment marked as delivered successfully!',
-                        ),
-                        backgroundColor: AppColors.success,
-                      ),
-                    );
-                  }
-                } catch (e) {
-                  if (context.mounted) {
-                    Navigator.pop(context); // close progress dialog
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Failed to mark as delivered: ${e.toString().replaceFirst('Exception: ', '')}',
-                        ),
-                        backgroundColor: AppColors.error,
-                      ),
-                    );
-                  }
-                }
-              }
-            },
+            onPressed: () => _showDeliverDialog(context, ref, shipment),
           ),
         ] else if (shipment.status == ShipmentStatus.cancelled) ...[
           Container(
@@ -1255,6 +1361,145 @@ Future<bool?> _confirmDialog(BuildContext ctx, String title, String message) {
       ],
     ),
   );
+}
+
+void _showDeliverDialog(BuildContext context, WidgetRef ref, Shipment shipment) {
+  showDialog(
+    context: context,
+    builder: (_) => _DeliverShipmentModal(shipment: shipment),
+  );
+}
+
+class _DeliverShipmentModal extends ConsumerStatefulWidget {
+  final Shipment shipment;
+  const _DeliverShipmentModal({required this.shipment});
+
+  @override
+  ConsumerState<_DeliverShipmentModal> createState() => _DeliverShipmentModalState();
+}
+
+class _DeliverShipmentModalState extends ConsumerState<_DeliverShipmentModal> {
+  bool _isLoading = false;
+
+  Future<void> _submit() async {
+    setState(() => _isLoading = true);
+    try {
+      await ref
+          .read(shipmentListProvider.notifier)
+          .markDelivered(widget.shipment.id, null);
+      if (mounted) {
+        Navigator.pop(context);
+        ref.invalidate(shipmentByIdProvider(widget.shipment.id));
+        ref.invalidate(shipmentListProvider);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Shipment marked as delivered successfully!'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to mark as delivered: ${e.toString().replaceFirst('Exception: ', '')}',
+            ),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: AppColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: const BorderSide(color: AppColors.cardBorder),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.success.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.check_circle_outline_rounded,
+                    color: AppColors.success,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    'Mark Shipment Delivered',
+                    style: AppTextStyles.headingMedium,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Are you sure you want to mark shipment #${widget.shipment.shipmentNumber} as delivered?',
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: _isLoading ? null : () => Navigator.pop(context),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.textSecondary,
+                  ),
+                  child: const Text('Cancel'),
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton(
+                  onPressed: _isLoading ? null : _submit,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.success,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('Confirm Delivery'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 // ── Edit Shipment Modal ───────────────────────────────────────────────────────

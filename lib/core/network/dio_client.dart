@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/app_constants.dart';
@@ -6,6 +7,12 @@ import 'api_endpoints.dart';
 import 'api_exception.dart';
 
 export 'api_exception.dart';
+
+class AuthLogoutSignal extends ChangeNotifier {
+  void trigger() => notifyListeners();
+}
+
+final authLogoutSignal = AuthLogoutSignal();
 
 final dioProvider = Provider<Dio>((ref) {
   final storage = ref.read(secureStorageProvider);
@@ -75,6 +82,13 @@ Dio _buildDio(FlutterSecureStorage storage) {
           }
         }
 
+        final nodeAdminId =
+            await storage.read(key: AppConstants.keyNodeAdminId) ??
+            await storage.read(key: AppConstants.keyUserId);
+        if (nodeAdminId != null && nodeAdminId.isNotEmpty) {
+          options.headers['Node-Admin-Id'] = nodeAdminId;
+        }
+
         return handler.next(options);
       },
       onResponse: (response, handler) async {
@@ -99,8 +113,9 @@ Dio _buildDio(FlutterSecureStorage storage) {
         if (error.response != null) {
           await _saveCookiesFromResponse(storage, error.response!);
         }
-        if (error.response?.statusCode == 401) {
-          // Token expired / unauthorized — clear all auth tokens
+        if (error.response?.statusCode == 401 ||
+            error.response?.statusCode == 403) {
+          // Token expired / unauthorized / forbidden — clear all auth tokens and redirect to login
           await storage.delete(key: AppConstants.keyAccessToken);
           await storage.delete(key: AppConstants.keyClient);
           await storage.delete(key: AppConstants.keyExpiry);
@@ -108,6 +123,10 @@ Dio _buildDio(FlutterSecureStorage storage) {
           await storage.delete(key: AppConstants.keyUid);
           await storage.delete(key: AppConstants.keyAuthToken);
           await storage.delete(key: AppConstants.keyCookie);
+          await storage.delete(key: AppConstants.keyNodeAdminId);
+          await storage.delete(key: AppConstants.keyUserId);
+
+          authLogoutSignal.trigger();
         }
 
         final extractedMsg =

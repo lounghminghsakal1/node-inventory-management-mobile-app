@@ -27,6 +27,7 @@ class _AllocationScreenState extends ConsumerState<AllocationScreen> {
   @override
   Widget build(BuildContext context) {
     final asyncShipment = ref.watch(shipmentByIdProvider(widget.shipmentId));
+    final asyncAvail = ref.watch(lineItemsAvailabilityProvider(widget.shipmentId));
 
     return asyncShipment.when(
       loading: () => Scaffold(
@@ -47,12 +48,41 @@ class _AllocationScreenState extends ConsumerState<AllocationScreen> {
       data: (shipment) {
         if (shipment == null) return const Scaffold();
 
+        if (asyncAvail.isLoading) {
+          return Scaffold(
+            backgroundColor: AppColors.background,
+            appBar: const NodeOpsAppBar(
+              showBack: true,
+              title: 'Manage Allocations',
+            ),
+            body: const Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            ),
+          );
+        }
+        final availList = asyncAvail.value ?? const [];
+
         if (!_initialized) {
           _items = List.from(shipment.lineItems);
           _initialized = true;
         }
 
-        final allAllocated = _items.every((i) => i.isAllocated);
+        int? getAvailQty(ShipmentLineItem item) {
+          for (final a in availList) {
+            if (a.shipmentLineItemId == item.id ||
+                a.productSkuId == item.product.id ||
+                (a.skuCode != null && a.skuCode == item.product.sku)) {
+              return a.availableQuantity;
+            }
+          }
+          return null;
+        }
+
+        final allAllocated = _items.every((i) {
+          final availQty = getAvailQty(i);
+          if (availQty != null && availQty < i.shippedQty) return false;
+          return i.isAllocated;
+        });
 
         return Scaffold(
           backgroundColor: AppColors.background,
@@ -97,9 +127,12 @@ class _AllocationScreenState extends ConsumerState<AllocationScreen> {
                   itemCount: _items.length,
                   itemBuilder: (_, i) {
                     final item = _items[i];
+                    final availQty = getAvailQty(item);
                     return _AllocationCard(
                       key: ValueKey(item.id),
                       item: item,
+                      shipmentId: widget.shipmentId,
+                      availableQty: availQty,
                       onAllocated: (updated) {
                         setState(() => _items[i] = updated);
                       },
@@ -120,7 +153,11 @@ class _AllocationScreenState extends ConsumerState<AllocationScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          '${_items.where((i) => i.isAllocated).length}/${_items.length} allocated',
+                          '${_items.where((i) {
+                            final availQty = getAvailQty(i);
+                            if (availQty != null && availQty < i.shippedQty) return false;
+                            return i.isAllocated;
+                          }).length}/${_items.length} allocated',
                           style: AppTextStyles.bodySmall,
                         ),
                         if (allAllocated)
@@ -168,34 +205,29 @@ class _AllocationScreenState extends ConsumerState<AllocationScreen> {
     setState(() => _isLoading = true);
     try {
       final payload = {
-        "line_items": _items.map((item) {
-          final sliId = int.tryParse(item.id) ?? 0;
+        "shipment_line_items": _items
+            .where((item) => item.product.trackingType != TrackingType.untracked)
+            .map((item) {
+          final skuId = int.tryParse(item.product.id) ?? 0;
           final selType = item.allocationType.toLowerCase();
 
           if (selType == 'fifo' || selType == 'lifo') {
-            return {"shipment_line_item_id": sliId, "selection_type": selType};
+            return {"product_sku_id": skuId, "selection_type": selType.toUpperCase()};
           }
 
           final map = <String, dynamic>{
-            "shipment_line_item_id": sliId,
+            "product_sku_id": skuId,
             "selection_type": "manual",
           };
 
           if (item.product.trackingType == TrackingType.batch) {
-            map["batch_codes"] = item.batchAllocations
-                .map((b) => {"batch_code": b.batchCode, "quantity": b.qty})
-                .toList();
+            final batchMap = <String, int>{};
+            for (final b in item.batchAllocations) {
+              if (b.qty > 0) batchMap[b.batchCode] = b.qty;
+            }
+            map["batch_codes"] = batchMap;
           } else if (item.product.trackingType == TrackingType.serial) {
-            map["serials"] = item.serialNumbers;
-          } else if (item.product.trackingType == TrackingType.untracked) {
-            map["untracked_numbers"] = item.untrackedAllocations
-                .map(
-                  (u) => {
-                    "untracked_number": u.untrackedNumber,
-                    "quantity": u.qty,
-                  },
-                )
-                .toList();
+            map["serial"] = item.serialNumbers;
           }
           return map;
         }).toList(),
@@ -227,11 +259,15 @@ class _AllocationScreenState extends ConsumerState<AllocationScreen> {
 // ── Per-product Allocation Card ───────────────────────────────────────────────
 class _AllocationCard extends ConsumerStatefulWidget {
   final ShipmentLineItem item;
+  final String shipmentId;
+  final int? availableQty;
   final ValueChanged<ShipmentLineItem> onAllocated;
 
   const _AllocationCard({
     super.key,
     required this.item,
+    required this.shipmentId,
+    this.availableQty,
     required this.onAllocated,
   });
 
@@ -254,16 +290,43 @@ class _AllocationCardState extends ConsumerState<_AllocationCard> {
     _selectedSerials = List.from(widget.item.serialNumbers);
     _allocationType = widget.item.allocationType;
 
-    if (_allocationType == 'lifo' || _allocationType == 'fifo') {
+    if (_allocationType == 'lifo' ||
+        _allocationType == 'fifo' ||
+        widget.item.product.trackingType == TrackingType.untracked) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!widget.item.isAllocated) {
+        if (!widget.item.isAllocated &&
+            (widget.availableQty == null || widget.availableQty! >= widget.item.shippedQty)) {
           _save(isAllocated: true);
         }
       });
     }
+    if (widget.item.product.trackingType == TrackingType.untracked) {
+      _expanded = false;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _AllocationCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.availableQty != oldWidget.availableQty) {
+      if (widget.availableQty != null && widget.availableQty! < widget.item.shippedQty) {
+        if (widget.item.isAllocated) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _save(isAllocated: false);
+          });
+        }
+      } else if (!widget.item.isAllocated && _isComplete) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _save(isAllocated: true);
+        });
+      }
+    }
   }
 
   int get _allocatedQty {
+    if (widget.item.product.trackingType == TrackingType.untracked) {
+      return widget.item.shippedQty;
+    }
     if (_allocationType == 'lifo' || _allocationType == 'fifo') {
       return widget.item.shippedQty;
     }
@@ -271,13 +334,17 @@ class _AllocationCardState extends ConsumerState<_AllocationCard> {
       case TrackingType.batch:
         return _batches.fold(0, (s, b) => s + b.qty);
       case TrackingType.untracked:
-        return _untrackedLots.fold(0, (s, u) => s + u.qty);
+        return widget.item.shippedQty;
       case TrackingType.serial:
         return _selectedSerials.length;
     }
   }
 
   bool get _isComplete {
+    if (widget.availableQty != null && widget.availableQty! < widget.item.shippedQty) {
+      return false;
+    }
+    if (widget.item.product.trackingType == TrackingType.untracked) return true;
     if (_allocationType == 'lifo' || _allocationType == 'fifo') return true;
     return _allocatedQty == widget.item.shippedQty;
   }
@@ -308,6 +375,7 @@ class _AllocationCardState extends ConsumerState<_AllocationCard> {
         requiredQty: widget.item.shippedQty,
         unit: widget.item.product.unit,
         nodeId: nodeId,
+        shipmentId: widget.shipmentId,
         skuId: widget.item.product.id,
         initialAllocations: isUntracked
             ? _untrackedLots
@@ -358,6 +426,7 @@ class _AllocationCardState extends ConsumerState<_AllocationCard> {
       builder: (_) => SerialAllocationModal(
         requiredQty: widget.item.shippedQty,
         nodeId: nodeId,
+        shipmentId: widget.shipmentId,
         skuId: widget.item.product.id,
         initialSerials: _selectedSerials,
         onConfirm: (newSerials) {
@@ -419,11 +488,13 @@ class _AllocationCardState extends ConsumerState<_AllocationCard> {
                           style: AppTextStyles.headingSmall,
                         ),
                         Text(
-                          '${item.product.trackingType.label} · Need: ${item.shippedQty}  Got: $_allocatedQty',
+                          item.product.trackingType == TrackingType.untracked
+                              ? 'Untracked · Need: ${item.shippedQty}${widget.availableQty != null ? ' · Avail: ${widget.availableQty}' : ''}'
+                              : '${item.product.trackingType.label} · Need: ${item.shippedQty}${widget.availableQty != null ? ' · Avail: ${widget.availableQty}' : ''}  Got: $_allocatedQty',
                           style: AppTextStyles.caption.copyWith(
-                            color: _isComplete
-                                ? AppColors.success
-                                : AppColors.warning,
+                            color: (widget.availableQty != null && widget.availableQty! < item.shippedQty)
+                                ? AppColors.error
+                                : (_isComplete ? AppColors.success : AppColors.warning),
                           ),
                         ),
                       ],
@@ -452,80 +523,36 @@ class _AllocationCardState extends ConsumerState<_AllocationCard> {
             const Divider(height: 1),
             Padding(
               padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Allocation Type Dropdown
-                  Row(
-                    children: [
-                      Text(
-                        'Allocation Type: ',
-                        style: AppTextStyles.labelMedium,
+              child: (widget.availableQty != null && widget.availableQty! < item.shippedQty)
+                  ? Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.error.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          decoration: BoxDecoration(
-                            color: AppColors.background,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AppColors.cardBorder),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.error_outline_rounded,
+                            size: 20,
+                            color: AppColors.error,
                           ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              value: _allocationType,
-                              dropdownColor: AppColors.surface,
-                              style: AppTextStyles.bodySmall,
-                              icon: const Icon(
-                                Icons.arrow_drop_down,
-                                color: AppColors.primary,
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Assign allocation blocked: Insufficient inventory available (${widget.availableQty}) for required quantity (${item.shippedQty}).',
+                              style: AppTextStyles.bodySmall.copyWith(
+                                color: AppColors.error,
+                                fontWeight: FontWeight.w600,
                               ),
-                              items: const [
-                                DropdownMenuItem(
-                                  value: 'fifo',
-                                  child: Text('FIFO (Default)'),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'manual',
-                                  child: Text('Manual'),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'lifo',
-                                  child: Text('LIFO'),
-                                ),
-                              ],
-                              onChanged: (val) {
-                                if (val != null && val != _allocationType) {
-                                  setState(() {
-                                    _allocationType = val;
-                                  });
-                                  if (val == 'manual') {
-                                    ref
-                                        .read(shipmentRepositoryProvider)
-                                        .updateAllocationTypeApi(
-                                          shipmentId: widget.item.id,
-                                          allocationType: val,
-                                        );
-                                  }
-                                  if (val == 'lifo' || val == 'fifo') {
-                                    _save(isAllocated: true);
-                                  } else {
-                                    _save(isAllocated: _isComplete);
-                                  }
-                                }
-                              },
                             ),
                           ),
-                        ),
+                        ],
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Content based on allocation type
-                  if (_allocationType == 'lifo' ||
-                      _allocationType == 'fifo') ...[
-                    Container(
+                    )
+                  : item.product.trackingType == TrackingType.untracked
+                  ? Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: AppColors.secondary.withValues(alpha: 0.1),
@@ -534,14 +561,14 @@ class _AllocationCardState extends ConsumerState<_AllocationCard> {
                       child: Row(
                         children: [
                           const Icon(
-                            Icons.auto_awesome_rounded,
+                            Icons.info_outline_rounded,
                             size: 16,
                             color: AppColors.secondary,
                           ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'Auto-allocated via ${_allocationType.toUpperCase()}. No batch/serial entry required.',
+                              'Untracked item — no allocation or user interaction required.',
                               style: AppTextStyles.caption.copyWith(
                                 color: AppColors.secondary,
                               ),
@@ -549,86 +576,145 @@ class _AllocationCardState extends ConsumerState<_AllocationCard> {
                           ),
                         ],
                       ),
-                    ),
-                  ] else ...[
-                    // Manual allocation UI
-                    if (item.product.trackingType == TrackingType.batch) ...[
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Assigned Batches',
-                                  style: AppTextStyles.labelMedium,
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Allocation Type Dropdown
+                        Row(
+                          children: [
+                            Text(
+                              'Allocation Type: ',
+                              style: AppTextStyles.labelMedium,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                                decoration: BoxDecoration(
+                                  color: AppColors.background,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: AppColors.cardBorder),
                                 ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  '${_batches.fold(0, (sum, b) => sum + b.qty)} / ${item.shippedQty} ${item.product.unit} assigned',
-                                  style: AppTextStyles.caption.copyWith(
-                                    color: _isComplete
-                                        ? AppColors.success
-                                        : AppColors.warning,
-                                    fontWeight: _isComplete
-                                        ? FontWeight.bold
-                                        : FontWeight.normal,
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton<String>(
+                                    value: _allocationType,
+                                    dropdownColor: AppColors.surface,
+                                    style: AppTextStyles.bodySmall,
+                                    icon: const Icon(
+                                      Icons.arrow_drop_down,
+                                      color: AppColors.primary,
+                                    ),
+                                    items: const [
+                                      DropdownMenuItem(
+                                        value: 'fifo',
+                                        child: Text('FIFO (Default)'),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: 'manual',
+                                        child: Text('Manual'),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: 'lifo',
+                                        child: Text('LIFO'),
+                                      ),
+                                    ],
+                                    onChanged: (val) {
+                                      if (val != null && val != _allocationType) {
+                                        setState(() {
+                                          _allocationType = val;
+                                        });
+                                        if (val == 'manual') {
+                                          ref
+                                              .read(shipmentRepositoryProvider)
+                                              .updateAllocationTypeApi(
+                                                shipmentId: widget.item.id,
+                                                allocationType: val,
+                                              );
+                                        }
+                                        if (val == 'lifo' || val == 'fifo') {
+                                          _save(isAllocated: true);
+                                        } else {
+                                          _save(isAllocated: _isComplete);
+                                        }
+                                      }
+                                    },
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+
+                        // Content based on allocation type
+                        if (_allocationType == 'lifo' ||
+                            _allocationType == 'fifo') ...[
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppColors.secondary.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.auto_awesome_rounded,
+                                  size: 16,
+                                  color: AppColors.secondary,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Auto-allocated via ${_allocationType.toUpperCase()}. No batch/serial entry required.',
+                                    style: AppTextStyles.caption.copyWith(
+                                      color: AppColors.secondary,
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          AppButton(
-                            width: 150,
-                            height: 44,
-                            label: 'Assign Batch',
-                            icon: Icons.playlist_add_rounded,
-                            onPressed: () => _openBatchModal(context),
-                          ),
-                        ],
-                      ),
-                    ] else if (item.product.trackingType ==
-                        TrackingType.untracked) ...[
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                        ] else ...[
+                          // Manual allocation UI
+                          if (item.product.trackingType == TrackingType.batch) ...[
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
-                                  'Assigned Lots',
-                                  style: AppTextStyles.labelMedium,
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  '${_untrackedLots.fold(0, (sum, u) => sum + u.qty)} / ${item.shippedQty} ${item.product.unit} assigned',
-                                  style: AppTextStyles.caption.copyWith(
-                                    color: _isComplete
-                                        ? AppColors.success
-                                        : AppColors.warning,
-                                    fontWeight: _isComplete
-                                        ? FontWeight.bold
-                                        : FontWeight.normal,
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Assigned Batches',
+                                        style: AppTextStyles.labelMedium,
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        '${_batches.fold(0, (sum, b) => sum + b.qty)} / ${item.shippedQty} ${item.product.unit} assigned',
+                                        style: AppTextStyles.caption.copyWith(
+                                          color: _isComplete
+                                              ? AppColors.success
+                                              : AppColors.warning,
+                                          fontWeight: _isComplete
+                                              ? FontWeight.bold
+                                              : FontWeight.normal,
+                                        ),
+                                      ),
+                                    ],
                                   ),
+                                ),
+                                const SizedBox(width: 12),
+                                AppButton(
+                                  width: 150,
+                                  height: 44,
+                                  label: 'Assign Batch',
+                                  icon: Icons.playlist_add_rounded,
+                                  onPressed: () => _openBatchModal(context),
                                 ),
                               ],
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          AppButton(
-                            width: 150,
-                            height: 44,
-                            label: 'Assign Lots',
-                            icon: Icons.playlist_add_rounded,
-                            onPressed: () =>
-                                _openBatchModal(context, isUntracked: true),
-                          ),
-                        ],
-                      ),
-                    ] else ...[
+                          ] else ...[
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -680,11 +766,9 @@ class _AllocationCardState extends ConsumerState<_AllocationCard> {
 class _AvailOption {
   final String code;
   final int availQty;
-  final int totalQty;
   _AvailOption({
     required this.code,
     required this.availQty,
-    required this.totalQty,
   });
 }
 
@@ -694,6 +778,7 @@ class BatchAllocationModal extends ConsumerStatefulWidget {
   final int requiredQty;
   final String unit;
   final int nodeId;
+  final String shipmentId;
   final String skuId;
   final List<Map<String, dynamic>> initialAllocations;
   final bool isUntracked;
@@ -705,6 +790,7 @@ class BatchAllocationModal extends ConsumerStatefulWidget {
     required this.requiredQty,
     required this.unit,
     required this.nodeId,
+    required this.shipmentId,
     required this.skuId,
     required this.initialAllocations,
     required this.isUntracked,
@@ -717,10 +803,10 @@ class BatchAllocationModal extends ConsumerStatefulWidget {
 }
 
 class _BatchRow {
-  String code;
+  String? code;
   int qty;
   final TextEditingController qtyCtrl;
-  _BatchRow({required this.code, required this.qty})
+  _BatchRow({this.code, required this.qty})
     : qtyCtrl = TextEditingController(text: qty > 0 ? '$qty' : '');
 }
 
@@ -742,13 +828,13 @@ class _BatchAllocationModalState extends ConsumerState<BatchAllocationModal> {
     final asyncData = widget.isUntracked
         ? ref.watch(
             untrackedAvailabilityProvider((
-              nodeId: widget.nodeId,
+              shipmentId: widget.shipmentId,
               skuId: widget.skuId,
             )),
           )
         : ref.watch(
             batchAvailabilityProvider((
-              nodeId: widget.nodeId,
+              shipmentId: widget.shipmentId,
               skuId: widget.skuId,
             )),
           );
@@ -785,7 +871,6 @@ class _BatchAllocationModalState extends ConsumerState<BatchAllocationModal> {
                         (u) => _AvailOption(
                           code: u.untrackedNumber,
                           availQty: u.availableQuantity,
-                          totalQty: u.totalQuantity,
                         ),
                       )
                       .toList()
@@ -794,7 +879,6 @@ class _BatchAllocationModalState extends ConsumerState<BatchAllocationModal> {
                         (b) => _AvailOption(
                           code: b.batchCode,
                           availQty: b.availableQuantity,
-                          totalQty: b.totalQuantity,
                         ),
                       )
                       .toList();
@@ -827,26 +911,23 @@ class _BatchAllocationModalState extends ConsumerState<BatchAllocationModal> {
                   final code = b['code']?.toString() ?? '';
                   final validCode = options.any((o) => o.code == code)
                       ? code
-                      : options.first.code;
+                      : null;
                   return _BatchRow(
                     code: validCode,
                     qty: (b['qty'] as int?) ?? 0,
                   );
                 }).toList();
               } else {
-                final firstOpt = options.first;
-                final initialQty = widget.requiredQty <= firstOpt.availQty
-                    ? widget.requiredQty
-                    : firstOpt.availQty;
-                _rows = [_BatchRow(code: firstOpt.code, qty: initialQty)];
+                _rows = [_BatchRow(code: null, qty: 0)];
               }
             }
 
             final totalEntered = _rows!.fold(0, (sum, r) => sum + r.qty);
             final allWithinAvail = _rows!.every((r) {
+              if (r.code == null || r.code!.isEmpty) return false;
               final opt = options.firstWhere(
                 (o) => o.code == r.code,
-                orElse: () => _AvailOption(code: '', availQty: 0, totalQty: 0),
+                orElse: () => _AvailOption(code: '', availQty: 0,),
               );
               return r.qty > 0 && r.qty <= opt.availQty;
             });
@@ -891,12 +972,11 @@ class _BatchAllocationModalState extends ConsumerState<BatchAllocationModal> {
                         final currentOpt = options.firstWhere(
                           (o) => o.code == row.code,
                           orElse: () => _AvailOption(
-                            code: row.code,
+                            code: row.code ?? '',
                             availQty: 0,
-                            totalQty: 0,
                           ),
                         );
-                        final exceedsAvail = row.qty > currentOpt.availQty;
+                        final exceedsAvail = row.code != null && row.qty > currentOpt.availQty;
 
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 12),
@@ -920,14 +1000,13 @@ class _BatchAllocationModalState extends ConsumerState<BatchAllocationModal> {
                                       ),
                                       child: DropdownButtonHideUnderline(
                                         child: DropdownButton<String>(
-                                          value:
-                                              rowOptions.any(
-                                                (o) => o.code == row.code,
-                                              )
+                                          value: (row.code != null && rowOptions.any((o) => o.code == row.code))
                                               ? row.code
-                                              : (rowOptions.isNotEmpty
-                                                    ? rowOptions.first.code
-                                                    : null),
+                                              : null,
+                                          hint: Text(
+                                            'Select Batch',
+                                            style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted),
+                                          ),
                                           dropdownColor: AppColors.card,
                                           style: AppTextStyles.caption,
                                           isExpanded: true,
@@ -968,7 +1047,7 @@ class _BatchAllocationModalState extends ConsumerState<BatchAllocationModal> {
                                                         ),
                                                   ),
                                                   Text(
-                                                    'Total: ${opt.totalQty} | Avail: ${opt.availQty}',
+                                                    'Avail: ${opt.availQty}',
                                                     style: AppTextStyles.caption
                                                         .copyWith(
                                                           color: AppColors
@@ -1087,7 +1166,7 @@ class _BatchAllocationModalState extends ConsumerState<BatchAllocationModal> {
                         ? () {
                             setState(() {
                               _rows!.add(
-                                _BatchRow(code: unselected.first.code, qty: 0),
+                                _BatchRow(code: null, qty: 0),
                               );
                             });
                           }
@@ -1122,7 +1201,8 @@ class _BatchAllocationModalState extends ConsumerState<BatchAllocationModal> {
                       onPressed: isValid
                           ? () {
                               final res = _rows!
-                                  .map((r) => {'code': r.code, 'qty': r.qty})
+                                  .where((r) => r.code != null && r.code!.isNotEmpty)
+                                  .map((r) => {'code': r.code!, 'qty': r.qty})
                                   .toList();
                               widget.onConfirm(res);
                               Navigator.pop(context);
@@ -1144,6 +1224,7 @@ class _BatchAllocationModalState extends ConsumerState<BatchAllocationModal> {
 class SerialAllocationModal extends ConsumerStatefulWidget {
   final int requiredQty;
   final int nodeId;
+  final String shipmentId;
   final String skuId;
   final List<String> initialSerials;
   final ValueChanged<List<String>> onConfirm;
@@ -1152,6 +1233,7 @@ class SerialAllocationModal extends ConsumerStatefulWidget {
     super.key,
     required this.requiredQty,
     required this.nodeId,
+    required this.shipmentId,
     required this.skuId,
     required this.initialSerials,
     required this.onConfirm,
@@ -1175,7 +1257,7 @@ class _SerialAllocationModalState extends ConsumerState<SerialAllocationModal> {
   @override
   Widget build(BuildContext context) {
     final asyncData = ref.watch(
-      serialAvailabilityProvider((nodeId: widget.nodeId, skuId: widget.skuId)),
+      serialAvailabilityProvider((shipmentId: widget.shipmentId, skuId: widget.skuId)),
     );
 
     return Dialog(

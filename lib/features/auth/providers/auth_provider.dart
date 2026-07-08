@@ -71,6 +71,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   AuthNotifier(this._repo) : super(const AuthState()) {
     _checkExistingSession();
+    authLogoutSignal.addListener(forceUnauthenticated);
+  }
+
+  @override
+  void dispose() {
+    authLogoutSignal.removeListener(forceUnauthenticated);
+    super.dispose();
   }
 
   Future<void> _checkExistingSession() async {
@@ -139,15 +146,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(otpSent: false, error: null, clearError: true);
   }
 
-  /// Login with username + password only. Node selection follows separately.
+  /// Login with email + password. Node selection follows separately.
   Future<bool> login({
-    required String username,
+    required String email,
     required String password,
   }) async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isLoading: true, error: null, clearError: true);
     try {
       final user = await _repo.login(
-        LoginRequest(username: username, password: password),
+        LoginRequest(email: email, password: password),
       );
       state = AuthState(status: AuthStatus.nodeRequired, user: user);
       return true;
@@ -163,7 +170,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// Called from the Node Selection screen after the user picks a node.
   Future<void> selectNode(NodeModel node) async {
-    await _repo.saveNode(node.id);
+    await _repo.saveNode(node.id, nodeAdminId: node.nodeAdminId);
     state = AuthState(
       status: AuthStatus.authenticated,
       user: state.user,
@@ -175,6 +182,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> logout() async {
     await _repo.logout();
+    state = const AuthState(status: AuthStatus.unauthenticated);
+  }
+
+  void forceUnauthenticated() {
     state = const AuthState(status: AuthStatus.unauthenticated);
   }
 }

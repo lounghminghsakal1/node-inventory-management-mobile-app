@@ -8,12 +8,13 @@ class ApiEndpoints {
       : 'http://192.168.0.118:3000/node_app/mobile/v1';
 
   // Auth
-  static const String login = '/auth/login';
+  static const String login = '/login';
   static const String sendOtp = '/users/send_otp';
   static const String verifyOtp = '/users/login';
-  static const String logout = '/auth/logout';
+  static const String logout = '/logout';
   static const String refreshToken = '/auth/refresh';
   static const String nodes = '/auth/nodes';
+  static const String splashScreen = '/splash_screen';
 
   // Home / Dashboard
   static const String dashboard = '/dashboard/stats';
@@ -38,15 +39,18 @@ class ApiEndpoints {
   static String shipmentMarkDispatched(String id) => '/shipments/$id/mark_dispatched';
   static String shipmentDeliver(String id) => '/shipments/$id/deliver';
   static String shipmentReturnInitiate(String id) => '/shipments/$id/return/initiate';
-  static String shipmentReturnComplete(String id) => '/shipments/$id/return/complete';
-  static String batchAvailability(String nodeId, String skuId) =>
-      '/allocations/batch_availability?node_id=$nodeId&product_sku_id=$skuId';
-  static String untrackedAvailability(String nodeId, String skuId) =>
-      '/allocations/untracked_availability?node_id=$nodeId&product_sku_id=$skuId';
-  static String serialAvailability(String nodeId, String skuId) =>
-      '/allocations/serial_availability?node_id=$nodeId&product_sku_id=$skuId';
+  static String returnAllocationInfo(String id) => '/sales/shipments/$id/return_allocation_info';
+  static String completeReturn(String id) => '/sales/shipments/$id/complete_return';
+  static String lineItemsAvailability(String shipmentId) =>
+      '/shipments/$shipmentId/line_items_availability';
+  static String batchAvailability(String shipmentId, String skuId) =>
+      '/shipments/$shipmentId/batch_availability?sku_id=$skuId';
+  static String untrackedAvailability(String shipmentId, String skuId) =>
+      '/shipments/$shipmentId/untracked_availability?sku_id=$skuId';
+  static String serialAvailability(String shipmentId, String skuId) =>
+      '/shipments/$shipmentId/serial_availability?sku_id=$skuId';
   static String assignShipmentAllocations(String shipmentId) =>
-      '/allocations/assign_shipment_allocations?shipment_id=$shipmentId';
+      '/shipments/$shipmentId/assign_allocations';
 
   // Inventory
   static String productStock(String productId, String nodeId) =>

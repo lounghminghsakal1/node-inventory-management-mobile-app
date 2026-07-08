@@ -1,10 +1,10 @@
 class LoginRequest {
-  final String username;
+  final String email;
   final String password;
 
-  const LoginRequest({required this.username, required this.password});
+  const LoginRequest({required this.email, required this.password});
 
-  Map<String, dynamic> toJson() => {'username': username, 'password': password};
+  Map<String, dynamic> toJson() => {'email': email, 'password': password};
 }
 
 class SendOtpRequest {

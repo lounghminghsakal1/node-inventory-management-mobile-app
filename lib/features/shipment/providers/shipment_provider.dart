@@ -8,23 +8,39 @@ import '../data/repositories/shipment_repository.dart';
 class ShipmentListState {
   final List<Shipment> shipments;
   final bool isLoading;
+  final bool isMoreLoading;
   final String? error;
+  final int currentPage;
+  final int totalPages;
+  final int totalCount;
 
   const ShipmentListState({
     this.shipments = const [],
     this.isLoading = false,
+    this.isMoreLoading = false,
     this.error,
+    this.currentPage = 1,
+    this.totalPages = 1,
+    this.totalCount = 0,
   });
 
   ShipmentListState copyWith({
     List<Shipment>? shipments,
     bool? isLoading,
+    bool? isMoreLoading,
     String? error,
+    int? currentPage,
+    int? totalPages,
+    int? totalCount,
   }) =>
       ShipmentListState(
         shipments: shipments ?? this.shipments,
         isLoading: isLoading ?? this.isLoading,
+        isMoreLoading: isMoreLoading ?? this.isMoreLoading,
         error: error,
+        currentPage: currentPage ?? this.currentPage,
+        totalPages: totalPages ?? this.totalPages,
+        totalCount: totalCount ?? this.totalCount,
       );
 }
 
@@ -36,20 +52,55 @@ class ShipmentListNotifier extends StateNotifier<ShipmentListState> {
     load();
   }
 
-  Future<void> load() async {
+  Future<void> load({
+    int page = 1,
+    String? byStatus,
+    String? byOrderNumber,
+    String? byCustomerCode,
+    String? byShipmentType,
+    String? fromDate,
+    String? toDate,
+  }) async {
     if (!mounted) return;
-    state = state.copyWith(isLoading: true, error: null);
+    if (page == 1) {
+      state = state.copyWith(isLoading: true, error: null);
+    } else {
+      if (state.isLoading || state.isMoreLoading || state.currentPage >= state.totalPages) return;
+      state = state.copyWith(isMoreLoading: true, error: null);
+    }
     try {
-      final list = await _repo.getShipmentsApi();
+      final res = await _repo.getShipmentsApi(
+        page: page,
+        byStatus: byStatus,
+        byOrderNumber: byOrderNumber,
+        byCustomerCode: byCustomerCode,
+        byShipmentType: byShipmentType,
+        fromDate: fromDate,
+        toDate: toDate,
+      );
       if (!mounted) return;
-      state = state.copyWith(shipments: list, isLoading: false);
+      final updatedShipments = page == 1 ? res.shipments : [...state.shipments, ...res.shipments];
+      state = state.copyWith(
+        shipments: updatedShipments,
+        isLoading: false,
+        isMoreLoading: false,
+        currentPage: res.currentPage,
+        totalPages: res.totalPages,
+        totalCount: res.totalCount,
+      );
     } catch (e) {
       if (!mounted) return;
       state = state.copyWith(
         shipments: _repo.getAll(),
         isLoading: false,
+        isMoreLoading: false,
       );
     }
+  }
+
+  Future<void> loadNextPage() async {
+    if (state.isLoading || state.isMoreLoading || state.currentPage >= state.totalPages) return;
+    await load(page: state.currentPage + 1);
   }
 
   Future<Shipment> createShipment({
@@ -129,8 +180,8 @@ class ShipmentListNotifier extends StateNotifier<ShipmentListState> {
     }
   }
 
-  Future<void> markDelivered(String id) async {
-    await _repo.markDelivered(shipmentId: id);
+  Future<void> markDelivered(String id, [Map<String, dynamic>? payload]) async {
+    await _repo.markDelivered(shipmentId: id, payload: payload);
     if (mounted) {
       state = state.copyWith(shipments: _repo.getAll());
     }
@@ -162,26 +213,42 @@ final shippableLineItemsProvider = FutureProvider.family.autoDispose<
 });
 
 // ── Allocation Availability Providers ─────────────────────────────────────────
-final batchAvailabilityProvider = FutureProvider.family.autoDispose<
-    List<BatchAvailabilityModel>,
-    ({int nodeId, String skuId})>((ref, params) async {
+final lineItemsAvailabilityProvider = FutureProvider.family.autoDispose<
+    List<LineItemAvailabilityModel>,
+    String>((ref, shipmentId) async {
   return ref
       .read(shipmentRepositoryProvider)
-      .getBatchAvailability(nodeId: params.nodeId, skuId: params.skuId);
+      .getLineItemsAvailability(shipmentId: shipmentId);
+});
+
+final batchAvailabilityProvider = FutureProvider.family.autoDispose<
+    List<BatchAvailabilityModel>,
+    ({String shipmentId, String skuId})>((ref, params) async {
+  return ref
+      .read(shipmentRepositoryProvider)
+      .getBatchAvailability(shipmentId: params.shipmentId, skuId: params.skuId);
 });
 
 final untrackedAvailabilityProvider = FutureProvider.family.autoDispose<
     List<UntrackedAvailabilityModel>,
-    ({int nodeId, String skuId})>((ref, params) async {
+    ({String shipmentId, String skuId})>((ref, params) async {
   return ref
       .read(shipmentRepositoryProvider)
-      .getUntrackedAvailability(nodeId: params.nodeId, skuId: params.skuId);
+      .getUntrackedAvailability(shipmentId: params.shipmentId, skuId: params.skuId);
 });
 
 final serialAvailabilityProvider = FutureProvider.family.autoDispose<
     List<SerialAvailabilityModel>,
-    ({int nodeId, String skuId})>((ref, params) async {
+    ({String shipmentId, String skuId})>((ref, params) async {
   return ref
       .read(shipmentRepositoryProvider)
-      .getSerialAvailability(nodeId: params.nodeId, skuId: params.skuId);
+      .getSerialAvailability(shipmentId: params.shipmentId, skuId: params.skuId);
 });
+
+final returnAllocationInfoProvider = FutureProvider.family.autoDispose<
+    List<Map<String, dynamic>>, String>((ref, shipmentId) async {
+  return ref
+      .read(shipmentRepositoryProvider)
+      .getReturnAllocationInfo(shipmentId);
+});
+

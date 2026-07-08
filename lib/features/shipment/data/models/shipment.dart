@@ -1,7 +1,42 @@
 import 'order.dart';
 
 // ── Allocation Availability Models ────────────────────────────────────────────
+class LineItemAvailabilityModel {
+  final String shipmentLineItemId;
+  final String productSkuId;
+  final String? skuName;
+  final String? skuCode;
+  final String trackingType;
+  final int requiredQuantity;
+  final int availableQuantity;
+
+  const LineItemAvailabilityModel({
+    required this.shipmentLineItemId,
+    required this.productSkuId,
+    this.skuName,
+    this.skuCode,
+    required this.trackingType,
+    required this.requiredQuantity,
+    required this.availableQuantity,
+  });
+
+  factory LineItemAvailabilityModel.fromJson(Map<String, dynamic> json) {
+    return LineItemAvailabilityModel(
+      shipmentLineItemId: json['shipment_line_item_id']?.toString() ?? '',
+      productSkuId: json['product_sku_id']?.toString() ?? '',
+      skuName: json['sku_name']?.toString(),
+      skuCode: json['sku_code']?.toString(),
+      trackingType: json['tracking_type']?.toString() ?? '',
+      requiredQuantity:
+          int.tryParse(json['required_quantity']?.toString() ?? '0') ?? 0,
+      availableQuantity:
+          int.tryParse(json['available_quantity']?.toString() ?? '0') ?? 0,
+    );
+  }
+}
+
 class BatchAvailabilityModel {
+  final String? id;
   final String batchCode;
   final String? manufactureDate;
   final String? expiryDate;
@@ -10,6 +45,7 @@ class BatchAvailabilityModel {
   final int blockedQuantity;
 
   const BatchAvailabilityModel({
+    this.id,
     required this.batchCode,
     this.manufactureDate,
     this.expiryDate,
@@ -20,8 +56,9 @@ class BatchAvailabilityModel {
 
   factory BatchAvailabilityModel.fromJson(Map<String, dynamic> json) {
     return BatchAvailabilityModel(
+      id: json['id']?.toString(),
       batchCode: json['batch_code']?.toString() ?? '',
-      manufactureDate: json['manufacture_date']?.toString(),
+      manufactureDate: json['manufacturing_date']?.toString() ?? json['manufacture_date']?.toString(),
       expiryDate: json['expiry_date']?.toString(),
       availableQuantity: int.tryParse(json['available_quantity']?.toString() ?? '0') ?? 0,
       totalQuantity: int.tryParse(json['total_quantity']?.toString() ?? '0') ?? 0,
@@ -54,15 +91,21 @@ class UntrackedAvailabilityModel {
 }
 
 class SerialAvailabilityModel {
+  final String? id;
   final String serialNumber;
+  final String? status;
 
   const SerialAvailabilityModel({
+    this.id,
     required this.serialNumber,
+    this.status,
   });
 
   factory SerialAvailabilityModel.fromJson(Map<String, dynamic> json) {
     return SerialAvailabilityModel(
+      id: json['id']?.toString(),
       serialNumber: json['serial_number']?.toString() ?? '',
+      status: json['status']?.toString(),
     );
   }
 }
@@ -93,10 +136,67 @@ class ShipmentLineItem {
   final List<String>? _serialNumbers;
   final bool isAllocated;
   final String allocationType; // 'lifo', 'fifo', 'manual'
+  final int? goodQty;
+  final int? badQty;
+  final Map<String, dynamic> meta;
 
   List<BatchAllocation> get batchAllocations => _batchAllocations ?? const [];
   List<UntrackedAllocation> get untrackedAllocations => _untrackedAllocations ?? const [];
   List<String> get serialNumbers => _serialNumbers ?? const [];
+
+  List<BatchAllocation> get goodBatches {
+    final list = (meta['good_batches'] is List) ? (meta['good_batches'] as List) : [];
+    return list.whereType<Map>().map((b) {
+      final bMap = Map<String, dynamic>.from(b);
+      return BatchAllocation(
+        batchCode: bMap['batch_code']?.toString() ?? '',
+        qty: int.tryParse(bMap['quantity']?.toString() ?? '0') ?? 0,
+      );
+    }).toList();
+  }
+
+  List<BatchAllocation> get badBatches {
+    final list = (meta['bad_batches'] is List) ? (meta['bad_batches'] as List) : [];
+    return list.whereType<Map>().map((b) {
+      final bMap = Map<String, dynamic>.from(b);
+      return BatchAllocation(
+        batchCode: bMap['batch_code']?.toString() ?? '',
+        qty: int.tryParse(bMap['quantity']?.toString() ?? '0') ?? 0,
+      );
+    }).toList();
+  }
+
+  List<String> get goodSerials {
+    final list = (meta['good_serials'] is List) ? (meta['good_serials'] as List) : [];
+    return list.map((s) => s.toString()).toList();
+  }
+
+  List<String> get badSerials {
+    final list = (meta['bad_serials'] is List) ? (meta['bad_serials'] as List) : [];
+    return list.map((s) => s.toString()).toList();
+  }
+
+  List<UntrackedAllocation> get goodUntracked {
+    final list = (meta['good_untracked'] is List) ? (meta['good_untracked'] as List) : [];
+    return list.whereType<Map>().map((u) {
+      final uMap = Map<String, dynamic>.from(u);
+      return UntrackedAllocation(
+        untrackedNumber: uMap['untracked_number']?.toString() ?? '',
+        qty: int.tryParse(uMap['quantity']?.toString() ?? '0') ?? 0,
+      );
+    }).toList();
+  }
+
+  List<UntrackedAllocation> get badUntracked {
+    final list = (meta['bad_untracked'] is List) ? (meta['bad_untracked'] as List) : [];
+    return list.whereType<Map>().map((u) {
+      final uMap = Map<String, dynamic>.from(u);
+      return UntrackedAllocation(
+        untrackedNumber: uMap['untracked_number']?.toString() ?? '',
+        qty: int.tryParse(uMap['quantity']?.toString() ?? '0') ?? 0,
+      );
+    }).toList();
+  }
 
   const ShipmentLineItem({
     required this.id,
@@ -107,6 +207,9 @@ class ShipmentLineItem {
     List<String>? serialNumbers = const [],
     this.isAllocated = false,
     this.allocationType = 'fifo',
+    this.goodQty,
+    this.badQty,
+    this.meta = const {},
   })  : _batchAllocations = batchAllocations,
         _untrackedAllocations = untrackedAllocations,
         _serialNumbers = serialNumbers;
@@ -114,51 +217,80 @@ class ShipmentLineItem {
   factory ShipmentLineItem.fromJson(
       Map<String, dynamic> json, bool shipmentAllocated) {
     final skuMap = json['product_sku'] as Map<String, dynamic>? ?? {};
-    final trackingTypeStr =
-        skuMap['tracking_type']?.toString().toLowerCase() ?? 'untracked';
+    final trackingTypeStr = json['tracking_type']?.toString().toLowerCase() ??
+        skuMap['tracking_type']?.toString().toLowerCase() ??
+        'untracked';
     TrackingType tt = TrackingType.untracked;
     if (trackingTypeStr == 'batch') tt = TrackingType.batch;
     if (trackingTypeStr == 'serial') tt = TrackingType.serial;
 
     final metaMap = json['meta'] as Map<String, dynamic>? ?? {};
-    final selectionType = metaMap['selection_type']?.toString().toLowerCase() ??
+    final selectionType = json['selection_type']?.toString().toLowerCase() ??
+        metaMap['selection_type']?.toString().toLowerCase() ??
         skuMap['selection_type']?.toString().toLowerCase() ??
         'fifo';
 
-    final batchesList = (metaMap['allocated_batches'] is List) ? (metaMap['allocated_batches'] as List) : [];
-    final batchAllocations = batchesList.whereType<Map>().map((b) {
-      final bMap = Map<String, dynamic>.from(b);
-      return BatchAllocation(
-        batchCode: bMap['batch_code']?.toString() ?? '',
-        qty: int.tryParse(bMap['quantity']?.toString() ?? '0') ?? 0,
-      );
-    }).toList();
+    List<BatchAllocation> batchAllocations = [];
+    if (json['batch_codes'] is Map) {
+      final bMap = json['batch_codes'] as Map;
+      bMap.forEach((k, v) {
+        batchAllocations.add(BatchAllocation(
+          batchCode: k.toString(),
+          qty: int.tryParse(v.toString()) ?? 0,
+        ));
+      });
+    } else if (metaMap['allocated_batches'] is List) {
+      final batchesList = metaMap['allocated_batches'] as List;
+      batchAllocations = batchesList.whereType<Map>().map((b) {
+        final bMap = Map<String, dynamic>.from(b);
+        return BatchAllocation(
+          batchCode: bMap['batch_code']?.toString() ?? '',
+          qty: int.tryParse(bMap['quantity']?.toString() ?? '0') ?? 0,
+        );
+      }).toList();
+    }
 
-    final untrackedList =
-        (metaMap['allocated_untracked'] is List) ? (metaMap['allocated_untracked'] as List) : [];
-    final untrackedAllocations = untrackedList.whereType<Map>().map((u) {
-      final uMap = Map<String, dynamic>.from(u);
-      return UntrackedAllocation(
-        untrackedNumber: uMap['untracked_number']?.toString() ?? '',
-        qty: int.tryParse(uMap['quantity']?.toString() ?? '0') ?? 0,
-      );
-    }).toList();
+    List<UntrackedAllocation> untrackedAllocations = [];
+    if (json['untracked_codes'] is Map) {
+      final uMap = json['untracked_codes'] as Map;
+      uMap.forEach((k, v) {
+        untrackedAllocations.add(UntrackedAllocation(
+          untrackedNumber: k.toString(),
+          qty: int.tryParse(v.toString()) ?? 0,
+        ));
+      });
+    } else if (metaMap['allocated_untracked'] is List) {
+      final untrackedList = metaMap['allocated_untracked'] as List;
+      untrackedAllocations = untrackedList.whereType<Map>().map((u) {
+        final uMap = Map<String, dynamic>.from(u);
+        return UntrackedAllocation(
+          untrackedNumber: uMap['untracked_number']?.toString() ?? '',
+          qty: int.tryParse(uMap['quantity']?.toString() ?? '0') ?? 0,
+        );
+      }).toList();
+    }
 
-    final serialsList = (metaMap['allocated_serials'] is List) ? (metaMap['allocated_serials'] as List) : [];
-    final serialNumbers = serialsList.map((s) => s.toString()).toList();
+    List<String> serialNumbers = [];
+    if (json['serial'] is List) {
+      serialNumbers = (json['serial'] as List).map((s) => s.toString()).toList();
+    } else if (metaMap['allocated_serials'] is List) {
+      serialNumbers = (metaMap['allocated_serials'] as List).map((s) => s.toString()).toList();
+    }
 
     final isAlloc = shipmentAllocated ||
         batchAllocations.isNotEmpty ||
         untrackedAllocations.isNotEmpty ||
         serialNumbers.isNotEmpty ||
+        json['selection_type'] != null ||
         metaMap['selection_type'] != null;
 
     final product = Product(
-      id: skuMap['id']?.toString() ?? '',
-      name: skuMap['display_name']?.toString() ??
+      id: json['product_sku_id']?.toString() ?? skuMap['id']?.toString() ?? '',
+      name: json['sku_name']?.toString() ??
+          skuMap['display_name']?.toString() ??
           skuMap['sku_name']?.toString() ??
           'Product Item',
-      sku: skuMap['sku_code']?.toString() ?? '',
+      sku: json['sku_code']?.toString() ?? skuMap['sku_code']?.toString() ?? '',
       trackingType: tt,
       nodeStock: 1000,
       unit: 'pcs',
@@ -173,6 +305,9 @@ class ShipmentLineItem {
       serialNumbers: serialNumbers,
       isAllocated: isAlloc,
       allocationType: selectionType,
+      goodQty: json['good_quantity'] != null ? int.tryParse(json['good_quantity'].toString()) : null,
+      badQty: json['bad_quality_quantity'] != null ? int.tryParse(json['bad_quality_quantity'].toString()) : null,
+      meta: metaMap,
     );
   }
 
@@ -183,6 +318,9 @@ class ShipmentLineItem {
     List<String>? serialNumbers,
     bool? isAllocated,
     String? allocationType,
+    int? goodQty,
+    int? badQty,
+    Map<String, dynamic>? meta,
   }) {
     return ShipmentLineItem(
       id: id,
@@ -193,6 +331,9 @@ class ShipmentLineItem {
       serialNumbers: serialNumbers ?? this.serialNumbers,
       isAllocated: isAllocated ?? this.isAllocated,
       allocationType: allocationType ?? this.allocationType,
+      goodQty: goodQty ?? this.goodQty,
+      badQty: badQty ?? this.badQty,
+      meta: meta ?? this.meta,
     );
   }
 }
@@ -203,6 +344,9 @@ class DriverDetails {
   final String phone;
   final String vehicleNumber;
   final String? distance;
+  final String? courierName;
+  final String? trackingId;
+  final String? dispatchedBy;
   final Map<String, dynamic>? additionalDetails;
 
   const DriverDetails({
@@ -210,7 +354,23 @@ class DriverDetails {
     required this.phone,
     required this.vehicleNumber,
     this.distance,
+    this.courierName,
+    this.trackingId,
+    this.dispatchedBy,
     this.additionalDetails,
+  });
+}
+
+// ── Delivery Details ──────────────────────────────────────────────────────────
+class DeliveryDetails {
+  final String? receivedBy;
+  final String? deliveryOtp;
+  final String? deliveryNote;
+
+  const DeliveryDetails({
+    this.receivedBy,
+    this.deliveryOtp,
+    this.deliveryNote,
   });
 }
 
@@ -292,29 +452,6 @@ extension ShipmentStatusX on ShipmentStatus {
   }
 }
 
-// ── Shipment Invoice ──────────────────────────────────────────────────────────
-class ShipmentInvoice {
-  final int id;
-  final String invoiceType;
-  final String invoiceNumber;
-  final String invoiceUrl;
-
-  const ShipmentInvoice({
-    required this.id,
-    required this.invoiceType,
-    required this.invoiceNumber,
-    required this.invoiceUrl,
-  });
-
-  factory ShipmentInvoice.fromJson(Map<String, dynamic> json) {
-    return ShipmentInvoice(
-      id: int.tryParse(json['id']?.toString() ?? '0') ?? 0,
-      invoiceType: json['invoice_type']?.toString() ?? '',
-      invoiceNumber: json['invoice_number']?.toString() ?? '',
-      invoiceUrl: json['invoice_url']?.toString() ?? '',
-    );
-  }
-}
 
 // ── Shipment ──────────────────────────────────────────────────────────────────
 class Shipment {
@@ -327,6 +464,7 @@ class Shipment {
   final List<ShipmentLineItem>? _lineItems;
   final DateTime createdAt;
   final DriverDetails? driverDetails;
+  final DeliveryDetails? deliveryDetails;
   final String? nodeId;
   final String? billingAddress;
   final String? shippingAddress;
@@ -334,14 +472,16 @@ class Shipment {
   final String? customerPhone;
   final String? nodeName;
   final bool fullyAllocated;
-  final List<ShipmentInvoice>? _invoices;
   final String? customerId;
   final String? shipmentType;
   final String? parentShipmentNumber;
   final int? reviewRating;
+  final String? customerCode;
+  final int? lineItemsCount;
+  final String? labourFee;
+  final String? driverFee;
 
   List<ShipmentLineItem> get lineItems => _lineItems ?? const [];
-  List<ShipmentInvoice> get invoices => _invoices ?? const [];
 
   const Shipment({
     required this.id,
@@ -353,6 +493,7 @@ class Shipment {
     List<ShipmentLineItem>? lineItems = const [],
     required this.createdAt,
     this.driverDetails,
+    this.deliveryDetails,
     this.nodeId,
     this.billingAddress,
     this.shippingAddress,
@@ -360,27 +501,33 @@ class Shipment {
     this.customerPhone,
     this.nodeName,
     this.fullyAllocated = false,
-    List<ShipmentInvoice>? invoices = const [],
     this.customerId,
     this.shipmentType,
     this.parentShipmentNumber,
     this.reviewRating,
-  })  : _lineItems = lineItems,
-        _invoices = invoices;
+    this.customerCode,
+    this.lineItemsCount,
+    this.labourFee,
+    this.driverFee,
+  }) : _lineItems = lineItems;
 
-  int get totalItems => lineItems.length;
+  int get totalItems => lineItemsCount ?? lineItems.length;
   int get totalQty => lineItems.fold(0, (s, i) => s + i.shippedQty);
 
   Shipment copyWith({
     ShipmentStatus? status,
     List<ShipmentLineItem>? lineItems,
     DriverDetails? driverDetails,
+    DeliveryDetails? deliveryDetails,
     bool? fullyAllocated,
-    List<ShipmentInvoice>? invoices,
     String? customerId,
     String? shipmentType,
     String? parentShipmentNumber,
     int? reviewRating,
+    String? customerCode,
+    int? lineItemsCount,
+    String? labourFee,
+    String? driverFee,
   }) {
     return Shipment(
       id: id,
@@ -392,6 +539,7 @@ class Shipment {
       lineItems: lineItems ?? _lineItems,
       createdAt: createdAt,
       driverDetails: driverDetails ?? this.driverDetails,
+      deliveryDetails: deliveryDetails ?? this.deliveryDetails,
       nodeId: nodeId,
       billingAddress: billingAddress,
       shippingAddress: shippingAddress,
@@ -399,17 +547,20 @@ class Shipment {
       customerPhone: customerPhone,
       nodeName: nodeName,
       fullyAllocated: fullyAllocated ?? this.fullyAllocated,
-      invoices: invoices ?? _invoices,
       customerId: customerId ?? this.customerId,
       shipmentType: shipmentType ?? this.shipmentType,
       parentShipmentNumber: parentShipmentNumber ?? this.parentShipmentNumber,
       reviewRating: reviewRating ?? this.reviewRating,
+      customerCode: customerCode ?? this.customerCode,
+      lineItemsCount: lineItemsCount ?? this.lineItemsCount,
+      labourFee: labourFee ?? this.labourFee,
+      driverFee: driverFee ?? this.driverFee,
     );
   }
 
   factory Shipment.fromJson(Map<String, dynamic> json) {
     final statusStr = json['status']?.toString().toLowerCase() ?? 'created';
-    final fullyAllocated = json['fully_allocated'] == true;
+    final fullyAllocated = json['fully_allocated'] == true || json['is_fully_allocated'] == true;
 
     ShipmentStatus statusEnum = ShipmentStatus.created;
     if (statusStr == 'allocated' ||
@@ -446,41 +597,61 @@ class Shipment {
       rating = int.tryParse((json['review'] as Map)['overall_rating']?.toString() ?? '');
     }
 
-    final lineItemsList = (json['line_items'] is List) ? (json['line_items'] as List) : [];
+    final lineItemsList = (json['line_items'] is List)
+        ? (json['line_items'] as List)
+        : ((json['shipment_line_items'] is List)
+            ? (json['shipment_line_items'] as List)
+            : []);
     final items = lineItemsList
         .whereType<Map>()
         .map((item) => ShipmentLineItem.fromJson(
             Map<String, dynamic>.from(item), fullyAllocated))
         .toList();
 
-    final invoicesList = (json['invoices'] is List) ? (json['invoices'] as List) : [];
-    final invoices = invoicesList
-        .whereType<Map>()
-        .map((e) => ShipmentInvoice.fromJson(Map<String, dynamic>.from(e)))
-        .toList();
-
     DriverDetails? parsedDriver;
     final metaMap = json['meta'] as Map<String, dynamic>?;
-    if (metaMap != null && metaMap['dispatch_details'] is Map) {
-      final dispatchMap =
-          metaMap['dispatch_details'] as Map<String, dynamic>;
-      final name = dispatchMap['driver_name']?.toString() ?? '';
+    final dispatchSource = (json['dispatch_details'] is Map)
+        ? (json['dispatch_details'] as Map)
+        : ((json['shipment_dispatch_details'] is Map)
+            ? (json['shipment_dispatch_details'] as Map)
+            : ((metaMap != null && metaMap['dispatch_details'] is Map)
+                ? (metaMap['dispatch_details'] as Map)
+                : null));
+
+    if (dispatchSource != null) {
+      final dispatchMap = Map<String, dynamic>.from(dispatchSource);
+      final name = dispatchMap['driver_name']?.toString() ??
+          dispatchMap['courier_name']?.toString() ??
+          (dispatchMap['transporter_name']?.toString().isNotEmpty == true
+              ? dispatchMap['transporter_name']?.toString() ?? ''
+              : '');
       final phone = dispatchMap['driver_number']?.toString() ??
           dispatchMap['driver_mobile_number']?.toString() ??
+          dispatchMap['dispatched_by']?.toString() ??
           '';
-      final vehicle = dispatchMap['vehicle_number']?.toString() ?? '';
-      final distance = dispatchMap['distance']?.toString();
+      final vehicle = dispatchMap['vehicle_number']?.toString() ??
+          dispatchMap['tracking_id']?.toString() ??
+          '';
+      final distance = dispatchMap['transport_distance']?.toString() ?? dispatchMap['distance']?.toString();
 
       final additional = <String, dynamic>{};
       dispatchMap.forEach((k, v) {
         if (![
           'driver_name',
+          'transporter_name',
           'driver_number',
           'driver_mobile_number',
           'vehicle_number',
+          'transport_distance',
           'distance',
-        ].contains(k)) {
-          additional[k] = v;
+          'images',
+          'transporter_id',
+          'courier_name',
+          'tracking_id',
+          'dispatched_by',
+        ].contains(k) && v != null && v.toString().trim().isNotEmpty && v is! Map && v is! List) {
+          final cleanKey = k.replaceAll('_', ' ').split(' ').map((w) => w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1)}' : '').join(' ');
+          additional[cleanKey] = v;
         }
       });
 
@@ -494,6 +665,9 @@ class Shipment {
           phone: phone,
           vehicleNumber: vehicle,
           distance: distance,
+          courierName: dispatchMap['courier_name']?.toString(),
+          trackingId: dispatchMap['tracking_id']?.toString(),
+          dispatchedBy: dispatchMap['dispatched_by']?.toString(),
           additionalDetails: additional.isEmpty ? null : additional,
         );
       }
@@ -516,36 +690,63 @@ class Shipment {
       }
     }
 
+    DeliveryDetails? parsedDelivery;
+    final delivSource = (json['shipment_delivery_details'] is Map)
+        ? (json['shipment_delivery_details'] as Map)
+        : ((json['delivery_details'] is Map)
+            ? (json['delivery_details'] as Map)
+            : ((metaMap != null && metaMap['delivery_details'] is Map)
+                ? (metaMap['delivery_details'] as Map)
+                : null));
+
+    if (delivSource != null) {
+      final dMap = Map<String, dynamic>.from(delivSource);
+      parsedDelivery = DeliveryDetails(
+        receivedBy: dMap['received_by']?.toString(),
+        deliveryOtp: dMap['delivery_otp']?.toString(),
+        deliveryNote: dMap['delivery_note']?.toString(),
+      );
+    }
+
+    final labourFeeStr = json['labour_fee']?.toString() ?? metaMap?['labour_fee']?.toString();
+    final driverFeeStr = json['driver_fee']?.toString() ?? metaMap?['driver_fee']?.toString();
+
+    final orderIdStr = orderMap['id']?.toString() ?? json['order_id']?.toString() ?? '';
+    final orderNumStr = orderMap['order_number']?.toString() ?? json['order_number']?.toString() ?? '';
+    final customerNameStr = customerMap['name']?.toString() ?? json['customer_name']?.toString() ?? 'Unknown Customer';
+    final customerCodeStr = customerMap['code']?.toString() ?? json['customer_code']?.toString() ?? customerIdStr;
+    final lineItemsCountVal = int.tryParse(json['line_items_count']?.toString() ?? '') ?? (items.isNotEmpty ? items.length : null);
+
     return Shipment(
       id: json['id']?.toString() ?? '',
       shipmentNumber: json['shipment_number']?.toString() ?? '',
-      orderId: orderMap['id']?.toString() ?? '',
-      orderNumber: orderMap['order_number']?.toString() ?? '',
-      customerName: customerMap['name']?.toString() ?? 'Unknown Customer',
-      customerPhone: customerMap['mobile_number']?.toString(),
+      orderId: orderIdStr,
+      orderNumber: orderNumStr,
+      customerName: customerNameStr,
+      customerPhone: json['customer_mobile']?.toString() ?? customerMap['mobile_number']?.toString(),
       status: statusEnum,
       fullyAllocated: fullyAllocated,
       lineItems: items,
       createdAt:
           DateTime.tryParse(json['created_at']?.toString() ?? '') ?? DateTime.now(),
       nodeId: nodeMap['id']?.toString(),
-      nodeName: nodeMap['name']?.toString(),
+      nodeName: json['node_name']?.toString() ?? nodeMap['name']?.toString(),
       billingAddress: json['billing_address']?.toString(),
       shippingAddress: json['shipping_address']?.toString(),
       deliveryType: json['delivery_type']?.toString(),
       driverDetails: parsedDriver,
-      invoices: invoices,
+      deliveryDetails: parsedDelivery,
       customerId: customerIdStr,
       shipmentType: shipmentTypeStr,
       parentShipmentNumber: parentNumber,
       reviewRating: rating,
+      customerCode: customerCodeStr,
+      lineItemsCount: lineItemsCountVal,
+      labourFee: labourFeeStr,
+      driverFee: driverFeeStr,
     );
   }
 }
 
 // ── Dummy serial numbers ──────────────────────────────────────────────────────
-const List<String> dummySerialNumbers = [
-  'SN-B002-001', 'SN-B002-002', 'SN-B002-003', 'SN-B002-004',
-  'SN-B002-005', 'SN-B002-006', 'SN-B002-007', 'SN-B002-008',
-  'SN-B002-009', 'SN-B002-010', 'SN-B002-011', 'SN-B002-012',
-];
+const List<String> dummySerialNumbers = [];

@@ -10,17 +10,33 @@ import '../models/shippable_line_item.dart';
 class ShipmentRepository {
   final Dio _dio;
   // Mutable in-memory store
-  final List<Shipment> _shipments = _buildDummyShipments();
+  final List<Shipment> _shipments = [];
 
   ShipmentRepository(this._dio);
 
   List<Shipment> getAll() => List.unmodifiable(_shipments);
 
-  Future<List<Shipment>> getShipmentsApi({int page = 1}) async {
+  Future<({List<Shipment> shipments, int currentPage, int totalPages, int totalCount})> getShipmentsApi({
+    int page = 1,
+    String? byStatus,
+    String? byOrderNumber,
+    String? byCustomerCode,
+    String? byShipmentType,
+    String? fromDate,
+    String? toDate,
+  }) async {
     try {
+      final queryParams = <String, dynamic>{'page': page};
+      if (byStatus != null && byStatus.isNotEmpty) queryParams['by_status'] = byStatus;
+      if (byOrderNumber != null && byOrderNumber.isNotEmpty) queryParams['by_order_number'] = byOrderNumber;
+      if (byCustomerCode != null && byCustomerCode.isNotEmpty) queryParams['by_customer_code'] = byCustomerCode;
+      if (byShipmentType != null && byShipmentType.isNotEmpty) queryParams['by_shipment_type'] = byShipmentType;
+      if (fromDate != null && fromDate.isNotEmpty) queryParams['from_date'] = fromDate;
+      if (toDate != null && toDate.isNotEmpty) queryParams['to_date'] = toDate;
+
       final response = await _dio.get(
         ApiEndpoints.shipments,
-        queryParameters: {'page': page},
+        queryParameters: queryParams,
       );
 
       if (response.data is Map && response.data['status'] == 'failure') {
@@ -28,22 +44,45 @@ class ShipmentRepository {
       }
 
       if (response.data is Map<String, dynamic>) {
-        final dataList = response.data['data'] as List<dynamic>? ?? [];
+        final dataObj = response.data['data'];
+        List<dynamic> dataList = [];
+        Map<String, dynamic>? metaObj;
+        if (dataObj is List) {
+          dataList = dataObj;
+        } else if (dataObj is Map) {
+          if (dataObj['shipments'] is List) {
+            dataList = dataObj['shipments'] as List;
+          }
+          if (dataObj['meta'] is Map) {
+            metaObj = Map<String, dynamic>.from(dataObj['meta']);
+          }
+        }
         final list = dataList
             .whereType<Map>()
             .map((item) => Shipment.fromJson(Map<String, dynamic>.from(item)))
             .toList();
-        _shipments.clear();
+        
+        if (page == 1) {
+          _shipments.clear();
+        }
         _shipments.addAll(list);
-        return list;
+
+        final currentPage = (metaObj?['current_page'] as num?)?.toInt() ?? page;
+        final totalPages = (metaObj?['total_pages'] as num?)?.toInt() ?? 1;
+        final totalCount = (metaObj?['total_count'] as num?)?.toInt() ?? list.length;
+
+        return (
+          shipments: list,
+          currentPage: currentPage,
+          totalPages: totalPages,
+          totalCount: totalCount,
+        );
       }
       throw const ApiException('Invalid response format from server');
     } on DioException catch (e) {
-      if (_shipments.isNotEmpty) return _shipments;
       throw ApiException.fromDioException(e);
     } catch (e) {
       if (e is ApiException) rethrow;
-      if (_shipments.isNotEmpty) return _shipments;
       throw ApiException(e.toString().replaceFirst('Exception: ', ''));
     }
   }
@@ -107,7 +146,7 @@ class ShipmentRepository {
     }
   }
 
-  List<Order> getConfirmedOrders() => dummyOrders;
+  List<Order> getConfirmedOrders() => [];
 
   Shipment? getById(String id) {
     try {
@@ -236,19 +275,58 @@ class ShipmentRepository {
     return updated;
   }
 
-  Future<List<BatchAvailabilityModel>> getBatchAvailability({
-    required int nodeId,
-    required String skuId,
+  Future<List<LineItemAvailabilityModel>> getLineItemsAvailability({
+    required String shipmentId,
   }) async {
     try {
       final response = await _dio.get(
-        ApiEndpoints.batchAvailability(nodeId.toString(), skuId),
+        ApiEndpoints.lineItemsAvailability(shipmentId),
       );
       if (response.data is Map && response.data['status'] == 'failure') {
         throw ApiException.fromResponseData(response.data, response.statusCode);
       }
       if (response.data is Map<String, dynamic>) {
-        final dataList = response.data['data'] as List<dynamic>? ?? [];
+        final dataObj = response.data['data'];
+        List<dynamic> dataList = [];
+        if (dataObj is List) {
+          dataList = dataObj;
+        } else if (dataObj is Map && dataObj['line_items'] is List) {
+          dataList = dataObj['line_items'] as List;
+        } else if (response.data['line_items'] is List) {
+          dataList = response.data['line_items'] as List;
+        }
+        return dataList
+            .map((e) => LineItemAvailabilityModel.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+      throw const ApiException('Invalid response format from server');
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException(e.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
+  Future<List<BatchAvailabilityModel>> getBatchAvailability({
+    required String shipmentId,
+    required String skuId,
+  }) async {
+    try {
+      final response = await _dio.get(
+        ApiEndpoints.batchAvailability(shipmentId, skuId),
+      );
+      if (response.data is Map && response.data['status'] == 'failure') {
+        throw ApiException.fromResponseData(response.data, response.statusCode);
+      }
+      if (response.data is Map<String, dynamic>) {
+        final dataObj = response.data['data'];
+        List<dynamic> dataList = [];
+        if (dataObj is List) {
+          dataList = dataObj;
+        } else if (dataObj is Map && dataObj['batches'] is List) {
+          dataList = dataObj['batches'] as List;
+        }
         return dataList
             .map((e) => BatchAvailabilityModel.fromJson(e as Map<String, dynamic>))
             .toList();
@@ -263,18 +341,24 @@ class ShipmentRepository {
   }
 
   Future<List<UntrackedAvailabilityModel>> getUntrackedAvailability({
-    required int nodeId,
+    required String shipmentId,
     required String skuId,
   }) async {
     try {
       final response = await _dio.get(
-        ApiEndpoints.untrackedAvailability(nodeId.toString(), skuId),
+        ApiEndpoints.untrackedAvailability(shipmentId, skuId),
       );
       if (response.data is Map && response.data['status'] == 'failure') {
         throw ApiException.fromResponseData(response.data, response.statusCode);
       }
       if (response.data is Map<String, dynamic>) {
-        final dataList = response.data['data'] as List<dynamic>? ?? [];
+        final dataObj = response.data['data'];
+        List<dynamic> dataList = [];
+        if (dataObj is List) {
+          dataList = dataObj;
+        } else if (dataObj is Map && dataObj['untracked'] is List) {
+          dataList = dataObj['untracked'] as List;
+        }
         return dataList
             .map((e) => UntrackedAvailabilityModel.fromJson(e as Map<String, dynamic>))
             .toList();
@@ -289,18 +373,24 @@ class ShipmentRepository {
   }
 
   Future<List<SerialAvailabilityModel>> getSerialAvailability({
-    required int nodeId,
+    required String shipmentId,
     required String skuId,
   }) async {
     try {
       final response = await _dio.get(
-        ApiEndpoints.serialAvailability(nodeId.toString(), skuId),
+        ApiEndpoints.serialAvailability(shipmentId, skuId),
       );
       if (response.data is Map && response.data['status'] == 'failure') {
         throw ApiException.fromResponseData(response.data, response.statusCode);
       }
       if (response.data is Map<String, dynamic>) {
-        final dataList = response.data['data'] as List<dynamic>? ?? [];
+        final dataObj = response.data['data'];
+        List<dynamic> dataList = [];
+        if (dataObj is List) {
+          dataList = dataObj;
+        } else if (dataObj is Map && dataObj['serials'] is List) {
+          dataList = dataObj['serials'] as List;
+        }
         return dataList
             .map((e) => SerialAvailabilityModel.fromJson(e as Map<String, dynamic>))
             .toList();
@@ -316,15 +406,13 @@ class ShipmentRepository {
 
   Future<void> assignShipmentAllocations({
     required String shipmentId,
-    required Map<String, Iterable<Map<String, dynamic>>> payload,
+    required Map<String, dynamic> payload,
   }) async {
     try {
-      final response = await _dio.post(
+      final response = await _dio.put(
         ApiEndpoints.assignShipmentAllocations(shipmentId),
         data: payload,
       );
-      
-      print("jdcdhcdsvsv"+response.data.toString());
       if (response.data is Map && response.data['status'] == 'failure') {
         throw ApiException.fromResponseData(response.data, response.statusCode);
       }
@@ -338,7 +426,7 @@ class ShipmentRepository {
 
   Future<void> packShipment({required String shipmentId}) async {
     try {
-      final response = await _dio.post(
+      final response = await _dio.put(
         ApiEndpoints.shipmentPack(shipmentId),
       );
       if (response.data is Map && response.data['status'] == 'failure') {
@@ -349,30 +437,24 @@ class ShipmentRepository {
         _shipments[idx] = _shipments[idx].copyWith(status: ShipmentStatus.packed);
       }
     } on DioException catch (e) {
-      final idx = _shipments.indexWhere((s) => s.id == shipmentId);
-      if (idx != -1) {
-        _shipments[idx] = _shipments[idx].copyWith(status: ShipmentStatus.packed);
-        return;
-      }
       throw ApiException.fromDioException(e);
     } catch (e) {
       if (e is ApiException) rethrow;
-      final idx = _shipments.indexWhere((s) => s.id == shipmentId);
-      if (idx != -1) {
-        _shipments[idx] = _shipments[idx].copyWith(status: ShipmentStatus.packed);
-        return;
-      }
       throw ApiException(e.toString().replaceFirst('Exception: ', ''));
     }
   }
 
   Future<void> generateInvoice({required String shipmentId}) async {
     try {
-      final response = await _dio.post(
+      final response = await _dio.put(
         ApiEndpoints.shipmentInvoice(shipmentId),
       );
       if (response.data is Map && response.data['status'] == 'failure') {
         throw ApiException.fromResponseData(response.data, response.statusCode);
+      }
+      final idx = _shipments.indexWhere((s) => s.id == shipmentId);
+      if (idx != -1) {
+        _shipments[idx] = _shipments[idx].copyWith(status: ShipmentStatus.invoiced);
       }
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
@@ -387,8 +469,8 @@ class ShipmentRepository {
     required Map<String, dynamic> payload,
   }) async {
     try {
-      final response = await _dio.post(
-        ApiEndpoints.shipmentMarkDispatched(shipmentId),
+      final response = await _dio.put(
+        ApiEndpoints.shipmentDispatch(shipmentId),
         data: payload,
       );
       if (response.data is Map && response.data['status'] == 'failure') {
@@ -404,10 +486,12 @@ class ShipmentRepository {
 
   Future<void> markDelivered({
     required String shipmentId,
+    Map<String, dynamic>? payload,
   }) async {
     try {
-      final response = await _dio.post(
+      final response = await _dio.put(
         ApiEndpoints.shipmentDeliver(shipmentId),
+        data: payload,
       );
       if (response.data is Map && response.data['status'] == 'failure') {
         throw ApiException.fromResponseData(response.data, response.statusCode);
@@ -417,173 +501,85 @@ class ShipmentRepository {
         _shipments[idx] = _shipments[idx].copyWith(status: ShipmentStatus.delivered);
       }
     } on DioException catch (e) {
-      final idx = _shipments.indexWhere((s) => s.id == shipmentId);
-      if (idx != -1) {
-        _shipments[idx] = _shipments[idx].copyWith(status: ShipmentStatus.delivered);
-        return;
-      }
       throw ApiException.fromDioException(e);
     } catch (e) {
       if (e is ApiException) rethrow;
-      final idx = _shipments.indexWhere((s) => s.id == shipmentId);
-      if (idx != -1) {
-        _shipments[idx] = _shipments[idx].copyWith(status: ShipmentStatus.delivered);
-        return;
-      }
       throw ApiException(e.toString().replaceFirst('Exception: ', ''));
     }
   }
-}
 
-List<Shipment> _buildDummyShipments() {
-  return [
-    Shipment(
-      id: '18',
-      shipmentNumber: 'EFP-S-10018',
-      orderId: '107',
-      orderNumber: 'EFP-O-10107',
-      customerName: 'Prince Godwin I',
-      customerId: '1',
-      status: ShipmentStatus.created,
-      shipmentType: 'forward_shipment',
-      fullyAllocated: false,
-      createdAt: DateTime.parse('2026-07-06T16:23:36.420+05:30'),
-    ),
-    Shipment(
-      id: '17',
-      shipmentNumber: 'EFP-S-10017',
-      orderId: '107',
-      orderNumber: 'EFP-O-10107',
-      customerName: 'Prince Godwin I',
-      customerId: '1',
-      status: ShipmentStatus.delivered,
-      shipmentType: 'forward_shipment',
-      fullyAllocated: true,
-      createdAt: DateTime.parse('2026-07-06T16:23:08.571+05:30'),
-    ),
-    Shipment(
-      id: '16',
-      shipmentNumber: 'EFP-S-10016',
-      orderId: '105',
-      orderNumber: 'EFP-O-10105',
-      customerName: 'Prince Godwin I',
-      customerId: '1',
-      status: ShipmentStatus.returnInitiated,
-      shipmentType: 'reverse_shipment',
-      parentShipmentNumber: 'EFP-S-10015',
-      fullyAllocated: false,
-      createdAt: DateTime.parse('2026-07-06T13:42:07.457+05:30'),
-    ),
-    Shipment(
-      id: '15',
-      shipmentNumber: 'EFP-S-10015',
-      orderId: '105',
-      orderNumber: 'EFP-O-10105',
-      customerName: 'Prince Godwin I',
-      customerId: '1',
-      status: ShipmentStatus.delivered,
-      shipmentType: 'forward_shipment',
-      fullyAllocated: true,
-      createdAt: DateTime.parse('2026-07-06T13:41:40.490+05:30'),
-    ),
-    Shipment(
-      id: '14',
-      shipmentNumber: 'EFP-S-10014',
-      orderId: '104',
-      orderNumber: 'EFP-O-10104',
-      customerName: 'Prince Godwin I',
-      customerId: '1',
-      status: ShipmentStatus.delivered,
-      shipmentType: 'forward_shipment',
-      fullyAllocated: true,
-      createdAt: DateTime.parse('2026-07-06T13:38:51.621+05:30'),
-    ),
-    Shipment(
-      id: '13',
-      shipmentNumber: 'EFP-S-10013',
-      orderId: '103',
-      orderNumber: 'EFP-O-10103',
-      customerName: 'Prince Godwin I',
-      customerId: '1',
-      status: ShipmentStatus.packed,
-      shipmentType: 'forward_shipment',
-      fullyAllocated: true,
-      createdAt: DateTime.parse('2026-07-06T13:38:13.432+05:30'),
-    ),
-    Shipment(
-      id: '12',
-      shipmentNumber: 'EFP-S-10012',
-      orderId: '102',
-      orderNumber: 'EFP-O-10102',
-      customerName: 'Prince Godwin I',
-      customerId: '1',
-      status: ShipmentStatus.allocated,
-      shipmentType: 'forward_shipment',
-      fullyAllocated: true,
-      createdAt: DateTime.parse('2026-07-06T13:37:37.388+05:30'),
-    ),
-    Shipment(
-      id: '11',
-      shipmentNumber: 'EFP-S-10011',
-      orderId: '101',
-      orderNumber: 'EFP-O-10101',
-      customerName: 'Prince Godwin I',
-      customerId: '1',
-      status: ShipmentStatus.delivered,
-      shipmentType: 'forward_shipment',
-      fullyAllocated: true,
-      createdAt: DateTime.parse('2026-07-06T13:37:05.146+05:30'),
-    ),
-    Shipment(
-      id: '10',
-      shipmentNumber: 'EFP-S-10010',
-      orderId: '100',
-      orderNumber: 'EFP-O-10100',
-      customerName: 'Prince Godwin I',
-      customerId: '1',
-      status: ShipmentStatus.delivered,
-      shipmentType: 'forward_shipment',
-      fullyAllocated: true,
-      createdAt: DateTime.parse('2026-07-06T13:36:20.301+05:30'),
-    ),
-    Shipment(
-      id: '9',
-      shipmentNumber: 'EFP-S-10009',
-      orderId: '99',
-      orderNumber: 'EFP-O-10099',
-      customerName: 'Prince Godwin I',
-      customerId: '1',
-      status: ShipmentStatus.delivered,
-      shipmentType: 'forward_shipment',
-      fullyAllocated: true,
-      createdAt: DateTime.parse('2026-07-06T13:35:46.398+05:30'),
-    ),
-    Shipment(
-      id: '3',
-      shipmentNumber: 'EFP-S-10003',
-      orderId: '92',
-      orderNumber: 'EFP-O-10092',
-      customerName: 'Prince Godwin I',
-      customerId: '1',
+  Future<List<Map<String, dynamic>>> getReturnAllocationInfo(String shipmentId) async {
+    try {
+      final response = await _dio.get(ApiEndpoints.returnAllocationInfo(shipmentId));
+      if (response.data is Map && response.data['status'] == 'failure') {
+        throw ApiException.fromResponseData(response.data, response.statusCode);
+      }
+      if (response.data is Map<String, dynamic>) {
+        final dataList = response.data['data'] as List<dynamic>? ?? [];
+        return dataList.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      }
+      throw const ApiException('Invalid response format from server');
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException(e.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
+  Future<void> completeReturn({
+    required String shipmentId,
+    required Map<String, dynamic> payload,
+  }) async {
+    try {
+      final response = await _dio.post(
+        ApiEndpoints.completeReturn(shipmentId),
+        data: payload,
+      );
+      if (response.data is Map && response.data['status'] == 'failure') {
+        throw ApiException.fromResponseData(response.data, response.statusCode);
+      }
+      _updateLocalReturnCompleted(shipmentId, payload);
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException(e.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
+  void _updateLocalReturnCompleted(String shipmentId, Map<String, dynamic> payload) {
+    final idx = _shipments.indexWhere((s) => s.id == shipmentId);
+    if (idx == -1) return;
+    final s = _shipments[idx];
+    final itemsList = payload['line_items'] as List<dynamic>? ?? [];
+    final updatedItems = s.lineItems.map((li) {
+      final match = itemsList.firstWhere(
+        (e) => e['shipment_line_item_id']?.toString() == li.id.toString(),
+        orElse: () => null,
+      );
+      if (match != null && match is Map) {
+        final gQty = int.tryParse(match['good_quantity']?.toString() ?? '0') ?? 0;
+        final bQty = int.tryParse(match['bad_quality_quantity']?.toString() ?? '0') ?? 0;
+        final goodMap = match['good'] as Map? ?? {};
+        final badMap = match['bad'] as Map? ?? {};
+        final metaMap = <String, dynamic>{
+          'good_batches': goodMap['batch'] ?? [],
+          'bad_batches': badMap['batch'] ?? [],
+          'good_serials': goodMap['serial'] ?? [],
+          'bad_serials': badMap['serial'] ?? [],
+          'good_untracked': goodMap['untracked'] ?? [],
+          'bad_untracked': badMap['untracked'] ?? [],
+        };
+        return li.copyWith(goodQty: gQty, badQty: bQty, meta: metaMap);
+      }
+      return li;
+    }).toList();
+    _shipments[idx] = s.copyWith(
       status: ShipmentStatus.returnCompleted,
-      shipmentType: 'reverse_shipment',
-      parentShipmentNumber: 'EFP-S-10002',
-      fullyAllocated: false,
-      createdAt: DateTime.parse('2026-07-06T13:28:46.069+05:30'),
-    ),
-    Shipment(
-      id: '2',
-      shipmentNumber: 'EFP-S-10002',
-      orderId: '92',
-      orderNumber: 'EFP-O-10092',
-      customerName: 'Prince Godwin I',
-      customerId: '1',
-      status: ShipmentStatus.delivered,
-      shipmentType: 'forward_shipment',
-      fullyAllocated: true,
-      createdAt: DateTime.parse('2026-07-06T13:28:16.892+05:30'),
-    ),
-  ];
+      lineItems: updatedItems,
+    );
+  }
 }
 
 // ── Provider ──────────────────────────────────────────────────────────────────

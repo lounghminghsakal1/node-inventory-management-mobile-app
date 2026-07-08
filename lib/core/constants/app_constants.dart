@@ -14,6 +14,7 @@ class AppConstants {
   static const String keyUid = 'uid';
   static const String keyCookie = 'cookie';
   static const String keySelectedNodeId = 'selected_node_id';
+  static const String keyNodeAdminId = 'node_admin_id';
   static const String keyUserId = 'user_id';
   static const String keyUserName = 'user_name';
 

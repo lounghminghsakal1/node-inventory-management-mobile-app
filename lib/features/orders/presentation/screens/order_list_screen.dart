@@ -317,7 +317,7 @@ class _OrderCardState extends State<_OrderCard> {
                           size: 13, color: AppColors.textMuted),
                       const SizedBox(width: 4),
                       Text(
-                        order.customer.name,
+                        'Customer ID: ${order.customer.id}',
                         style: AppTextStyles.bodySmall.copyWith(
                             color: AppColors.textSecondary,
                             fontWeight: FontWeight.w500),

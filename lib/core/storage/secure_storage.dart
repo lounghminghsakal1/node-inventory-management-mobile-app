@@ -97,6 +97,12 @@ class SecureStorage {
   Future<String?> getNodeId() =>
       _storage.read(key: AppConstants.keySelectedNodeId);
 
+  Future<void> saveNodeAdminId(String id) =>
+      _storage.write(key: AppConstants.keyNodeAdminId, value: id);
+
+  Future<String?> getNodeAdminId() =>
+      _storage.read(key: AppConstants.keyNodeAdminId);
+
   // ── User Info ──────────────────────────────────────────────────────────────
   Future<void> saveUserId(String id) =>
       _storage.write(key: AppConstants.keyUserId, value: id);

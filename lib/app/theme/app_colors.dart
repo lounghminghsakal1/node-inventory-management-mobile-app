@@ -8,7 +8,7 @@ class AppColors {
   static const Color surface = Color(0xFFFFFFFF);
   static const Color card = Color(0xFFF8FAFC);
   static const Color cardElevated = Color(0xFFF1F5F9);
-  static const Color cardBorder = Color.fromARGB(255, 5, 85, 183); // Medium blue for outlines and borders
+  static const Color cardBorder = Color.fromARGB(255, 1, 82, 163); // Medium blue for outlines and borders
 
 //  Color(0xFF60A5FA);
   // ── Brand Primary (Dark blue for important text & focus texts) ─────────────

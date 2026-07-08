@@ -158,21 +158,44 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
                   );
                 }
 
-                return RefreshIndicator(
-                  color: AppColors.primary,
-                  backgroundColor: AppColors.card,
-                  onRefresh: () async =>
-                      ref.read(shipmentListProvider.notifier).load(),
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: filtered.length,
-                    itemBuilder: (_, i) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: ShipmentCard(
-                        shipment: filtered[i],
-                        onTap: () =>
-                            context.push('/shipments/${filtered[i].id}'),
-                      ),
+                return NotificationListener<ScrollNotification>(
+                  onNotification: (notification) {
+                    if (notification is ScrollEndNotification ||
+                        notification is ScrollUpdateNotification) {
+                      if (notification.metrics.extentAfter < 200) {
+                        ref.read(shipmentListProvider.notifier).loadNextPage();
+                      }
+                    }
+                    return false;
+                  },
+                  child: RefreshIndicator(
+                    color: AppColors.primary,
+                    backgroundColor: AppColors.card,
+                    onRefresh: () async =>
+                        ref.read(shipmentListProvider.notifier).load(page: 1),
+                    child: ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: filtered.length + (state.isMoreLoading ? 1 : 0),
+                      itemBuilder: (_, i) {
+                        if (i == filtered.length) {
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          );
+                        }
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: ShipmentCard(
+                            shipment: filtered[i],
+                            onTap: () =>
+                                context.push('/shipments/${filtered[i].id}'),
+                          ),
+                        );
+                      },
                     ),
                   ),
                 );
@@ -226,30 +249,6 @@ class _OrderSearchBottomSheetState extends State<_OrderSearchBottomSheet> {
     });
     final repo = widget.ref.read(orderRepositoryProvider);
     var res = await repo.searchOrders(query.trim());
-    if (res.isEmpty) {
-      final dummy = widget.ref.read(confirmedOrdersProvider);
-      final q = query.trim().toLowerCase();
-      final matched = dummy
-          .where(
-            (o) =>
-                o.orderNumber.toLowerCase() == q ||
-                o.orderNumber.toLowerCase().contains(q) ||
-                o.id.toLowerCase().contains(q),
-          )
-          .toList();
-      res = matched
-          .map(
-            (o) => OrderSummary(
-              id: int.tryParse(o.id.replaceAll(RegExp(r'[^0-9]'), '')) ?? 107,
-              orderNumber: o.orderNumber,
-              status: 'confirmed',
-              confirmedAt: o.orderDate.toIso8601String(),
-              customer: OrderCustomer(id: 1, name: o.customerName, code: '1'),
-              shipments: [],
-            ),
-          )
-          .toList();
-    }
     if (!mounted) return;
     if (res.isNotEmpty) {
       setState(() {
@@ -385,7 +384,7 @@ class _OrderSearchBottomSheetState extends State<_OrderSearchBottomSheet> {
                             style: AppTextStyles.bodyMedium,
                           ),
                           subtitle: Text(
-                            o.customer.name,
+                            'Customer ID: ${o.customer.id}',
                             style: AppTextStyles.caption,
                           ),
                           trailing: const Icon(
@@ -400,7 +399,7 @@ class _OrderSearchBottomSheetState extends State<_OrderSearchBottomSheet> {
                                 queryParameters: {
                                   'orderId': o.id.toString(),
                                   'orderNumber': o.orderNumber,
-                                  'customerName': o.customer.name,
+                                  'customerName': 'Customer ID: ${o.customer.id}',
                                 },
                               ).toString(),
                             );

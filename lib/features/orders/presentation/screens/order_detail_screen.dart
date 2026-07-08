@@ -73,7 +73,7 @@ class OrderDetailScreen extends ConsumerWidget {
                   label: 'Create Shipment',
                   icon: Icons.add_box_outlined,
                   onPressed: () => context.push(
-                      '/shipments/create?orderId=${order.id}&orderNumber=${order.orderNumber}&customerName=${order.customer.name}'),
+                      '/shipments/create?orderId=${order.id}&orderNumber=${order.orderNumber}&customerName=Customer ID: ${order.customer.id}'),
                 ),
               ),
             );
@@ -257,7 +257,7 @@ class OrderDetailScreen extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      order.customer.name,
+                      'Customer ID: ${order.customer.id}',
                       style: AppTextStyles.labelMedium
                           .copyWith(color: AppColors.textPrimary),
                     ),

@@ -74,7 +74,7 @@ class _CreateShipmentScreenState extends ConsumerState<CreateShipmentScreen> {
                     (widget.orderId!.startsWith('EFP')
                         ? widget.orderId!
                         : 'EFP-O-10${widget.orderId}'),
-                customerName: widget.customerName ?? 'SaiFlaerhomes',
+                customerName: widget.customerName ?? 'Customer ID: cust_9',
                 customerId: 'cust_9',
                 orderDate: DateTime.now(),
                 lineItems: [],
@@ -165,7 +165,7 @@ class _CreateShipmentScreenState extends ConsumerState<CreateShipmentScreen> {
                         const Icon(Icons.storefront_outlined,
                             size: 14, color: AppColors.textMuted),
                         const SizedBox(width: 5),
-                        Text(order.customerName,
+                        Text('Customer ID: ${order.customerId}',
                             style: AppTextStyles.bodySmall),
                       ]),
                       const SizedBox(height: 10),
@@ -229,7 +229,7 @@ class _CreateShipmentScreenState extends ConsumerState<CreateShipmentScreen> {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                '${order.orderNumber} — ${order.customerName}',
+                '${order.orderNumber} — Customer ID: ${order.customerId}',
                 style: AppTextStyles.labelLarge
                     .copyWith(color: AppColors.primary),
               ),

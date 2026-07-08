@@ -1,5 +1,4 @@
 import 'package:dio/dio.dart' show Dio, DioException;
-import '../../../../core/constants/app_constants.dart';
 import '../../../../core/network/api_endpoints.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/storage/secure_storage.dart';
@@ -95,32 +94,51 @@ class AuthRepository {
     }
   }
 
-  /// Simulate login — replace body with real API call when backend is ready.
+  /// Login with email and password, and persist tokens/cookies returned from server.
   Future<UserModel> login(LoginRequest request) async {
     try {
-      // Simulate network delay
-      await Future.delayed(const Duration(milliseconds: 1200));
-
-      // ── Dummy auth check ───────────────────────────────────────────────────
-      if (request.username != AppConstants.dummyUsername ||
-          request.password != AppConstants.dummyPassword) {
-        throw Exception('Invalid username or password');
+      final response = await _dio.post(
+        ApiEndpoints.login,
+        data: request.toJson(),
+      );
+      if (response.data is Map && response.data['status'] == 'failure') {
+        throw ApiException.fromResponseData(response.data, response.statusCode);
       }
 
-      final user = UserModel(
-        id: 'user_001',
-        name: 'Arjun Sharma',
-        email: '${request.username}@nodeops.com',
-        role: 'Node Admin',
-        nodeId: '',
+      // Extract tokens from response headers or JSON body
+      final tokens = AuthTokens.fromResponse(
+        headers: response.headers,
+        data: response.data is Map<String, dynamic>
+            ? response.data as Map<String, dynamic>
+            : null,
       );
 
-      // Persist session (node not yet selected)
-      await _storage.saveAuthToken(AppConstants.dummyToken);
-      await _storage.saveUserId(user.id);
-      await _storage.saveUserName(user.name);
+      final dataMap = response.data is Map ? response.data as Map : {};
+      final innerData = dataMap['data'] is Map ? dataMap['data'] as Map : dataMap;
+      final userData = innerData['admin'] ?? innerData['user'] ?? innerData;
+      final userModel = UserModel.fromJson(userData as Map<String, dynamic>);
 
-      return user;
+      if (tokens.isValid) {
+        await _storage.saveAuthTokens(
+          accessToken: tokens.accessToken,
+          client: tokens.client,
+          expiry: tokens.expiry,
+          tokenType: tokens.tokenType,
+          uid: tokens.uid,
+        );
+      } else if (tokens.accessToken.isNotEmpty) {
+        await _storage.saveAuthTokens(
+          accessToken: tokens.accessToken,
+          client: tokens.client,
+          expiry: tokens.expiry,
+          tokenType: tokens.tokenType,
+          uid: userModel.email.isNotEmpty ? userModel.email : request.email,
+        );
+      }
+
+      await _storage.saveUserId(userModel.id);
+      await _storage.saveUserName(userModel.name);
+      return userModel;
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     } catch (e) {
@@ -129,21 +147,44 @@ class AuthRepository {
     }
   }
 
-  /// Fetch the list of nodes this user has access to.
-  /// Replace the mock with a real API call when backend is ready.
+  /// Fetch the list of nodes this user has access to by calling /splash_screen.
   Future<List<NodeModel>> getAccessibleNodes() async {
-    // Simulate network delay
-    await Future.delayed(const Duration(milliseconds: 900));
-
-    // ── Mock response ──────────────────────────────────────────────────────
-    return NodeModel.dummyNodes;
+    try {
+      final response = await _dio.get(ApiEndpoints.splashScreen);
+      if (response.data is Map && response.data['status'] == 'failure') {
+        throw ApiException.fromResponseData(response.data, response.statusCode);
+      }
+      if (response.data is Map<String, dynamic>) {
+        final dataList = response.data['data'] as List<dynamic>? ?? [];
+        return dataList
+            .map((e) => NodeModel.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+      return NodeModel.dummyNodes;
+    } on DioException catch (_) {
+      // Fallback for offline/testing if needed
+      return NodeModel.dummyNodes;
+    } catch (_) {
+      return NodeModel.dummyNodes;
+    }
   }
 
   /// Persist the selected node.
-  Future<void> saveNode(String nodeId) => _storage.saveNodeId(nodeId);
+  Future<void> saveNode(String nodeId, {String? nodeAdminId}) async {
+    await _storage.saveNodeId(nodeId);
+    if (nodeAdminId != null && nodeAdminId.isNotEmpty) {
+      await _storage.saveNodeAdminId(nodeAdminId);
+    }
+  }
 
   Future<void> logout() async {
-    await _storage.clearAll();
+    try {
+      await _dio.post(ApiEndpoints.logout);
+    } catch (_) {
+      // Ignore network errors during logout
+    } finally {
+      await _storage.clearAll();
+    }
   }
 
   Future<bool> isLoggedIn() => _storage.isLoggedIn();
@@ -156,13 +197,14 @@ class AuthRepository {
     final userId = await _storage.getUserId() ?? await _storage.getUid();
     final userName = await _storage.getUserName();
     final nodeId = await _storage.getNodeId();
+    final nodeAdminId = await _storage.getNodeAdminId();
 
     if (userId == null) return (user: null, node: null);
 
     final user = UserModel(
       id: userId,
       name: userName ?? 'User',
-      email: 'admin@nodeops.com',
+      email: userId,
       role: 'Node Admin',
       nodeId: nodeId ?? '',
     );
@@ -170,9 +212,12 @@ class AuthRepository {
     // nodeId may be null if user logged in but never selected a node
     NodeModel? node;
     if (nodeId != null) {
-      node = NodeModel.dummyNodes.firstWhere(
-        (n) => n.id == nodeId,
-        orElse: () => NodeModel.dummyNodes.first,
+      node = NodeModel(
+        id: nodeId,
+        nodeAdminId: nodeAdminId ?? '',
+        name: 'Selected Node ($nodeId)',
+        code: 'active',
+        location: '',
       );
     }
 

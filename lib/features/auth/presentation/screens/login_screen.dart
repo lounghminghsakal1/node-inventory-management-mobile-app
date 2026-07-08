@@ -17,8 +17,8 @@ class LoginScreen extends ConsumerStatefulWidget {
 class _LoginScreenState extends ConsumerState<LoginScreen>
     with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
-  final _mobileCtrl = TextEditingController(text: '');
-  final _otpCtrl = TextEditingController(text: '');
+  final _emailCtrl = TextEditingController(text: '');
+  final _passwordCtrl = TextEditingController(text: '');
 
   late AnimationController _bgController;
   late AnimationController _fadeController;
@@ -55,33 +55,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   void dispose() {
     _bgController.dispose();
     _fadeController.dispose();
-    _mobileCtrl.dispose();
-    _otpCtrl.dispose();
+    _emailCtrl.dispose();
+    _passwordCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _handleSendOtp() async {
+  Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
     final success = await ref
         .read(authProvider.notifier)
-        .sendOtp(_mobileCtrl.text.trim());
+        .login(email: _emailCtrl.text.trim(), password: _passwordCtrl.text);
 
     if (!success && mounted) {
-      final error = ref.read(authProvider).error ?? 'Failed to send OTP';
-      _showError(error);
-    }
-  }
-
-  Future<void> _handleVerifyOtp() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    final success = await ref
-        .read(authProvider.notifier)
-        .verifyOtp(otp: _otpCtrl.text.trim());
-
-    if (!success && mounted) {
-      final error = ref.read(authProvider).error ?? 'OTP Verification failed';
+      final error = ref.read(authProvider).error ?? 'Login failed';
       _showError(error);
     }
   }
@@ -103,9 +90,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             ),
           ],
         ),
-        backgroundColor: AppColors.cardElevated,
+        backgroundColor: AppColors.surface,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: AppColors.error, width: 1),
+        ),
         margin: const EdgeInsets.all(16),
       ),
     );
@@ -120,17 +110,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       backgroundColor: AppColors.background,
       body: Stack(
         children: [
-          // ── Animated background ──────────────────────────────────────────
+          // ── Animated background ────────────────────────────────────────
           _AnimatedBackground(controller: _bgController, size: size),
 
-          // ── Content ──────────────────────────────────────────────────────
+          // ── Content ───────────────────────────────────────────────────
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 32,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: FadeTransition(
                   opacity: _fadeAnimation,
                   child: SlideTransition(
@@ -138,18 +125,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // Logo + brand
-                        _buildLogo(),
-                        const SizedBox(height: 40),
-
-                        // Login card
+                        _buildLogoHeader(),
+                        const SizedBox(height: 36),
                         _buildLoginCard(authState),
-
-                        const SizedBox(height: 24),
-                        Text(
-                          'NodeOps v1.0.0  •  WhatsApp Secure Verification',
-                          style: AppTextStyles.caption,
-                        ),
                       ],
                     ),
                   ),
@@ -162,19 +140,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     );
   }
 
-  Widget _buildLogo() {
+  Widget _buildLogoHeader() {
     return Column(
       children: [
         Container(
           width: 80,
           height: 80,
           decoration: BoxDecoration(
-            gradient: AppColors.primaryGradient,
-            borderRadius: BorderRadius.circular(24),
+            gradient: LinearGradient(
+              colors: [AppColors.primary, AppColors.secondary],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(22),
             boxShadow: [
               BoxShadow(
-                color: AppColors.primary.withValues(alpha: 0.45),
-                blurRadius: 32,
+                color: AppColors.primary.withValues(alpha: 0.3),
+                blurRadius: 24,
                 offset: const Offset(0, 8),
               ),
             ],
@@ -211,193 +193,86 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       padding: const EdgeInsets.all(28),
       child: Form(
         key: _formKey,
-        child: authState.otpSent
-            ? _buildOtpStep(authState)
-            : _buildMobileStep(authState),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.lock_person_rounded,
+                    color: AppColors.primary,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Admin Login', style: AppTextStyles.headingXL),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Enter your credentials to access NodeOps',
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // Email Field
+            AppTextField(
+              label: 'Email Address',
+              hint: 'e.g. ravi@flaerhomes.com',
+              controller: _emailCtrl,
+              prefixIcon: Icons.email_outlined,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return 'Email is required';
+                if (!v.contains('@')) return 'Enter a valid email address';
+                return null;
+              },
+            ),
+            const SizedBox(height: 18),
+
+            // Password Field
+            AppTextField(
+              label: 'Password',
+              hint: 'Enter password',
+              controller: _passwordCtrl,
+              prefixIcon: Icons.lock_outline_rounded,
+              obscureText: true,
+              showToggle: true,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _handleLogin(),
+              validator: (v) {
+                if (v == null || v.isEmpty) return 'Password is required';
+                return null;
+              },
+            ),
+            const SizedBox(height: 28),
+
+            // Login Button
+            AppButton(
+              label: 'Login',
+              icon: Icons.login_rounded,
+              isLoading: authState.isLoading,
+              onPressed: _handleLogin,
+            ),
+          ],
+        ),
       ),
-    );
-  }
-
-  Widget _buildMobileStep(AuthState authState) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: const Color(0xFF25D366).withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.chat_bubble_rounded,
-                color: Color(0xFF25D366),
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('WhatsApp Login', style: AppTextStyles.headingXL),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Instant code verification',
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: const Color(0xFF25D366),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 24),
-        Text(
-          'Enter your mobile number to receive a one-time verification code via WhatsApp.',
-          style: AppTextStyles.bodySmall,
-        ),
-        const SizedBox(height: 24),
-
-        // Mobile Number Field
-        AppTextField(
-          label: 'Mobile Number',
-          hint: 'e.g. 9876543210',
-          controller: _mobileCtrl,
-          prefixIcon: Icons.phone_android_rounded,
-          keyboardType: TextInputType.phone,
-          textInputAction: TextInputAction.done,
-          onSubmitted: (_) => _handleSendOtp(),
-          validator: (v) {
-            if (v == null || v.trim().isEmpty)
-              return 'Mobile number is required';
-            if (v.trim().length < 8) return 'Enter a valid mobile number';
-            return null;
-          },
-        ),
-        const SizedBox(height: 24),
-
-        // Send OTP Button
-        AppButton(
-          label: 'Send OTP via WhatsApp',
-          icon: Icons.send_rounded,
-          isLoading: authState.isLoading,
-          onPressed: _handleSendOtp,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildOtpStep(AuthState authState) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.lock_clock_rounded,
-                color: AppColors.primary,
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Verify Code', style: AppTextStyles.headingXL),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Sent to +91 ${authState.mobileNumber ?? _mobileCtrl.text}',
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: AppColors.textPrimary,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 24),
-        Text(
-          'Please enter the 4-digit verification code sent to your WhatsApp account.',
-          style: AppTextStyles.bodySmall,
-        ),
-        const SizedBox(height: 24),
-
-        // OTP Field
-        AppTextField(
-          label: 'Verification Code (OTP)',
-          hint: '• • • •',
-          controller: _otpCtrl,
-          prefixIcon: Icons.pin_outlined,
-          keyboardType: TextInputType.number,
-          textInputAction: TextInputAction.done,
-          onSubmitted: (_) => _handleVerifyOtp(),
-          validator: (v) {
-            if (v == null || v.trim().isEmpty) return 'OTP is required';
-            if (v.trim().length != 4) return 'Enter a 4-digit code';
-            return null;
-          },
-        ),
-        const SizedBox(height: 16),
-
-        // Change phone / Resend row
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            TextButton.icon(
-              onPressed: authState.isLoading
-                  ? null
-                  : () => ref.read(authProvider.notifier).resetLoginStep(),
-              icon: const Icon(
-                Icons.edit_rounded,
-                size: 14,
-                color: AppColors.textSecondary,
-              ),
-              label: Text(
-                'Change Phone',
-                style: AppTextStyles.caption.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ),
-            TextButton.icon(
-              onPressed: authState.isLoading ? null : _handleSendOtp,
-              icon: const Icon(
-                Icons.refresh_rounded,
-                size: 14,
-                color: Color(0xFF25D366),
-              ),
-              label: Text(
-                'Resend OTP',
-                style: AppTextStyles.caption.copyWith(
-                  color: const Color(0xFF25D366),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-
-        // Verify Button
-        AppButton(
-          label: 'Verify & Login',
-          icon: Icons.check_circle_outline_rounded,
-          isLoading: authState.isLoading,
-          onPressed: _handleVerifyOtp,
-        ),
-      ],
     );
   }
 }

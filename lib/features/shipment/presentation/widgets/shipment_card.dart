@@ -30,7 +30,7 @@ class ShipmentCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.card,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.cardBorder),
+          border: Border.all(color: AppColors.cardBorder, width: 2),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -54,16 +54,24 @@ class ShipmentCard extends StatelessWidget {
             // Order Number
             _infoRow(
               Icons.receipt_outlined,
-              'Order: ${shipment.orderNumber}',
+              'Order: #${shipment.orderNumber}',
               AppColors.textSecondary,
             ),
             const SizedBox(height: 6),
 
-            // Customer Code (kept ID only, shown as Customer Code)
+            // Customer Code & ID
             _infoRow(
               Icons.person_outline_rounded,
-              'Customer Code: ${shipment.customerId ?? "1"}',
+              'Customer Code: ${shipment.customerCode ?? shipment.customerId ?? "-"}',
               AppColors.textPrimary,
+            ),
+            const SizedBox(height: 6),
+
+            // Items Count
+            _infoRow(
+              Icons.shopping_bag_outlined,
+              '${shipment.totalItems} Items',
+              AppColors.textSecondary,
             ),
             const SizedBox(height: 12),
 

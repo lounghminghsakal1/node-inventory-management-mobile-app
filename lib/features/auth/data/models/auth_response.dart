@@ -22,6 +22,16 @@ class AuthTokens {
       final fromHeader = headers.value(key);
       if (fromHeader != null && fromHeader.isNotEmpty) return fromHeader;
       if (data != null && data[key] != null) return data[key].toString();
+      if (data != null && data['tokens'] is Map && data['tokens'][key] != null) {
+        return data['tokens'][key].toString();
+      }
+      if (data != null && data['data'] is Map) {
+        final d = data['data'] as Map;
+        if (d['tokens'] is Map && d['tokens'][key] != null) {
+          return d['tokens'][key].toString();
+        }
+        if (d[key] != null) return d[key].toString();
+      }
       if (data != null && data['headers'] is Map && data['headers'][key] != null) {
         return data['headers'][key].toString();
       }
@@ -43,29 +53,37 @@ class AuthTokens {
 // ── Node ──────────────────────────────────────────────────────────────────────
 class NodeModel {
   final String id;
+  final String nodeAdminId;
   final String name;
   final String code;
   final String location;
+  final String status;
 
   const NodeModel({
     required this.id,
+    this.nodeAdminId = '',
     required this.name,
     required this.code,
     required this.location,
+    this.status = 'active',
   });
 
   factory NodeModel.fromJson(Map<String, dynamic> json) => NodeModel(
-        id: json['id'] as String,
-        name: json['name'] as String,
-        code: json['code'] as String,
-        location: json['location'] as String,
+        id: (json['node_id'] ?? json['id'] ?? '').toString(),
+        nodeAdminId: (json['id'] ?? json['node_admin_id'] ?? '').toString(),
+        name: (json['node_name'] ?? json['name'] ?? '').toString(),
+        code: (json['node_type'] ?? json['code'] ?? '').toString(),
+        location: (json['location'] ?? json['status'] ?? '').toString(),
+        status: (json['status'] ?? 'active').toString(),
       );
 
   Map<String, dynamic> toJson() => {
         'id': id,
+        'node_admin_id': nodeAdminId,
         'name': name,
         'code': code,
         'location': location,
+        'status': status,
       };
 
   // ── Dummy nodes ─────────────────────────────────────────────────────────────

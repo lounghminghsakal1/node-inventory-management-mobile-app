@@ -13,8 +13,8 @@ class ApiEndpoints {
   static const String verifyOtp = '/users/login';
   static const String logout = '/logout';
   static const String refreshToken = '/auth/refresh';
-  static const String nodes = '/auth/nodes';
-  static const String splashScreen = '/splash_screen';
+  static const String myNodes = '/my_nodes';
+  static const String splashScreen = '/node_admin_app/v1/splash_screen';
 
   // Home / Dashboard
   static const String dashboard = '/dashboard/stats';
@@ -56,9 +56,26 @@ class ApiEndpoints {
   static String productStock(String productId, String nodeId) =>
       '/inventory/stock?product=$productId&node=$nodeId';
 
+  // Purchase Orders
+  static const String purchaseOrders = '/purchase_orders';
+  static String purchaseOrderDetail(String id) => '/purchase_orders/$id';
+
   // GRN
-  static const String grn = '/grn';
-  static String grnDetail(String id) => '/grn/$id';
+  static const String grn = '/goods_received_notes';
+  static const String goodsReceivedNotes = '/goods_received_notes';
+  static String grnDetail(String id) => '/goods_received_notes/$id';
+  static const String createGrn = '/goods_received_notes/create_grn';
+  static String poReceivingSummary(String poId, [String? grnId]) =>
+      '/goods_received_notes/po_receiving_summary?po_id=$poId${grnId != null ? '&grn_id=$grnId' : ''}';
+  static String verifySerial(String serialNumber, String skuId) =>
+      '/goods_received_notes/verify_serial?serial_number=$serialNumber&product_sku_id=$skuId';
+  static String saveGrnLineItems(String grnId) =>
+      '/goods_received_notes/$grnId/grn_line_items';
+  static String initiateQc(String grnId) =>
+      '/goods_received_notes/$grnId/initiate_qc';
+  static String saveQcLineItems(String grnId) =>
+      '/goods_received_notes/$grnId/qc_line_items';
+
 
   // Audit
   static const String audit = '/audit';

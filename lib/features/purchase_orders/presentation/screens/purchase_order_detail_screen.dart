@@ -22,6 +22,7 @@ class PurchaseOrderDetailScreen extends ConsumerStatefulWidget {
 class _PurchaseOrderDetailScreenState
     extends ConsumerState<PurchaseOrderDetailScreen> {
   int? _expandedGrnId;
+  bool _isLineItemsExpanded = false;
 
   @override
   Widget build(BuildContext context) {
@@ -77,6 +78,10 @@ class _PurchaseOrderDetailScreenState
 
                 // ── Vendor Details Card ─────────────────────────────────────
                 _buildVendorCard(po.vendor),
+                const SizedBox(height: 24),
+
+                // ── PO Line Items Section ───────────────────────────────────
+                _buildLineItemsSection(po.lineItems),
                 const SizedBox(height: 24),
 
                 // ── Goods Received Notes Section ────────────────────────────
@@ -169,6 +174,177 @@ class _PurchaseOrderDetailScreenState
           const SizedBox(height: 8),
           _infoRow(Icons.tag_outlined, 'Vendor Code', vendor.code,
               AppColors.textSecondary),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLineItemsSection(List<PurchaseOrderLineItemModel> lineItems) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: _isLineItemsExpanded ? AppColors.primary : AppColors.cardBorder,
+          width: _isLineItemsExpanded ? 1.5 : 1.0,
+        ),
+      ),
+      child: Column(
+        children: [
+          // Accordion Header
+          InkWell(
+            onTap: () {
+              setState(() {
+                _isLineItemsExpanded = !_isLineItemsExpanded;
+              });
+            },
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.list_alt_outlined,
+                        color: AppColors.primary, size: 22),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'PO Line Items (${lineItems.length})',
+                          style: AppTextStyles.labelLarge,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Items ordered in this purchase order',
+                          style: AppTextStyles.caption.copyWith(color: AppColors.textMuted),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    _isLineItemsExpanded ? Icons.expand_less : Icons.expand_more,
+                    color: AppColors.textMuted,
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Expanded Content
+          if (_isLineItemsExpanded) ...[
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (lineItems.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: AppColors.background,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.cardBorder),
+                      ),
+                      child: Center(
+                        child: Text(
+                          'No line items found.',
+                          style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
+                        ),
+                      ),
+                    )
+                  else
+                    ...lineItems.map((li) => Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: AppColors.background,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.cardBorder),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      li.displayName.isNotEmpty ? li.displayName : li.skuName,
+                                      style: AppTextStyles.headingSmall,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'SKU: ${li.skuCode}',
+                                      style: AppTextStyles.bodySmall.copyWith(color: AppColors.textPrimary),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.surface,
+                                            borderRadius: BorderRadius.circular(4),
+                                            border: Border.all(color: AppColors.cardBorder),
+                                          ),
+                                          child: Text(
+                                            'Tracking: ${li.trackingType.toUpperCase()}',
+                                            style: AppTextStyles.caption.copyWith(fontSize: 11, color: AppColors.textSecondary),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.surface,
+                                            borderRadius: BorderRadius.circular(4),
+                                            border: Border.all(color: AppColors.cardBorder),
+                                          ),
+                                          child: Text(
+                                            'Selection: ${li.selectionType.toUpperCase()}',
+                                            style: AppTextStyles.caption.copyWith(fontSize: 11, color: AppColors.textSecondary),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Text(
+                                      '${li.orderedQuantity}',
+                                      style: AppTextStyles.headingMedium.copyWith(color: AppColors.primary),
+                                    ),
+                                    Text(
+                                      'units',
+                                      style: AppTextStyles.caption.copyWith(color: AppColors.primary, fontSize: 10),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        )),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

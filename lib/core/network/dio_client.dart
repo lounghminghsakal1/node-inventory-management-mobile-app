@@ -82,11 +82,15 @@ Dio _buildDio(FlutterSecureStorage storage) {
           }
         }
 
-        final nodeAdminId =
-            await storage.read(key: AppConstants.keyNodeAdminId) ??
-            await storage.read(key: AppConstants.keyUserId);
-        if (nodeAdminId != null && nodeAdminId.isNotEmpty) {
-          options.headers['Node-Admin-Id'] = nodeAdminId;
+        // Skip Node-Admin-Id for /my_nodes — user hasn't selected a node yet
+        final isMyNodes = options.path.contains('/my_nodes');
+        if (!isMyNodes) {
+          final nodeAdminId =
+              await storage.read(key: AppConstants.keyNodeAdminId) ??
+              await storage.read(key: AppConstants.keyUserId);
+          if (nodeAdminId != null && nodeAdminId.isNotEmpty) {
+            options.headers['Node-Admin-Id'] = nodeAdminId;
+          }
         }
 
         return handler.next(options);

@@ -485,7 +485,7 @@ class _ShipmentTimeline extends StatelessWidget {
     final stages = isReturn
         ? [
             (
-              status != ShipmentStatus.returnCompleted ? 'return_initiated\n(current)' : 'return_initiated',
+              status != ShipmentStatus.returnCompleted ? 'return_initiated\n(current)' : 'return_initiated\n(completed)',
               ShipmentStatus.returnInitiated,
               Icons.keyboard_return_rounded,
             ),
@@ -509,6 +509,7 @@ class _ShipmentTimeline extends StatelessWidget {
         border: Border.all(color: AppColors.cardBorder),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: List.generate(stages.length, (i) {
           final stage = stages[i];
           final isDone = i <= currentIdx && currentIdx != -1;
@@ -593,13 +594,19 @@ class _LineItemRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isReturn =
+        shipment.shipmentType == 'reverse_shipment' ||
+        shipment.status == ShipmentStatus.returnInitiated ||
+        shipment.status == ShipmentStatus.returnCompleted;
     final isUntracked = item.product.trackingType == TrackingType.untracked;
     final canEditAllocation =
         !isUntracked &&
+        !isReturn &&
         (shipment.status == ShipmentStatus.created ||
             shipment.status == ShipmentStatus.allocated);
     final showViewInventory =
         !isUntracked &&
+        !isReturn &&
         (item.isAllocated || canEditAllocation) &&
         shipment.fullyAllocated == true;
 
@@ -656,30 +663,31 @@ class _LineItemRow extends ConsumerWidget {
                   color: AppColors.textSecondary,
                 ),
               ),
-              Row(
-                children: [
-                  Icon(
-                    isUntracked || item.isAllocated
-                        ? Icons.check_circle_rounded
-                        : Icons.radio_button_unchecked_rounded,
-                    size: 14,
-                    color: isUntracked || item.isAllocated
-                        ? AppColors.success
-                        : AppColors.textMuted,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    isUntracked
-                        ? 'No allocation needed'
-                        : (item.isAllocated ? 'Allocated' : 'Pending'),
-                    style: AppTextStyles.caption.copyWith(
+              if (!isReturn)
+                Row(
+                  children: [
+                    Icon(
+                      isUntracked || item.isAllocated
+                          ? Icons.check_circle_rounded
+                          : Icons.radio_button_unchecked_rounded,
+                      size: 14,
                       color: isUntracked || item.isAllocated
                           ? AppColors.success
                           : AppColors.textMuted,
                     ),
-                  ),
-                ],
-              ),
+                    const SizedBox(width: 4),
+                    Text(
+                      isUntracked
+                          ? 'No allocation needed'
+                          : (item.isAllocated ? 'Allocated' : 'Pending'),
+                      style: AppTextStyles.caption.copyWith(
+                        color: isUntracked || item.isAllocated
+                            ? AppColors.success
+                            : AppColors.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
             ],
           ),
           if (showViewInventory) ...[

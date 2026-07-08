@@ -1,9 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/network/dio_client.dart';
 import '../data/models/purchase_order_model.dart';
 import '../data/repositories/purchase_order_repository.dart';
 
 final purchaseOrderRepoProvider = Provider<PurchaseOrderRepository>((ref) {
-  return PurchaseOrderRepository();
+  final dio = ref.watch(dioProvider);
+  return PurchaseOrderRepository(dio);
 });
 
 final purchaseOrderListProvider = FutureProvider.autoDispose<List<PurchaseOrderModel>>((ref) async {
@@ -12,13 +14,8 @@ final purchaseOrderListProvider = FutureProvider.autoDispose<List<PurchaseOrderM
 });
 
 final purchaseOrderByIdProvider = FutureProvider.family.autoDispose<PurchaseOrderModel, int>((ref, id) async {
-  final list = await ref.watch(purchaseOrderListProvider.future);
-  try {
-    return list.firstWhere((po) => po.id == id);
-  } catch (_) {
-    if (list.isNotEmpty) return list.first;
-    throw Exception('Purchase Order not found');
-  }
+  final repo = ref.watch(purchaseOrderRepoProvider);
+  return repo.getPurchaseOrderById(id);
 });
 
 final grnListForPoProvider = FutureProvider.family.autoDispose<List<GrnModel>, int>((ref, poId) async {
@@ -74,9 +71,11 @@ class GrnController extends StateNotifier<AsyncValue<void>> {
       await repo.updateGrnLineItems(grnId, items);
       ref.invalidate(grnDetailProvider(grnId));
       ref.invalidate(grnListForPoProvider(poId));
+      ref.invalidate(poSkuItemsProvider(poId));
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
+      rethrow;
     }
   }
 
@@ -90,6 +89,7 @@ class GrnController extends StateNotifier<AsyncValue<void>> {
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
+      rethrow;
     }
   }
 
@@ -103,17 +103,18 @@ class GrnController extends StateNotifier<AsyncValue<void>> {
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
+      rethrow;
     }
   }
 
-  Future<bool> checkSerialExists(String serial) async {
+  Future<bool> checkSerialExists(String serial, [int productSkuId = 0]) async {
     final repo = ref.read(purchaseOrderRepoProvider);
-    return repo.checkSerialExists(serial);
+    return repo.checkSerialExists(serial, productSkuId);
   }
 
-  Future<bool> validateSerial(String serial) async {
+  Future<bool> validateSerial(String serial, [int productSkuId = 0]) async {
     final repo = ref.read(purchaseOrderRepoProvider);
-    return repo.validateSerial(serial);
+    return repo.validateSerial(serial, productSkuId);
   }
 }
 

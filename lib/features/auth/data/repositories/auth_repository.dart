@@ -2,6 +2,7 @@ import 'package:dio/dio.dart' show Dio, DioException;
 import '../../../../core/network/api_endpoints.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/storage/secure_storage.dart';
+import '../../../home/data/models/dashboard_stats.dart';
 import '../models/auth_response.dart';
 import '../models/login_request.dart';
 
@@ -147,10 +148,11 @@ class AuthRepository {
     }
   }
 
-  /// Fetch the list of nodes this user has access to by calling /splash_screen.
+  /// Fetch the list of nodes this admin has access to by calling /my_nodes.
+  /// Called right after login — no Node-Admin-Id header is needed yet.
   Future<List<NodeModel>> getAccessibleNodes() async {
     try {
-      final response = await _dio.get(ApiEndpoints.splashScreen);
+      final response = await _dio.get(ApiEndpoints.myNodes);
       if (response.data is Map && response.data['status'] == 'failure') {
         throw ApiException.fromResponseData(response.data, response.statusCode);
       }
@@ -160,12 +162,29 @@ class AuthRepository {
             .map((e) => NodeModel.fromJson(e as Map<String, dynamic>))
             .toList();
       }
-      return NodeModel.dummyNodes;
+      return [];
     } on DioException catch (_) {
-      // Fallback for offline/testing if needed
-      return NodeModel.dummyNodes;
+      return [];
     } catch (_) {
-      return NodeModel.dummyNodes;
+      return [];
+    }
+  }
+
+  /// Fetch splash/dashboard data after a node has been selected.
+  /// The Node-Admin-Id header is automatically added by the Dio interceptor.
+  Future<SplashData> getSplashData() async {
+    try {
+      final response = await _dio.get(ApiEndpoints.splashScreen);
+      if (response.data is Map && response.data['status'] == 'failure') {
+        throw ApiException.fromResponseData(response.data, response.statusCode);
+      }
+      final data = (response.data['data'] ?? {}) as Map<String, dynamic>;
+      return SplashData.fromJson(data);
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException(e.toString().replaceFirst('Exception: ', ''));
     }
   }
 

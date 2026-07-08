@@ -25,6 +25,86 @@ class DashboardStats {
   );
 }
 
+// ── Splash / Dashboard API models ────────────────────────────────────────────
+
+class StockAudit {
+  final int id;
+  final String stockAuditNumber;
+  final String auditType;
+  final String scheduledDate;
+
+  const StockAudit({
+    required this.id,
+    required this.stockAuditNumber,
+    required this.auditType,
+    required this.scheduledDate,
+  });
+
+  factory StockAudit.fromJson(Map<String, dynamic> json) => StockAudit(
+        id: json['id'] ?? 0,
+        stockAuditNumber: json['stock_audit_number'] ?? '',
+        auditType: json['audit_type'] ?? '',
+        scheduledDate: json['scheduled_date'] ?? '',
+      );
+}
+
+class SplashData {
+  final int nodeAdminId;
+  final String nodeAdminName;
+  final String nodeAdminEmail;
+  final int nodeId;
+  final String nodeName;
+  final String nodeType;
+  final int pendingForwardShipmentsCount;
+  final int returnInitiatedShipmentsCount;
+  final List<StockAudit> stockAudits;
+
+  const SplashData({
+    required this.nodeAdminId,
+    required this.nodeAdminName,
+    required this.nodeAdminEmail,
+    required this.nodeId,
+    required this.nodeName,
+    required this.nodeType,
+    this.pendingForwardShipmentsCount = 0,
+    this.returnInitiatedShipmentsCount = 0,
+    this.stockAudits = const [],
+  });
+
+  factory SplashData.fromJson(Map<String, dynamic> json) {
+    final admin = json['node_admin'] as Map<String, dynamic>? ?? {};
+    final node = admin['node'] as Map<String, dynamic>? ?? {};
+    final audits = (json['stock_audits'] as List?)
+            ?.map((e) => StockAudit.fromJson(e as Map<String, dynamic>))
+            .toList() ??
+        [];
+    return SplashData(
+      nodeAdminId: admin['id'] ?? 0,
+      nodeAdminName: admin['name'] ?? '',
+      nodeAdminEmail: admin['email'] ?? '',
+      nodeId: node['id'] ?? 0,
+      nodeName: node['name'] ?? '',
+      nodeType: node['node_type'] ?? '',
+      pendingForwardShipmentsCount:
+          json['pending_forward_shipments_count'] ?? 0,
+      returnInitiatedShipmentsCount:
+          json['return_initiated_shipments_count'] ?? 0,
+      stockAudits: audits,
+    );
+  }
+
+  static SplashData get empty => const SplashData(
+        nodeAdminId: 0,
+        nodeAdminName: '',
+        nodeAdminEmail: '',
+        nodeId: 0,
+        nodeName: '',
+        nodeType: '',
+      );
+}
+
+// ── Activity feed (static / placeholder) ─────────────────────────────────────
+
 class ActivityItem {
   final String id;
   final String title;

@@ -14,8 +14,8 @@ class VendorModel {
   factory VendorModel.fromJson(Map<String, dynamic> json) {
     return VendorModel(
       id: json['id'] ?? 0,
-      firmName: json['firm_name'] ?? json['name'] ?? '',
-      code: json['code'] ?? '',
+      firmName: json['firm_name'] ?? json['vendor_name'] ?? json['name'] ?? '',
+      code: json['code'] ?? json['vendor_code'] ?? '',
       status: json['status'] ?? 'active',
     );
   }
@@ -35,9 +35,12 @@ class PurchaseOrderLineItemModel {
   final int productSkuId;
   final String skuName;
   final String skuCode;
+  final String displayName;
   final String trackingType; // 'batch', 'serial', 'untracked'
+  final String selectionType; // 'manual', 'FIFO', 'LIFO'
   final int orderedQuantity;
   final String unitPrice;
+  final double finalAmount;
   final int receivedQuantity;
 
   const PurchaseOrderLineItemModel({
@@ -45,9 +48,12 @@ class PurchaseOrderLineItemModel {
     required this.productSkuId,
     required this.skuName,
     required this.skuCode,
+    this.displayName = '',
     required this.trackingType,
+    this.selectionType = 'manual',
     required this.orderedQuantity,
     required this.unitPrice,
+    this.finalAmount = 0.0,
     this.receivedQuantity = 0,
   });
 
@@ -59,9 +65,12 @@ class PurchaseOrderLineItemModel {
       productSkuId: json['product_sku_id'] ?? 0,
       skuName: json['sku_name'] ?? '',
       skuCode: json['sku_code'] ?? '',
+      displayName: json['display_name'] ?? json['sku_name'] ?? '',
       trackingType: json['tracking_type'] ?? 'untracked',
-      orderedQuantity: json['ordered_quantity'] ?? json['quantity'] ?? 0,
+      selectionType: json['selection_type'] ?? 'manual',
+      orderedQuantity: json['ordered_quantity'] ?? json['total_units'] ?? json['quantity'] ?? 0,
       unitPrice: json['unit_price']?.toString() ?? '0.0',
+      finalAmount: (json['final_amount'] as num?)?.toDouble() ?? 0.0,
       receivedQuantity: json['received_quantity'] ?? 0,
     );
   }
@@ -72,9 +81,12 @@ class PurchaseOrderLineItemModel {
       'product_sku_id': productSkuId,
       'sku_name': skuName,
       'sku_code': skuCode,
+      'display_name': displayName,
       'tracking_type': trackingType,
+      'selection_type': selectionType,
       'ordered_quantity': orderedQuantity,
       'unit_price': unitPrice,
+      'final_amount': finalAmount,
       'received_quantity': receivedQuantity,
     };
   }
@@ -84,9 +96,12 @@ class PurchaseOrderLineItemModel {
     int? productSkuId,
     String? skuName,
     String? skuCode,
+    String? displayName,
     String? trackingType,
+    String? selectionType,
     int? orderedQuantity,
     String? unitPrice,
+    double? finalAmount,
     int? receivedQuantity,
   }) {
     return PurchaseOrderLineItemModel(
@@ -94,9 +109,12 @@ class PurchaseOrderLineItemModel {
       productSkuId: productSkuId ?? this.productSkuId,
       skuName: skuName ?? this.skuName,
       skuCode: skuCode ?? this.skuCode,
+      displayName: displayName ?? this.displayName,
       trackingType: trackingType ?? this.trackingType,
+      selectionType: selectionType ?? this.selectionType,
       orderedQuantity: orderedQuantity ?? this.orderedQuantity,
       unitPrice: unitPrice ?? this.unitPrice,
+      finalAmount: finalAmount ?? this.finalAmount,
       receivedQuantity: receivedQuantity ?? this.receivedQuantity,
     );
   }
@@ -107,10 +125,14 @@ class PoSkuItemModel {
   final int productSkuId;
   final String skuName;
   final String skuCode;
+  final String displayName;
+  final String unitPrice;
   final int totalUnits;
-  final String selectionType; // 'LIFO', 'FIFO'
+  final String selectionType; // 'LIFO', 'FIFO', 'manual'
   final String trackingType; // 'serial', 'batch', 'untracked'
   final int fulfilledQuantity;
+  final int yetToReceive;
+  final int currentGrnQty;
   final bool fullyFulfilled;
 
   const PoSkuItemModel({
@@ -118,26 +140,37 @@ class PoSkuItemModel {
     required this.productSkuId,
     required this.skuName,
     required this.skuCode,
+    this.displayName = '',
+    this.unitPrice = '0.0',
     required this.totalUnits,
     required this.selectionType,
     required this.trackingType,
     required this.fulfilledQuantity,
+    this.yetToReceive = 0,
+    this.currentGrnQty = 0,
     required this.fullyFulfilled,
   });
 
-  int get remainingQuantity => totalUnits - fulfilledQuantity;
+  int get remainingQuantity => yetToReceive > 0 ? yetToReceive : (totalUnits - fulfilledQuantity);
 
   factory PoSkuItemModel.fromJson(Map<String, dynamic> json) {
+    final tot = json['total_units'] ?? 0;
+    final ful = json['fulfilled_quantity'] ?? 0;
+    final yet = json['yet_to_receive'] ?? (tot - ful);
     return PoSkuItemModel(
       id: json['id'] ?? 0,
       productSkuId: json['product_sku_id'] ?? 0,
       skuName: json['sku_name'] ?? '',
       skuCode: json['sku_code'] ?? '',
-      totalUnits: json['total_units'] ?? 0,
+      displayName: json['display_name'] ?? json['sku_name'] ?? '',
+      unitPrice: json['unit_price']?.toString() ?? '0.0',
+      totalUnits: tot,
       selectionType: json['selection_type'] ?? 'FIFO',
       trackingType: json['tracking_type'] ?? 'untracked',
-      fulfilledQuantity: json['fulfilled_quantity'] ?? 0,
-      fullyFulfilled: json['fully_fulfilled'] ?? false,
+      fulfilledQuantity: ful,
+      yetToReceive: yet,
+      currentGrnQty: json['current_grn_qty'] ?? 0,
+      fullyFulfilled: json['fully_fulfilled'] ?? (yet <= 0),
     );
   }
 
@@ -147,10 +180,14 @@ class PoSkuItemModel {
       'product_sku_id': productSkuId,
       'sku_name': skuName,
       'sku_code': skuCode,
+      'display_name': displayName,
+      'unit_price': unitPrice,
       'total_units': totalUnits,
       'selection_type': selectionType,
       'tracking_type': trackingType,
       'fulfilled_quantity': fulfilledQuantity,
+      'yet_to_receive': yetToReceive,
+      'current_grn_qty': currentGrnQty,
       'fully_fulfilled': fullyFulfilled,
     };
   }
@@ -160,21 +197,29 @@ class PurchaseOrderModel {
   final int id;
   final String purchaseOrderNumber;
   final String status;
+  final String? approvedOn;
+  final String? createdDate;
   final String? expiryDate;
   final String? deliveryDate;
   final int totalUnits;
+  final int grnCount;
   final VendorModel vendor;
   final List<PurchaseOrderLineItemModel> lineItems;
+  final List<GrnModel> goodsReceivedNotes;
 
   const PurchaseOrderModel({
     required this.id,
     required this.purchaseOrderNumber,
     required this.status,
+    this.approvedOn,
+    this.createdDate,
     this.expiryDate,
     this.deliveryDate,
     required this.totalUnits,
+    this.grnCount = 0,
     required this.vendor,
     this.lineItems = const [],
+    this.goodsReceivedNotes = const [],
   });
 
   factory PurchaseOrderModel.fromJson(Map<String, dynamic> json) {
@@ -182,12 +227,19 @@ class PurchaseOrderModel {
       id: json['id'] ?? 0,
       purchaseOrderNumber: json['purchase_order_number'] ?? '',
       status: json['status'] ?? '',
+      approvedOn: json['approved_on']?.toString(),
+      createdDate: json['created_date']?.toString(),
       expiryDate: json['expiry_date']?.toString(),
       deliveryDate: json['delivery_date']?.toString(),
       totalUnits: json['total_units'] ?? 0,
+      grnCount: json['grn_count'] ?? 0,
       vendor: VendorModel.fromJson(json['vendor'] ?? {}),
-      lineItems: (json['line_items'] as List?)
+      lineItems: ((json['purchase_order_line_items'] ?? json['line_items']) as List?)
               ?.map((e) => PurchaseOrderLineItemModel.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      goodsReceivedNotes: (json['goods_received_notes'] as List?)
+              ?.map((e) => GrnModel.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
     );
@@ -199,6 +251,8 @@ class GrnBatchModel {
   final String batchCode;
   final String? expiryDate;
   final String? manufactureDate;
+
+  String? get manufacturedDate => manufactureDate;
 
   const GrnBatchModel({
     required this.quantity,
@@ -212,7 +266,7 @@ class GrnBatchModel {
       quantity: json['quantity'] ?? 0,
       batchCode: json['batch_code'] ?? '',
       expiryDate: json['expiry_date']?.toString(),
-      manufactureDate: json['manufacture_date']?.toString(),
+      manufactureDate: json['manufacture_date']?.toString() ?? json['manufactured_date']?.toString() ?? json['manufacturing_date']?.toString(),
     );
   }
 
@@ -221,6 +275,7 @@ class GrnBatchModel {
       'quantity': quantity,
       'batch_code': batchCode,
       'expiry_date': expiryDate,
+      'manufactured_date': manufactureDate,
       'manufacture_date': manufactureDate,
     };
   }
@@ -245,6 +300,7 @@ class GrnLineItemModel {
   final int productSkuId;
   final String skuName;
   final String skuCode;
+  final String displayName;
   final String trackingType;
   final int receivedQuantity;
   final int acceptedQuantity;
@@ -266,12 +322,14 @@ class GrnLineItemModel {
   final List<GrnBatchModel> rejectedBatches;
   final List<String> rejectedSerials;
   final String? rejectionReason;
+  final bool isQcCompleted;
 
   const GrnLineItemModel({
     required this.id,
     required this.productSkuId,
     required this.skuName,
     required this.skuCode,
+    this.displayName = '',
     required this.trackingType,
     required this.receivedQuantity,
     required this.acceptedQuantity,
@@ -293,7 +351,36 @@ class GrnLineItemModel {
     required this.rejectedBatches,
     required this.rejectedSerials,
     this.rejectionReason,
+    this.isQcCompleted = false,
   });
+
+  static List<GrnBatchModel> _parseBatches(dynamic jsonVal) {
+    if (jsonVal is List) {
+      return jsonVal.map((e) {
+        if (e is Map<String, dynamic>) {
+          return GrnBatchModel.fromJson(e);
+        } else if (e is Map) {
+          return GrnBatchModel.fromJson(Map<String, dynamic>.from(e));
+        }
+        return const GrnBatchModel(quantity: 0, batchCode: '');
+      }).toList();
+    } else if (jsonVal is Map) {
+      return jsonVal.entries.map((e) {
+        return GrnBatchModel(
+          batchCode: e.key.toString(),
+          quantity: (e.value as num?)?.toInt() ?? 0,
+        );
+      }).toList();
+    }
+    return [];
+  }
+
+  static List<String> _parseSerials(dynamic jsonVal) {
+    if (jsonVal is List) {
+      return jsonVal.map((e) => e.toString()).toList();
+    }
+    return [];
+  }
 
   factory GrnLineItemModel.fromJson(Map<String, dynamic> json) {
     return GrnLineItemModel(
@@ -301,6 +388,7 @@ class GrnLineItemModel {
       productSkuId: json['product_sku_id'] ?? 0,
       skuName: json['sku_name'] ?? '',
       skuCode: json['sku_code'] ?? '',
+      displayName: json['display_name'] ?? json['sku_name'] ?? '',
       trackingType: json['tracking_type'] ?? 'untracked',
       receivedQuantity: json['received_quantity'] ?? 0,
       acceptedQuantity: json['accepted_quantity'] ?? 0,
@@ -315,31 +403,20 @@ class GrnLineItemModel {
       sgstAmount: json['sgst_amount']?.toString() ?? '0.0',
       igstAmount: json['igst_amount']?.toString() ?? '0.0',
       finalAmount: (json['final_amount'] as num?)?.toDouble() ?? 0.0,
-      receivedBatches: (json['received_batches'] as List?)
+      receivedBatches: ((json['received_batches'] ?? json['batch_details']) as List?)
               ?.map((e) => GrnBatchModel.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
-      receivedSerials: (json['received_serials'] as List?)
+      receivedSerials: ((json['received_serials'] ?? json['serial'] ?? json['serials']) as List?)
               ?.map((e) => e.toString())
               .toList() ??
           [],
-      acceptedBatches: (json['accepted_batches'] as List?)
-              ?.map((e) => GrnBatchModel.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [],
-      acceptedSerials: (json['accepted_serials'] as List?)
-              ?.map((e) => e.toString())
-              .toList() ??
-          [],
-      rejectedBatches: (json['rejected_batches'] as List?)
-              ?.map((e) => GrnBatchModel.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [],
-      rejectedSerials: (json['rejected_serials'] as List?)
-              ?.map((e) => e.toString())
-              .toList() ??
-          [],
+      acceptedBatches: _parseBatches(json['accepted_batches'] ?? json['accepted_batch_codes']),
+      acceptedSerials: _parseSerials(json['accepted_serials'] ?? json['accepted_serial_codes']),
+      rejectedBatches: _parseBatches(json['rejected_batches'] ?? json['rejected_batch_codes']),
+      rejectedSerials: _parseSerials(json['rejected_serials'] ?? json['rejected_serial_codes']),
       rejectionReason: json['rejection_reason']?.toString(),
+      isQcCompleted: json['is_qc_completed'] ?? false,
     );
   }
 
@@ -462,6 +539,9 @@ class GrnModel {
   final String createdByName;
   final String createdByEmail;
   final List<GrnLineItemModel> lineItems;
+  final String? remarks;
+  final String? qcPendingAt;
+  final String? completedAt;
 
   const GrnModel({
     required this.id,
@@ -495,6 +575,9 @@ class GrnModel {
     required this.createdByName,
     this.createdByEmail = 'lounghminghsakal@flaerhomes.com',
     this.lineItems = const [],
+    this.remarks,
+    this.qcPendingAt,
+    this.completedAt,
   });
 
   factory GrnModel.fromJson(Map<String, dynamic> json) {
@@ -509,7 +592,7 @@ class GrnModel {
       status: json['status'] ?? '',
       directGrn: json['direct_grn'] ?? false,
       vendorInvoiceDate: json['vendor_invoice_date']?.toString(),
-      vendorInvoiceNo: json['vendor_invoice_no']?.toString(),
+      vendorInvoiceNo: json['vendor_invoice_no']?.toString() ?? json['vendor_invoice']?.toString(),
       receivedDate: json['received_date']?.toString(),
       finalAmount: (json['final_amount'] as num?)?.toDouble() ?? 0.0,
       totalReceivedQuantity: json['total_received_quantity'] ?? 0,
@@ -524,20 +607,23 @@ class GrnModel {
       sgstAmount: json['sgst_amount']?.toString() ?? '0.0',
       igstAmount: json['igst_amount']?.toString() ?? '0.0',
       vendorInvoiceS3Url: json['vendor_invoice_s3_url']?.toString(),
-      vendorId: vendorObj['id'] ?? 23,
-      vendorName: vendorObj['name'] ?? vendorObj['firm_name'] ?? '',
+      vendorId: vendorObj['id'] ?? json['vendor_id'] ?? 0,
+      vendorName: vendorObj['name'] ?? vendorObj['firm_name'] ?? vendorObj['vendor_name'] ?? json['vendor_name'] ?? '',
       vendorType: vendorObj['vendor_type'] ?? 'manufacturer',
-      nodeId: nodeObj['id'] ?? 8,
-      nodeName: nodeObj['name'] ?? '',
-      purchaseOrderId: poObj['id'] ?? 132,
-      purchaseOrderNumber: poObj['purchase_order_number'] ?? '',
-      createdById: creatorObj['id'] ?? 14,
-      createdByName: creatorObj['name'] ?? '',
-      createdByEmail: creatorObj['email'] ?? 'lounghminghsakal@flaerhomes.com',
-      lineItems: (json['line_items'] as List?)
+      nodeId: nodeObj['id'] ?? json['node_id'] ?? 0,
+      nodeName: nodeObj['name'] ?? json['node_name'] ?? '',
+      purchaseOrderId: poObj['id'] ?? json['purchase_order_id'] ?? 0,
+      purchaseOrderNumber: poObj['purchase_order_number'] ?? json['purchase_order_number'] ?? '',
+      createdById: creatorObj['id'] ?? json['created_by_id'] ?? 0,
+      createdByName: creatorObj['name'] ?? creatorObj['created_by_name'] ?? '',
+      createdByEmail: creatorObj['email'] ?? creatorObj['created_by_email'] ?? '',
+      lineItems: ((json['grn_line_items'] ?? json['line_items']) as List?)
               ?.map((e) => GrnLineItemModel.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
+      remarks: json['remarks']?.toString(),
+      qcPendingAt: json['qc_pending_at']?.toString(),
+      completedAt: json['completed_at']?.toString(),
     );
   }
 

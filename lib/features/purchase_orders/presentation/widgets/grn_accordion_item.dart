@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/theme/app_colors.dart';
@@ -28,18 +29,19 @@ class GrnAccordionItem extends ConsumerStatefulWidget {
 
 class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
   // Inwarding form state (for 'created' status)
-  PoSkuItemModel? _selectedPoItem;
-  final _receivedQtyController = TextEditingController();
-  List<GrnBatchModel> _tempBatches = [];
-  List<String> _tempSerials = [];
+  final Map<int, TextEditingController> _skuQtyControllers = {};
+  final Map<int, List<GrnBatchModel>> _skuBatches = {};
+  final Map<int, List<String>> _skuSerials = {};
 
   // QC state (for 'qc_pending' status)
   final Map<int, GrnLineItemModel> _qcModifiedItems = {};
-  bool _qcSubmitted = false;
+  String? _loadingAction;
 
   @override
   void dispose() {
-    _receivedQtyController.dispose();
+    for (final c in _skuQtyControllers.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -48,14 +50,12 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.grn.id != widget.grn.id || oldWidget.grn.status != widget.grn.status) {
       _qcModifiedItems.clear();
-      _qcSubmitted = false;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final grn = widget.grn;
-    final statusLower = grn.status.toLowerCase();
 
     return Container(
       decoration: BoxDecoration(
@@ -115,7 +115,14 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
             const Divider(height: 1),
             Padding(
               padding: const EdgeInsets.all(16),
-              child: _buildExpandedBody(statusLower),
+              child: ref.watch(grnDetailProvider(widget.grn.id)).when(
+                loading: () => const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 32),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+                error: (e, _) => _buildExpandedBody(widget.grn), // fallback
+                data: (detailedGrn) => _buildExpandedBody(detailedGrn),
+              ),
             ),
           ],
         ],
@@ -123,21 +130,21 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
     );
   }
 
-  Widget _buildExpandedBody(String statusLower) {
+  Widget _buildExpandedBody(GrnModel grn) {
+    final statusLower = grn.status.toLowerCase();
     if (statusLower == 'created') {
-      return _buildCreatedStatusView();
+      return _buildCreatedStatusView(grn);
     } else if (statusLower == 'qc_pending' || statusLower == 'waiting_for_approval') {
-      return _buildQcPendingStatusView();
+      return _buildQcPendingStatusView(grn);
     } else {
-      return _buildCompletedStatusView();
+      return _buildCompletedStatusView(grn);
     }
   }
 
   // ===========================================================================
   // 1. CREATED STATUS VIEW (No Price Fields, Inwarding with Batch/Serial Modals)
   // ===========================================================================
-  Widget _buildCreatedStatusView() {
-    final grn = widget.grn;
+  Widget _buildCreatedStatusView(GrnModel grn) {
     final asyncSkuItems = ref.watch(poSkuItemsProvider(grn.purchaseOrderId));
 
     return Column(
@@ -156,7 +163,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  "GRN Status: CREATED. Select line items that came to node, enter received quantities (up to remaining units), and attach batches/serials. All price fields are hidden.",
+                  "GRN Status: CREATED. Enter received quantities directly for items that arrived at the node and attach any batches/serials. Fully received items are grayed out. All price fields are hidden.",
                   style: AppTextStyles.caption.copyWith(color: AppColors.textPrimary),
                 ),
               ),
@@ -164,132 +171,234 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
           ),
         ),
         const SizedBox(height: 20),
+        _buildInvoiceMetadataCard(grn),
 
         // Inwarding Form
         Text("Inward Line Items", style: AppTextStyles.headingMedium),
         const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.card,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.cardBorder),
+        asyncSkuItems.when(
+          loading: () => const Padding(
+            padding: EdgeInsets.symmetric(vertical: 20),
+            child: Center(child: CircularProgressIndicator()),
           ),
-          child: asyncSkuItems.when(
-            loading: () => const Padding(
-              padding: EdgeInsets.symmetric(vertical: 20),
-              child: Center(child: CircularProgressIndicator()),
-            ),
-            error: (e, _) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: Text("Failed to load PO SKU items: $e",
-                  style: AppTextStyles.caption.copyWith(color: AppColors.error)),
-            ),
-            data: (skuItems) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text("Select Purchase Order Line Item", style: AppTextStyles.labelMedium),
-                  const SizedBox(height: 6),
-                  DropdownButtonFormField<PoSkuItemModel>(
-                    value: _selectedPoItem,
-                    isExpanded: true,
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      filled: true,
-                      fillColor: AppColors.surface,
-                    ),
-                    hint: const Text("Choose SKU line item to inward"),
-                    items: skuItems.map((poLi) {
-                      final isFulfilled = poLi.fullyFulfilled || poLi.remainingQuantity <= 0;
-                      return DropdownMenuItem<PoSkuItemModel>(
-                        value: isFulfilled ? null : poLi,
-                        enabled: !isFulfilled,
-                        child: Text(
-                          "${poLi.skuName} (Rem: ${poLi.remainingQuantity} / Total: ${poLi.totalUnits} • ${poLi.selectionType} • ${poLi.trackingType.toUpperCase()})${isFulfilled ? ' - FULFILLED' : ''}",
-                          style: AppTextStyles.bodyMedium.copyWith(
-                            color: isFulfilled ? AppColors.textMuted : AppColors.textPrimary,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      );
-                    }).toList(),
-                    onChanged: (val) {
-                      setState(() {
-                        _selectedPoItem = val;
-                        _receivedQtyController.text = val?.remainingQuantity.toString() ?? '';
-                        _tempBatches.clear();
-                        _tempSerials.clear();
-                      });
-                    },
-                  ),
-                  if (_selectedPoItem != null) ...[
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: AppTextField(
-                            label: "Received Qty (Max: ${_selectedPoItem!.remainingQuantity})",
-                            controller: _receivedQtyController,
-                            keyboardType: TextInputType.number,
-                            onChanged: (val) {
-                              setState(() {});
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        if (_selectedPoItem!.trackingType == 'batch')
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          error: (e, _) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Text("Failed to load PO SKU items: $e",
+                style: AppTextStyles.caption.copyWith(color: AppColors.error)),
+          ),
+          data: (skuItems) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ...skuItems.map((poLi) {
+                  final isFulfilled = poLi.fullyFulfilled || poLi.remainingQuantity <= 0;
+                  final controller = _skuQtyControllers.putIfAbsent(poLi.productSkuId, () => TextEditingController());
+                  final batches = _skuBatches.putIfAbsent(poLi.productSkuId, () => []);
+                  final serials = _skuSerials.putIfAbsent(poLi.productSkuId, () => []);
+
+                  if (isFulfilled) {
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppColors.card.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.cardBorder.withValues(alpha: 0.5)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(poLi.skuName, style: AppTextStyles.labelMedium.copyWith(color: AppColors.textMuted)),
+                                const SizedBox(height: 4),
+                                Text("SKU: ${poLi.skuCode} • Type: ${poLi.trackingType.toUpperCase()}",
+                                    style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
+                              ],
                             ),
-                            icon: const Icon(Icons.layers_outlined, size: 18),
-                            label: Text("Add Batches (${_tempBatches.length})"),
-                            onPressed: _openBatchModal,
-                          )
-                        else if (_selectedPoItem!.trackingType == 'serial')
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            ),
-                            icon: const Icon(Icons.qr_code_scanner_outlined, size: 18),
-                            label: Text("Add Serials (${_tempSerials.length})"),
-                            onPressed: _openSerialModal,
-                          )
-                        else
+                          ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
-                              color: AppColors.success.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(12),
+                              color: AppColors.textMuted.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(6),
                             ),
-                            child: Text("Untracked Item",
-                                style: AppTextStyles.labelMedium.copyWith(color: AppColors.success)),
+                            child: Text("Remaining Qty: 0 (Fully Inwarded)", style: AppTextStyles.caption.copyWith(color: AppColors.textMuted, fontWeight: FontWeight.bold)),
                           ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.card,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.cardBorder),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(poLi.skuName, style: AppTextStyles.headingMedium.copyWith(fontSize: 16)),
+                                  const SizedBox(height: 4),
+                                  Text("SKU: ${poLi.skuCode} • Type: ${poLi.trackingType.toUpperCase()} • ${poLi.selectionType}",
+                                      style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text("Remaining Qty: ${poLi.remainingQuantity} / Total: ${poLi.totalUnits}",
+                                  style: AppTextStyles.labelMedium.copyWith(color: AppColors.primary, fontWeight: FontWeight.bold)),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Builder(
+                          builder: (context) {
+                            final enteredQty = int.tryParse(controller.text) ?? 0;
+                            final isQtyExceeded = enteredQty > poLi.remainingQuantity;
+                            final isBatchesAdded = batches.isNotEmpty && batches.fold<int>(0, (s, b) => s + b.quantity) == enteredQty && enteredQty > 0;
+                            final isSerialsAdded = serials.isNotEmpty && serials.length == enteredQty && enteredQty > 0;
+
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      flex: 2,
+                                      child: AppTextField(
+                                        label: "Received Qty (Max: ${poLi.remainingQuantity})",
+                                        controller: controller,
+                                        keyboardType: TextInputType.number,
+                                        onChanged: (val) {
+                                          final newQty = int.tryParse(val) ?? 0;
+                                          if (poLi.trackingType == 'batch') {
+                                            final currentBatchSum = batches.fold<int>(0, (s, b) => s + b.quantity);
+                                            if (newQty != currentBatchSum) {
+                                              batches.clear();
+                                            }
+                                          } else if (poLi.trackingType == 'serial') {
+                                            if (newQty != serials.length) {
+                                              serials.clear();
+                                            }
+                                          }
+                                          setState(() {});
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      flex: 3,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.background,
+                                          borderRadius: BorderRadius.circular(10),
+                                          border: Border.all(color: AppColors.cardBorder),
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            if (poLi.trackingType == 'batch')
+                                              Expanded(
+                                                child: ElevatedButton.icon(
+                                                  style: ElevatedButton.styleFrom(
+                                                    backgroundColor: isBatchesAdded ? AppColors.success : AppColors.primary,
+                                                    foregroundColor: Colors.white,
+                                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                                  ),
+                                                  icon: Icon(isBatchesAdded ? Icons.check_circle_outline : Icons.layers_outlined, size: 18),
+                                                  label: Text(
+                                                    isBatchesAdded ? "Batches Added (${batches.length})" : "Add Batches (${batches.length})",
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                  onPressed: () => _openBatchModalForSku(poLi),
+                                                ),
+                                              )
+                                            else if (poLi.trackingType == 'serial')
+                                              Expanded(
+                                                child: ElevatedButton.icon(
+                                                  style: ElevatedButton.styleFrom(
+                                                    backgroundColor: isSerialsAdded ? AppColors.success : AppColors.primary,
+                                                    foregroundColor: Colors.white,
+                                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                                  ),
+                                                  icon: Icon(isSerialsAdded ? Icons.check_circle_outline : Icons.qr_code_scanner_outlined, size: 18),
+                                                  label: Text(
+                                                    isSerialsAdded ? "Serials Added (${serials.length})" : "Add Serials (${serials.length})",
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                  onPressed: () => _openSerialModalForSku(poLi),
+                                                ),
+                                              )
+                                            else
+                                              Center(
+                                                child: Text("Untracked Item",
+                                                    style: AppTextStyles.caption.copyWith(color: AppColors.success, fontWeight: FontWeight.w600)),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (isQtyExceeded) ...[
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    "Received quantity ($enteredQty) cannot exceed remaining quantity (${poLi.remainingQuantity}).",
+                                    style: AppTextStyles.caption.copyWith(color: AppColors.error, fontWeight: FontWeight.w600),
+                                  ),
+                                ],
+                              ],
+                            );
+                          },
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    SizedBox(
+                  );
+                }),
+                const SizedBox(height: 16),
+                Builder(
+                  builder: (context) {
+                    final hasExceededQty = skuItems.any((poLi) {
+                      if (poLi.fullyFulfilled || poLi.remainingQuantity <= 0) return false;
+                      final q = int.tryParse(_skuQtyControllers[poLi.productSkuId]?.text ?? '0') ?? 0;
+                      return q > poLi.remainingQuantity;
+                    });
+                    return SizedBox(
                       width: double.infinity,
                       child: AppButton(
-                        label: "Add Item to GRN",
+                        label: "Add Line Items to GRN",
                         icon: Icons.add_circle_outline,
-                        height: 46,
-                        onPressed: _addItemToGrn,
+                        height: 48,
+                        isLoading: _loadingAction == 'add',
+                        onPressed: (hasExceededQty || _loadingAction != null) ? null : () => _addItemsToGrn(skuItems),
                       ),
-                    ),
-                  ],
-                ],
-              );
-            },
-          ),
+                    );
+                  },
+                ),
+              ],
+            );
+          },
         ),
         const SizedBox(height: 24),
 
@@ -308,90 +417,74 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
           Column(
             children: grn.lineItems.map((li) {
               return Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(10),
+                  color: AppColors.card,
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: AppColors.cardBorder),
                 ),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(li.skuName, style: AppTextStyles.labelMedium),
-                          const SizedBox(height: 4),
-                          Row(
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Flexible(child: Text(li.skuName, style: AppTextStyles.labelMedium)),
+                        Text("${li.receivedQuantity} units",
+                            style: AppTextStyles.headingMedium.copyWith(color: AppColors.primary),),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text("SKU: ${li.skuCode} • Type: ${li.trackingType.toUpperCase()}",
+                        style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
+                    if (li.trackingType == 'batch' || li.trackingType == 'serial') ...[
+                      const SizedBox(height: 8),
+                      InkWell(
+                        onTap: () => _showInwardedItemDetailsModal(li, isEditing: false),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              Expanded(child: Text("SKU: ${li.skuCode}", style: AppTextStyles.caption, overflow: TextOverflow.ellipsis)),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: AppColors.card,
-                                  borderRadius: BorderRadius.circular(4),
+                              const Icon(Icons.visibility_outlined, size: 16, color: AppColors.primary),
+                              const SizedBox(width: 6),
+                              Text(
+                                li.trackingType == 'batch'
+                                    ? "View Batches (${li.receivedBatches.length})"
+                                    : "View Serials (${li.receivedSerials.length})",
+                                style: AppTextStyles.labelSmall.copyWith(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w600,
                                 ),
-                                child: Text(li.trackingType.toUpperCase(),
-                                    style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.bold)),
                               ),
                             ],
                           ),
-                          if (li.receivedBatches.isNotEmpty || li.receivedSerials.isNotEmpty) ...[
-                            const SizedBox(height: 6),
-                            InkWell(
-                              onTap: () => _showDetailsPopup(li, isAccepted: true, isReceivedOnly: true),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.visibility_outlined, size: 14, color: AppColors.primary),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      li.trackingType == 'batch'
-                                          ? "View Batches (${li.receivedBatches.length})"
-                                          : "View Serials (${li.receivedSerials.length})",
-                                      style: AppTextStyles.caption.copyWith(color: AppColors.primary, fontWeight: FontWeight.w600),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text("${li.receivedQuantity} units",
-                            style: AppTextStyles.labelLarge.copyWith(color: AppColors.primary)),
-                        const SizedBox(height: 4),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit_outlined, size: 18, color: AppColors.textMuted),
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                              onPressed: () => _editGrnItem(li),
-                            ),
-                            const SizedBox(width: 12),
-                            IconButton(
-                              icon: const Icon(Icons.delete_outline, size: 18, color: AppColors.error),
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                              onPressed: () => _removeGrnItem(li),
-                            ),
-                          ],
                         ),
+                      ),
+                    ],
+                    // const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        if (_loadingAction == 'update_${li.id}')
+                          const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                          )
+                        else
+                          TextButton.icon(
+                            icon: const Icon(Icons.edit_outlined, size: 18),
+                            label: const Text("Edit"),
+                            onPressed: _loadingAction != null ? null : () => _showInwardedItemDetailsModal(li, isEditing: true),
+                          ),
                       ],
                     ),
                   ],
@@ -407,170 +500,271 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
           child: AppButton(
             label: "Proceed to QC",
             icon: Icons.arrow_forward_rounded,
-            onPressed: grn.lineItems.isEmpty ? null : _proceedToQc,
+            isLoading: _loadingAction == 'proceed_qc',
+            onPressed: (grn.lineItems.isEmpty || _loadingAction != null) ? null : _proceedToQc,
           ),
         ),
       ],
     );
   }
 
-  void _openBatchModal() {
-    final qtyVal = int.tryParse(_receivedQtyController.text) ?? 0;
-    if (qtyVal <= 0) {
+  void _openBatchModalForSku(PoSkuItemModel poLi) {
+    final controller = _skuQtyControllers.putIfAbsent(poLi.productSkuId, () => TextEditingController());
+    final qtyVal = int.tryParse(controller.text) ?? 0;
+    if (qtyVal <= 0 || qtyVal > poLi.remainingQuantity) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Enter a valid Received Qty first"), backgroundColor: AppColors.error),
+        SnackBar(content: Text("Please enter Received Qty between 1 and ${poLi.remainingQuantity} first"), backgroundColor: AppColors.error),
       );
       return;
     }
 
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (ctx) => _BatchInputModal(
         targetQty: qtyVal,
-        initialBatches: _tempBatches,
+        initialBatches: _skuBatches[poLi.productSkuId] ?? [],
         onSave: (batches) {
           setState(() {
-            _tempBatches = batches;
+            _skuBatches[poLi.productSkuId] = batches;
           });
         },
       ),
     );
   }
 
-  void _openSerialModal() {
-    final qtyVal = int.tryParse(_receivedQtyController.text) ?? 0;
-    if (qtyVal <= 0) {
+  void _openSerialModalForSku(PoSkuItemModel poLi) {
+    final controller = _skuQtyControllers.putIfAbsent(poLi.productSkuId, () => TextEditingController());
+    final qtyVal = int.tryParse(controller.text) ?? 0;
+    if (qtyVal <= 0 || qtyVal > poLi.remainingQuantity) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Enter a valid Received Qty first"), backgroundColor: AppColors.error),
+        SnackBar(content: Text("Please enter Received Qty between 1 and ${poLi.remainingQuantity} first"), backgroundColor: AppColors.error),
       );
       return;
     }
 
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (ctx) => _SerialInputModal(
         targetQty: qtyVal,
-        initialSerials: _tempSerials,
+        productSkuId: poLi.productSkuId,
+        initialSerials: _skuSerials[poLi.productSkuId] ?? [],
         onSave: (serials) {
           setState(() {
-            _tempSerials = serials;
+            _skuSerials[poLi.productSkuId] = serials;
           });
         },
       ),
     );
   }
 
-  void _addItemToGrn() {
-    final qtyVal = int.tryParse(_receivedQtyController.text) ?? 0;
-    if (qtyVal <= 0 || qtyVal > (_selectedPoItem!.remainingQuantity)) {
+  Future<void> _addItemsToGrn(List<PoSkuItemModel> allSkuItems) async {
+    List<GrnLineItemModel> payloadItems = [];
+
+    for (final poLi in allSkuItems) {
+      if (poLi.remainingQuantity <= 0 || poLi.fullyFulfilled) continue;
+      final controller = _skuQtyControllers[poLi.productSkuId];
+      final qtyVal = int.tryParse(controller?.text ?? '') ?? 0;
+      if (qtyVal <= 0) continue;
+
+      if (qtyVal > poLi.remainingQuantity) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Received Qty for ${poLi.skuName} cannot exceed ${poLi.remainingQuantity}"), backgroundColor: AppColors.error),
+        );
+        return;
+      }
+
+      final batches = _skuBatches[poLi.productSkuId] ?? [];
+      final serials = _skuSerials[poLi.productSkuId] ?? [];
+
+      if (poLi.trackingType == 'batch') {
+        final totalBatchQty = batches.fold<int>(0, (sum, b) => sum + b.quantity);
+        if (totalBatchQty != qtyVal) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Total batch quantity ($totalBatchQty) for '${poLi.skuName}' must equal Received Qty ($qtyVal)"),
+              backgroundColor: AppColors.error,
+            ),
+          );
+          return;
+        }
+        if (batches.any((b) => b.batchCode.trim().isEmpty)) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("All batches for '${poLi.skuName}' must have a valid Batch Code"),
+              backgroundColor: AppColors.error,
+            ),
+          );
+          return;
+        }
+      } else if (poLi.trackingType == 'serial') {
+        if (serials.length != qtyVal) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Total serials count (${serials.length}) for '${poLi.skuName}' must equal Received Qty ($qtyVal)"),
+              backgroundColor: AppColors.error,
+            ),
+          );
+          return;
+        }
+      }
+
+      payloadItems.add(GrnLineItemModel(
+        id: DateTime.now().millisecondsSinceEpoch % 100000 + poLi.productSkuId,
+        productSkuId: poLi.productSkuId,
+        skuName: poLi.skuName,
+        skuCode: poLi.skuCode,
+        trackingType: poLi.trackingType,
+        receivedQuantity: qtyVal,
+        acceptedQuantity: 0,
+        rejectedQuantity: 0,
+        unitPrice: '0.0', // No price fields stored or shown
+        receivedAmount: '0.0',
+        acceptedAmount: '0.0',
+        rejectedAmount: '0.0',
+        taxableAmount: '0.0',
+        taxAmount: '0.0',
+        cgstAmount: '0.0',
+        sgstAmount: '0.0',
+        igstAmount: '0.0',
+        finalAmount: 0.0,
+        receivedBatches: batches,
+        receivedSerials: serials,
+        acceptedBatches: [],
+        acceptedSerials: [],
+        rejectedBatches: [],
+        rejectedSerials: [],
+      ));
+    }
+
+    if (payloadItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Quantity must be between 1 and ${_selectedPoItem!.remainingQuantity}"),
-          backgroundColor: AppColors.error,
-        ),
+        const SnackBar(content: Text("Please enter Received Qty > 0 for at least one item"), backgroundColor: AppColors.error),
       );
       return;
     }
 
-    if (_selectedPoItem!.trackingType == 'batch') {
-      final totalBatchQty = _tempBatches.fold<int>(0, (sum, b) => sum + b.quantity);
-      if (totalBatchQty != qtyVal) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Total batch quantity ($totalBatchQty) must equal received quantity ($qtyVal)"),
-            backgroundColor: AppColors.error,
-          ),
-        );
-        return;
-      }
-    } else if (_selectedPoItem!.trackingType == 'serial') {
-      if (_tempSerials.length != qtyVal) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Total serials count (${_tempSerials.length}) must equal received quantity ($qtyVal)"),
-            backgroundColor: AppColors.error,
-          ),
-        );
-        return;
-      }
+    final currentLineItems = ref.read(grnDetailProvider(widget.grn.id)).value?.lineItems ?? widget.grn.lineItems;
+    final Map<int, GrnLineItemModel> combinedMap = {};
+    for (final item in currentLineItems) {
+      combinedMap[item.productSkuId] = item;
     }
+    for (final newItem in payloadItems) {
+      combinedMap[newItem.productSkuId] = newItem;
+    }
+    final updatedList = combinedMap.values.toList();
 
-    final newItem = GrnLineItemModel(
-      id: DateTime.now().millisecondsSinceEpoch % 100000,
-      productSkuId: _selectedPoItem!.productSkuId,
-      skuName: _selectedPoItem!.skuName,
-      skuCode: _selectedPoItem!.skuCode,
-      trackingType: _selectedPoItem!.trackingType,
-      receivedQuantity: qtyVal,
-      acceptedQuantity: 0,
-      rejectedQuantity: 0,
-      unitPrice: '0.0', // No price fields stored or shown
-      receivedAmount: '0.0',
-      acceptedAmount: '0.0',
-      rejectedAmount: '0.0',
-      taxableAmount: '0.0',
-      taxAmount: '0.0',
-      cgstAmount: '0.0',
-      sgstAmount: '0.0',
-      igstAmount: '0.0',
-      finalAmount: 0.0,
-      receivedBatches: _tempBatches,
-      receivedSerials: _tempSerials,
-      acceptedBatches: [],
-      acceptedSerials: [],
-      rejectedBatches: [],
-      rejectedSerials: [],
-    );
-
-    final updatedList = List<GrnLineItemModel>.from(widget.grn.lineItems)..add(newItem);
-    ref.read(grnControllerProvider.notifier).updateGrnLineItems(widget.grn.id, widget.grn.purchaseOrderId, updatedList);
-
-    setState(() {
-      _selectedPoItem = null;
-      _receivedQtyController.clear();
-      _tempBatches.clear();
-      _tempSerials.clear();
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Item added to GRN"), backgroundColor: AppColors.success),
-    );
-  }
-
-  void _editGrnItem(GrnLineItemModel li) {
-    final asyncSkuItems = ref.read(poSkuItemsProvider(widget.grn.purchaseOrderId));
-    asyncSkuItems.whenData((skuItems) {
-      final skuItem = skuItems.firstWhere(
-        (p) => p.productSkuId == li.productSkuId,
-        orElse: () => skuItems.first,
-      );
+    setState(() => _loadingAction = 'add');
+    try {
+      await ref.read(grnControllerProvider.notifier).updateGrnLineItems(widget.grn.id, widget.grn.purchaseOrderId, updatedList);
+      if (!mounted) return;
       setState(() {
-        _selectedPoItem = skuItem;
-        _receivedQtyController.text = li.receivedQuantity.toString();
-        _tempBatches = List.from(li.receivedBatches);
-        _tempSerials = List.from(li.receivedSerials);
+        for (final c in _skuQtyControllers.values) c.clear();
+        _skuBatches.clear();
+        _skuSerials.clear();
       });
-      _removeGrnItem(li);
-    });
+      ref.invalidate(grnDetailProvider(widget.grn.id));
+      await ref.read(grnDetailProvider(widget.grn.id).future);
+      ref.invalidate(poSkuItemsProvider(widget.grn.purchaseOrderId));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Line items added to GRN successfully"), backgroundColor: AppColors.success),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      String errMsg = e.toString().replaceAll('Exception: ', '');
+      if (e is DioException && e.response?.data != null) {
+        final data = e.response!.data;
+        if (data is Map && (data['message'] != null || data['error'] != null)) {
+          errMsg = (data['message'] ?? data['error']).toString();
+        }
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to add line items: $errMsg"), backgroundColor: AppColors.error),
+      );
+    } finally {
+      if (mounted) setState(() => _loadingAction = null);
+    }
   }
 
-  void _removeGrnItem(GrnLineItemModel li) {
-    final updatedList = widget.grn.lineItems.where((item) => item.id != li.id).toList();
-    ref.read(grnControllerProvider.notifier).updateGrnLineItems(widget.grn.id, widget.grn.purchaseOrderId, updatedList);
-  }
-
-  void _proceedToQc() {
-    ref.read(grnControllerProvider.notifier).updateStatus(widget.grn.id, widget.grn.purchaseOrderId, 'qc_pending');
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("GRN transitioned to QC Pending! Details refreshed."), backgroundColor: AppColors.success),
+  void _showInwardedItemDetailsModal(GrnLineItemModel li, {required bool isEditing}) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => _InwardedItemDetailsModal(
+        item: li,
+        grn: widget.grn,
+        initialEditing: isEditing,
+        onSave: (updatedItem) => _handleInwardedItemUpdate(updatedItem),
+      ),
     );
+  }
+
+  Future<void> _handleInwardedItemUpdate(GrnLineItemModel updatedLi) async {
+    setState(() => _loadingAction = 'update_${updatedLi.id}');
+    final currentLineItems = ref.read(grnDetailProvider(widget.grn.id)).value?.lineItems ?? widget.grn.lineItems;
+    final updatedList = currentLineItems.map((item) {
+      if (item.productSkuId == updatedLi.productSkuId || item.id == updatedLi.id) {
+        return updatedLi;
+      }
+      return item;
+    }).toList();
+
+    try {
+      await ref.read(grnControllerProvider.notifier).updateGrnLineItems(widget.grn.id, widget.grn.purchaseOrderId, updatedList);
+      if (!mounted) return;
+      ref.invalidate(grnDetailProvider(widget.grn.id));
+      await ref.read(grnDetailProvider(widget.grn.id).future);
+      ref.invalidate(poSkuItemsProvider(widget.grn.purchaseOrderId));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Line item updated successfully"), backgroundColor: AppColors.success),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      String errMsg = e.toString().replaceAll('Exception: ', '');
+      if (e is DioException && e.response?.data != null) {
+        final data = e.response!.data;
+        if (data is Map && (data['message'] != null || data['error'] != null)) {
+          errMsg = (data['message'] ?? data['error']).toString();
+        }
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to update item: $errMsg"), backgroundColor: AppColors.error),
+      );
+    } finally {
+      if (mounted) setState(() => _loadingAction = null);
+    }
+  }
+
+  Future<void> _proceedToQc() async {
+    setState(() => _loadingAction = 'proceed_qc');
+    try {
+      await ref.read(grnControllerProvider.notifier).updateStatus(widget.grn.id, widget.grn.purchaseOrderId, 'qc_pending');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("GRN transitioned to QC Pending! Details refreshed."), backgroundColor: AppColors.success),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      String errMsg = e.toString().replaceAll('Exception: ', '');
+      if (e is DioException && e.response?.data != null) {
+        final data = e.response!.data;
+        if (data is Map && (data['message'] != null || data['error'] != null)) {
+          errMsg = (data['message'] ?? data['error']).toString();
+        }
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to transition status: $errMsg"), backgroundColor: AppColors.error),
+      );
+    } finally {
+      if (mounted) setState(() => _loadingAction = null);
+    }
   }
 
   // ===========================================================================
   // 2. QC PENDING STATUS VIEW (No Price Fields, Dynamic Action Buttons)
   // ===========================================================================
-  Widget _buildQcPendingStatusView() {
-    final grn = widget.grn;
+  Widget _buildQcPendingStatusView(GrnModel grn) {
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -596,6 +790,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
           ),
         ),
         const SizedBox(height: 20),
+        _buildInvoiceMetadataCard(grn),
 
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -650,8 +845,15 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                           children: [
                             Text(activeItem.skuName, style: AppTextStyles.labelMedium),
                             const SizedBox(height: 4),
-                            Text("SKU: ${activeItem.skuCode} • Type: ${activeItem.trackingType.toUpperCase()}",
+                            Column(
+                              children: [
+                                Text("SKU: ${activeItem.skuCode}",
                                 style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
+                                Text("Type: ${activeItem.trackingType.toUpperCase()}",
+                                style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
+                              ],
+                            ),
+                            
                           ],
                         ),
                       ),
@@ -663,7 +865,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         ),
                         icon: Icon(isModified ? Icons.check_circle_outline : Icons.fact_check_outlined, size: 16),
-                        label: Text(isModified ? "Confirmed ($buttonLabel)" : buttonLabel),
+                        label: Text(isModified ? "Confirmed" : buttonLabel),
                         onPressed: () => _openQcModal(activeItem),
                       ),
                     ],
@@ -698,26 +900,16 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
         ),
         const SizedBox(height: 24),
 
-        // Submit QC & Complete GRN CTAs
-        Row(
-          children: [
-            Expanded(
-              child: AppButton(
-                label: "Submit QC",
-                icon: Icons.done_all,
-                isOutlined: true,
-                onPressed: _submitQc,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: AppButton(
-                label: "Complete GRN",
-                icon: Icons.check_circle,
-                onPressed: _qcSubmitted ? _completeGrn : null,
-              ),
-            ),
-          ],
+        // Submit QC CTA
+        SizedBox(
+          width: double.infinity,
+          child: AppButton(
+            label: "Submit QC",
+            icon: Icons.done_all,
+            isOutlined: true,
+            isLoading: _loadingAction == 'submit_qc',
+            onPressed: _loadingAction != null ? null : _submitQc,
+          ),
         ),
       ],
     );
@@ -737,24 +929,27 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
     if (item.trackingType == 'batch') {
       showDialog(
         context: context,
+        barrierDismissible: false,
         builder: (ctx) => _QcBatchModal(
-          item: item,
+          item: _qcModifiedItems[item.id] ?? item,
           onSave: (updatedItem) => _handleQcItemSave(updatedItem),
         ),
       );
     } else if (item.trackingType == 'serial') {
       showDialog(
         context: context,
+        barrierDismissible: false,
         builder: (ctx) => _QcSerialModal(
-          item: item,
+          item: _qcModifiedItems[item.id] ?? item,
           onSave: (updatedItem) => _handleQcItemSave(updatedItem),
         ),
       );
     } else {
       showDialog(
         context: context,
+        barrierDismissible: false,
         builder: (ctx) => _QcUntrackedModal(
-          item: item,
+          item: _qcModifiedItems[item.id] ?? item,
           onSave: (updatedItem) => _handleQcItemSave(updatedItem),
         ),
       );
@@ -782,30 +977,37 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
     }
   }
 
-  void _submitQc() {
-    final allItems = widget.grn.lineItems.map((li) => _qcModifiedItems[li.id] ?? li).toList();
-    ref.read(grnControllerProvider.notifier).submitQc(widget.grn.id, widget.grn.purchaseOrderId, allItems);
-    setState(() {
-      _qcSubmitted = true;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Quality Check submitted successfully! You can now Complete GRN."), backgroundColor: AppColors.success),
-    );
-  }
-
-  void _completeGrn() {
-    ref.read(grnControllerProvider.notifier).updateStatus(widget.grn.id, widget.grn.purchaseOrderId, 'completed');
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("GRN marked as COMPLETED!"), backgroundColor: AppColors.success),
-    );
+  Future<void> _submitQc() async {
+    setState(() => _loadingAction = 'submit_qc');
+    final currentLineItems = ref.read(grnDetailProvider(widget.grn.id)).value?.lineItems ?? widget.grn.lineItems;
+    final allItems = currentLineItems.map((li) => _qcModifiedItems[li.id] ?? li).toList();
+    try {
+      await ref.read(grnControllerProvider.notifier).submitQc(widget.grn.id, widget.grn.purchaseOrderId, allItems);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Quality Check submitted successfully!"), backgroundColor: AppColors.success),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      String errMsg = e.toString().replaceAll('Exception: ', '');
+      if (e is DioException && e.response?.data != null) {
+        final data = e.response!.data;
+        if (data is Map && (data['message'] != null || data['error'] != null)) {
+          errMsg = (data['message'] ?? data['error']).toString();
+        }
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to submit QC: $errMsg"), backgroundColor: AppColors.error),
+      );
+    } finally {
+      if (mounted) setState(() => _loadingAction = null);
+    }
   }
 
   // ===========================================================================
   // 3. COMPLETED STATUS VIEW (Read-Only Summary Without Price Fields)
   // ===========================================================================
-  Widget _buildCompletedStatusView() {
-    final grn = widget.grn;
-
+  Widget _buildCompletedStatusView(GrnModel grn) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -831,24 +1033,8 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
         ),
         const SizedBox(height: 20),
 
-        // Invoice Metadata
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AppColors.card,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.cardBorder),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _qcStatCol("Invoice No", grn.vendorInvoiceNo ?? "N/A", AppColors.textPrimary),
-              _qcStatCol("Invoice Date", grn.vendorInvoiceDate ?? "N/A", AppColors.textPrimary),
-              _qcStatCol("Received Date", grn.receivedDate ?? "N/A", AppColors.textPrimary),
-            ],
-          ),
-        ),
-        const SizedBox(height: 20),
+        // Invoice Metadata Card
+        _buildInvoiceMetadataCard(grn),
 
         // Line Items Summary Without Prices
         Text("Inwarded Line Items (${grn.lineItems.length})", style: AppTextStyles.headingMedium),
@@ -960,6 +1146,45 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildInvoiceMetadataCard(GrnModel grn) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _qcStatCol("Invoice No", grn.vendorInvoiceNo ?? "N/A", AppColors.textPrimary),
+              _qcStatCol("Invoice Date", grn.vendorInvoiceDate ?? "N/A", AppColors.textPrimary),
+              _qcStatCol("Received Date", grn.receivedDate ?? "N/A", AppColors.textPrimary),
+            ],
+          ),
+          if (grn.remarks != null && grn.remarks!.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.notes, size: 16, color: AppColors.textMuted),
+                const SizedBox(width: 8),
+                Text("Remarks: ", style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
+                Expanded(child: Text(grn.remarks!, style: AppTextStyles.bodySmall.copyWith(color: AppColors.textPrimary))),
+              ],
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -1163,8 +1388,477 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
 }
 
 // =============================================================================
-// MODALS FOR INWARDING (Batches & Serials with 4 Fields, Add Row & Click-to-Edit)
+// MODALS FOR INWARDED ITEM DETAILS & EDITING
 // =============================================================================
+
+class _InwardedItemDetailsModal extends ConsumerStatefulWidget {
+  final GrnLineItemModel item;
+  final GrnModel grn;
+  final bool initialEditing;
+  final Function(GrnLineItemModel) onSave;
+
+  const _InwardedItemDetailsModal({
+    required this.item,
+    required this.grn,
+    required this.initialEditing,
+    required this.onSave,
+  });
+
+  @override
+  ConsumerState<_InwardedItemDetailsModal> createState() => _InwardedItemDetailsModalState();
+}
+
+class _InwardedItemDetailsModalState extends ConsumerState<_InwardedItemDetailsModal> {
+  late bool _isEditing;
+  late TextEditingController _qtyController;
+  late List<GrnBatchModel> _batches;
+  late List<String> _serials;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _isEditing = widget.initialEditing;
+    _qtyController = TextEditingController(text: widget.item.receivedQuantity.toString());
+    _batches = List.from(widget.item.receivedBatches);
+    _serials = List.from(widget.item.receivedSerials);
+  }
+
+  @override
+  void dispose() {
+    _qtyController.dispose();
+    super.dispose();
+  }
+
+  void _openBatchEditModal() {
+    final targetQty = int.tryParse(_qtyController.text) ?? 0;
+    if (targetQty <= 0) {
+      setState(() => _errorMessage = "Please enter a valid Received Quantity greater than 0 first.");
+      return;
+    }
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => _BatchInputModal(
+        targetQty: targetQty,
+        initialBatches: _batches,
+        onSave: (newBatches) {
+          setState(() {
+            _batches = newBatches;
+            _errorMessage = null;
+          });
+        },
+      ),
+    );
+  }
+
+  void _openSerialEditModal() {
+    final targetQty = int.tryParse(_qtyController.text) ?? 0;
+    if (targetQty <= 0) {
+      setState(() => _errorMessage = "Please enter a valid Received Quantity greater than 0 first.");
+      return;
+    }
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => _SerialInputModal(
+        targetQty: targetQty,
+        productSkuId: widget.item.productSkuId,
+        initialSerials: _serials,
+        onSave: (newSerials) {
+          setState(() {
+            _serials = newSerials;
+            _errorMessage = null;
+          });
+        },
+      ),
+    );
+  }
+
+  void _validateAndSave() {
+    setState(() => _errorMessage = null);
+    final qty = int.tryParse(_qtyController.text) ?? 0;
+    if (qty <= 0) {
+      setState(() => _errorMessage = "Received Quantity must be greater than 0");
+      return;
+    }
+
+    final poSkuList = ref.read(poSkuItemsProvider(widget.grn.purchaseOrderId)).value ?? [];
+    for (final p in poSkuList) {
+      if (p.id == widget.item.productSkuId || p.skuCode == widget.item.skuCode) {
+        final maxAllowed = widget.item.receivedQuantity + p.remainingQuantity;
+        if (qty > maxAllowed) {
+          setState(() => _errorMessage = "Received Quantity ($qty) cannot exceed maximum allowed ($maxAllowed units, including current quantity + remaining PO units).");
+          return;
+        }
+        break;
+      }
+    }
+
+    if (widget.item.trackingType == 'batch') {
+      if (_batches.isEmpty) {
+        setState(() => _errorMessage = "Please configure at least one batch for this item.");
+        return;
+      }
+      final totalBatchQty = _batches.fold<int>(0, (sum, b) => sum + b.quantity);
+      if (totalBatchQty != qty) {
+        setState(() => _errorMessage = "Total batch quantity ($totalBatchQty) must equal Received Quantity ($qty). Please configure batches.");
+        return;
+      }
+      for (final b in _batches) {
+        if (b.batchCode.trim().isEmpty) {
+          setState(() => _errorMessage = "Batch code cannot be empty.");
+          return;
+        }
+      }
+    } else if (widget.item.trackingType == 'serial') {
+      if (_serials.length != qty) {
+        setState(() => _errorMessage = "Number of serials (${_serials.length}) must equal Received Quantity ($qty). Please configure serials.");
+        return;
+      }
+      for (final s in _serials) {
+        if (s.trim().isEmpty) {
+          setState(() => _errorMessage = "Serial numbers cannot be empty.");
+          return;
+        }
+      }
+    }
+
+    final updated = widget.item.copyWith(
+      receivedQuantity: qty,
+      receivedBatches: _batches,
+      receivedSerials: _serials,
+    );
+    Navigator.pop(context);
+    widget.onSave(updated);
+  }
+
+  Widget _buildViewContent() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text("Received Quantity", style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary)),
+            Text("${widget.item.receivedQuantity} units", style: AppTextStyles.headingSmall.copyWith(color: AppColors.textPrimary)),
+          ],
+        ),
+        const SizedBox(height: 16),
+        if (widget.item.trackingType == 'batch') ...[
+          Text("Batches (${_batches.length}):", style: AppTextStyles.labelMedium.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          if (_batches.isEmpty)
+            Text("No batches entered.", style: AppTextStyles.caption.copyWith(color: AppColors.textMuted))
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _batches.length,
+              separatorBuilder: (ctx, i) => const SizedBox(height: 8),
+              itemBuilder: (ctx, i) {
+                final b = _batches[i];
+                return Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.card,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.cardBorder),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("Batch: ${b.batchCode}", style: AppTextStyles.labelMedium.copyWith(fontWeight: FontWeight.w600)),
+                          if (b.expiryDate != null && b.expiryDate!.isNotEmpty)
+                            Text("Expiry: ${b.expiryDate}", style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
+                          if ((b.manufactureDate ?? b.manufacturedDate) != null && (b.manufactureDate ?? b.manufacturedDate)!.isNotEmpty)
+                            Text("Mfg: ${b.manufactureDate ?? b.manufacturedDate}", style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
+                        ],
+                      ),
+                      Text("${b.quantity} units", style: AppTextStyles.labelMedium.copyWith(color: AppColors.primary, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                );
+              },
+            ),
+        ] else if (widget.item.trackingType == 'serial') ...[
+          Text("Serial Numbers (${_serials.length}):", style: AppTextStyles.labelMedium.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          if (_serials.isEmpty)
+            Text("No serial numbers entered.", style: AppTextStyles.caption.copyWith(color: AppColors.textMuted))
+          else
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.card,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.cardBorder),
+              ),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: _serials.asMap().entries.map((entry) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.background,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppColors.cardBorder),
+                    ),
+                    child: Text("${entry.key + 1}. ${entry.value}", style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w600)),
+                  );
+                }).toList(),
+              ),
+            ),
+        ] else ...[
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.success.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.check_circle_outline, color: AppColors.success, size: 20),
+                const SizedBox(width: 8),
+                Text("Untracked Item (Only quantity required)", style: AppTextStyles.caption.copyWith(color: AppColors.success)),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildEditContent() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppTextField(
+          label: "Received Quantity",
+          hint: "Enter units received",
+          controller: _qtyController,
+          keyboardType: TextInputType.number,
+          onChanged: (val) => setState(() {}),
+        ),
+        const SizedBox(height: 16),
+        if (widget.item.trackingType == 'batch') ...[
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text("Batches Configured (${_batches.length}):", style: AppTextStyles.labelMedium.copyWith(fontWeight: FontWeight.bold)),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary.withOpacity(0.1),
+                  foregroundColor: AppColors.primary,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                onPressed: _openBatchEditModal,
+                icon: const Icon(Icons.layers_outlined, size: 16),
+                label: Text(_batches.isEmpty ? "Add Batches" : "Configure Batches"),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (_batches.isEmpty)
+            Text("No batches configured yet. Click above to add.", style: AppTextStyles.caption.copyWith(color: AppColors.textMuted))
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _batches.length,
+              separatorBuilder: (ctx, i) => const SizedBox(height: 6),
+              itemBuilder: (ctx, i) {
+                final b = _batches[i];
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppColors.card,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: AppColors.cardBorder),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text("Batch: ${b.batchCode}${b.expiryDate != null && b.expiryDate!.isNotEmpty ? ' (Exp: ${b.expiryDate})' : ''}", style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w600)),
+                      Text("${b.quantity} units", style: AppTextStyles.caption.copyWith(color: AppColors.primary, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                );
+              },
+            ),
+        ] else if (widget.item.trackingType == 'serial') ...[
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text("Serials Entered (${_serials.length}):", style: AppTextStyles.labelMedium.copyWith(fontWeight: FontWeight.bold)),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary.withOpacity(0.1),
+                  foregroundColor: AppColors.primary,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                onPressed: _openSerialEditModal,
+                icon: const Icon(Icons.qr_code_outlined, size: 16),
+                label: Text(_serials.isEmpty ? "Add Serials" : "Configure Serials"),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (_serials.isEmpty)
+            Text("No serial numbers configured yet. Click above to add.", style: AppTextStyles.caption.copyWith(color: AppColors.textMuted))
+          else
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.card,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.cardBorder),
+              ),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: _serials.asMap().entries.map((entry) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.background,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppColors.cardBorder),
+                    ),
+                    child: Text("${entry.key + 1}. ${entry.value}", style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w600)),
+                  );
+                }).toList(),
+              ),
+            ),
+        ] else ...[
+          Text("Untracked item: only received quantity is needed above.", style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
+        ],
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final maxWidth = MediaQuery.of(context).size.width * 0.9;
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      backgroundColor: AppColors.surface,
+      child: Container(
+        width: maxWidth > 600 ? 600 : maxWidth,
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _isEditing ? "Edit Line Item" : "Inwarded Item Details",
+                        style: AppTextStyles.headingMedium.copyWith(color: AppColors.textPrimary),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(widget.item.skuName, style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w600, color: AppColors.primary)),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: AppColors.textMuted),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text("SKU: ${widget.item.skuCode} • Type: ${widget.item.trackingType.toUpperCase()}",
+                style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
+            const Divider(height: 24, color: AppColors.cardBorder),
+            if (_errorMessage != null) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: AppColors.error.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.error),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.error_outline, color: AppColors.error, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(_errorMessage!, style: AppTextStyles.caption.copyWith(color: AppColors.error))),
+                  ],
+                ),
+              ),
+            ],
+            Flexible(
+              child: SingleChildScrollView(
+                child: _isEditing ? _buildEditContent() : _buildViewContent(),
+              ),
+            ),
+            const Divider(height: 32, color: AppColors.cardBorder),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                if (!_isEditing) ...[
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text("Close"),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: () => setState(() => _isEditing = true),
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    label: const Text("Edit"),
+                  ),
+                ] else ...[
+                  TextButton(
+                    onPressed: () {
+                      if (widget.initialEditing) {
+                        Navigator.pop(context);
+                      } else {
+                        setState(() {
+                          _isEditing = false;
+                          _errorMessage = null;
+                          _qtyController.text = widget.item.receivedQuantity.toString();
+                          _batches = List.from(widget.item.receivedBatches);
+                          _serials = List.from(widget.item.receivedSerials);
+                        });
+                      }
+                    },
+                    child: const Text("Cancel"),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: _validateAndSave,
+                    child: const Text("Save & Update"),
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class _BatchInputModal extends StatefulWidget {
   final int targetQty;
@@ -1212,7 +1906,7 @@ class _BatchInputModalState extends State<_BatchInputModal> {
   @override
   Widget build(BuildContext context) {
     final currentSum = _batches.fold<int>(0, (sum, b) => sum + b.quantity);
-    final isValid = currentSum == widget.targetQty;
+    final isValid = currentSum == widget.targetQty && _batches.every((b) => b.batchCode.trim().isNotEmpty);
 
     return AlertDialog(
       title: Text("Add Batches (Target Qty: ${widget.targetQty})", style: AppTextStyles.headingMedium),
@@ -1246,7 +1940,7 @@ class _BatchInputModalState extends State<_BatchInputModal> {
                             child: TextFormField(
                               initialValue: batch.batchCode,
                               decoration: const InputDecoration(labelText: "Batch Code *", hintText: "e.g., BH-1"),
-                              onChanged: (val) => _batches[idx] = batch.copyWith(batchCode: val),
+                              onChanged: (val) => _batches[idx] = _batches[idx].copyWith(batchCode: val),
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -1255,7 +1949,7 @@ class _BatchInputModalState extends State<_BatchInputModal> {
                               initialValue: batch.quantity > 0 ? batch.quantity.toString() : '',
                               decoration: const InputDecoration(labelText: "Quantity *"),
                               keyboardType: TextInputType.number,
-                              onChanged: (val) => _batches[idx] = batch.copyWith(quantity: int.tryParse(val) ?? 0),
+                              onChanged: (val) => setState(() => _batches[idx] = _batches[idx].copyWith(quantity: int.tryParse(val) ?? 0)),
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -1339,10 +2033,11 @@ class _BatchInputModalState extends State<_BatchInputModal> {
 
 class _SerialInputModal extends ConsumerStatefulWidget {
   final int targetQty;
+  final int productSkuId;
   final List<String> initialSerials;
   final Function(List<String>) onSave;
 
-  const _SerialInputModal({required this.targetQty, required this.initialSerials, required this.onSave});
+  const _SerialInputModal({required this.targetQty, required this.productSkuId, required this.initialSerials, required this.onSave});
 
   @override
   ConsumerState<_SerialInputModal> createState() => _SerialInputModalState();
@@ -1382,7 +2077,7 @@ class _SerialInputModalState extends ConsumerState<_SerialInputModal> {
       _warningMsg = null;
     });
 
-    final isValid = await ref.read(grnControllerProvider.notifier).validateSerial(s);
+    final isValid = await ref.read(grnControllerProvider.notifier).validateSerial(s, widget.productSkuId);
     
     if (!mounted) return;
     setState(() {
@@ -1566,19 +2261,34 @@ class _QcBatchModal extends StatefulWidget {
 }
 
 class _QcBatchModalState extends State<_QcBatchModal> {
-  late List<int> _goodQtys;
-  late List<int> _badQtys;
+  late List<TextEditingController> _goodControllers;
+  late List<TextEditingController> _badControllers;
 
   @override
   void initState() {
     super.initState();
-    _goodQtys = widget.item.receivedBatches.map((b) => b.quantity).toList();
-    _badQtys = widget.item.receivedBatches.map((b) => 0).toList();
+    _goodControllers = widget.item.receivedBatches.map((b) => TextEditingController(text: b.quantity.toString())).toList();
+    _badControllers = widget.item.receivedBatches.map((b) => TextEditingController(text: "0")).toList();
+  }
+
+  @override
+  void dispose() {
+    for (final c in _goodControllers) c.dispose();
+    for (final c in _badControllers) c.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final batches = widget.item.receivedBatches;
+
+    final isAllValid = batches.asMap().entries.every((e) {
+      final idx = e.key;
+      final b = e.value;
+      final good = int.tryParse(_goodControllers[idx].text) ?? -1;
+      final bad = int.tryParse(_badControllers[idx].text) ?? -1;
+      return good >= 0 && bad >= 0 && (good + bad) == b.quantity;
+    });
 
     return AlertDialog(
       title: Text("QC Check: Confirm Batches (${widget.item.skuName})", style: AppTextStyles.headingMedium),
@@ -1588,14 +2298,15 @@ class _QcBatchModalState extends State<_QcBatchModal> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text("Enter Good Qty or Bad Qty for each batch. Both values auto-calculate dynamically based on Received Qty.",
+              Text("Enter Good Qty or Bad Qty for each batch. Total (Good + Bad) must equal Received Qty.",
                   style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
               const SizedBox(height: 16),
               ...batches.asMap().entries.map((entry) {
                 final idx = entry.key;
                 final b = entry.value;
-                final good = _goodQtys[idx];
-                final bad = _badQtys[idx];
+                final good = int.tryParse(_goodControllers[idx].text) ?? 0;
+                final bad = int.tryParse(_badControllers[idx].text) ?? 0;
+                final isValid = (good + bad) == b.quantity && good >= 0 && bad >= 0;
 
                 return Container(
                   margin: const EdgeInsets.only(bottom: 12),
@@ -1603,55 +2314,51 @@ class _QcBatchModalState extends State<_QcBatchModal> {
                   decoration: BoxDecoration(
                     color: AppColors.card,
                     borderRadius: BorderRadius.circular(8),
+                    border: isValid ? null : Border.all(color: AppColors.error),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        flex: 2,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text("Batch: ${b.batchCode}", style: AppTextStyles.labelMedium),
-                            Text("Received Qty: ${b.quantity}", style: AppTextStyles.caption),
-                          ],
-                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text("Batch: ${b.batchCode}", style: AppTextStyles.labelMedium),
+                                Text("Received Qty: ${b.quantity}", style: AppTextStyles.caption),
+                              ],
+                            ),
+                          ),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _goodControllers[idx],
+                              decoration: const InputDecoration(labelText: "Good Qty"),
+                              keyboardType: TextInputType.number,
+                              onChanged: (val) => setState(() {}),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _badControllers[idx],
+                              decoration: const InputDecoration(labelText: "Bad Qty"),
+                              keyboardType: TextInputType.number,
+                              onChanged: (val) => setState(() {}),
+                            ),
+                          ),
+                        ],
                       ),
-                      Expanded(
-                        child: TextFormField(
-                          key: ValueKey("good_${idx}_$good"),
-                          initialValue: good.toString(),
-                          decoration: const InputDecoration(labelText: "Good Qty"),
-                          keyboardType: TextInputType.number,
-                          onChanged: (val) {
-                            final v = int.tryParse(val) ?? 0;
-                            if (v >= 0 && v <= b.quantity) {
-                              setState(() {
-                                _goodQtys[idx] = v;
-                                _badQtys[idx] = b.quantity - v;
-                              });
-                            }
-                          },
+                      if (!isValid)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            "Error: Good ($good) + Bad ($bad) must equal Received (${b.quantity})",
+                            style: AppTextStyles.caption.copyWith(color: AppColors.error, fontWeight: FontWeight.w600),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextFormField(
-                          key: ValueKey("bad_${idx}_$bad"),
-                          initialValue: bad.toString(),
-                          decoration: const InputDecoration(labelText: "Bad Qty"),
-                          keyboardType: TextInputType.number,
-                          onChanged: (val) {
-                            final v = int.tryParse(val) ?? 0;
-                            if (v >= 0 && v <= b.quantity) {
-                              setState(() {
-                                _badQtys[idx] = v;
-                                _goodQtys[idx] = b.quantity - v;
-                              });
-                            }
-                          },
-                        ),
-                      ),
                     ],
                   ),
                 );
@@ -1663,8 +2370,11 @@ class _QcBatchModalState extends State<_QcBatchModal> {
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
         ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
-          onPressed: () {
+          style: ElevatedButton.styleFrom(
+            backgroundColor: isAllValid ? AppColors.primary : AppColors.textMuted,
+            foregroundColor: Colors.white,
+          ),
+          onPressed: isAllValid ? () {
             int totGood = 0;
             int totBad = 0;
             List<GrnBatchModel> accBatches = [];
@@ -1672,8 +2382,8 @@ class _QcBatchModalState extends State<_QcBatchModal> {
 
             for (int i = 0; i < batches.length; i++) {
               final b = batches[i];
-              final good = _goodQtys[i];
-              final bad = _badQtys[i];
+              final good = int.tryParse(_goodControllers[i].text) ?? 0;
+              final bad = int.tryParse(_badControllers[i].text) ?? 0;
               totGood += good;
               totBad += bad;
               if (good > 0) accBatches.add(b.copyWith(quantity: good));
@@ -1690,9 +2400,9 @@ class _QcBatchModalState extends State<_QcBatchModal> {
               rejectedBatches: rejBatches,
             );
 
-            widget.onSave(updated);
             Navigator.pop(context);
-          },
+            widget.onSave(updated);
+          } : null,
           child: const Text("Confirm Batches"),
         ),
       ],
@@ -1787,8 +2497,8 @@ class _QcSerialModalState extends State<_QcSerialModal> {
               rejectedSerials: rejList,
             );
 
-            widget.onSave(updated);
             Navigator.pop(context);
+            widget.onSave(updated);
           },
           child: const Text("Confirm Serial"),
         ),
@@ -1808,18 +2518,26 @@ class _QcUntrackedModal extends StatefulWidget {
 }
 
 class _QcUntrackedModalState extends State<_QcUntrackedModal> {
-  late int _accepted;
+  late TextEditingController _acceptedController;
 
   @override
   void initState() {
     super.initState();
-    _accepted = widget.item.receivedQuantity;
+    _acceptedController = TextEditingController(text: widget.item.receivedQuantity.toString());
+  }
+
+  @override
+  void dispose() {
+    _acceptedController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final rec = widget.item.receivedQuantity;
-    final rej = rec - _accepted;
+    final acceptedVal = int.tryParse(_acceptedController.text) ?? -1;
+    final isValid = acceptedVal >= 0 && acceptedVal <= rec;
+    final rej = isValid ? rec - acceptedVal : 0;
 
     return AlertDialog(
       title: Text("QC Check: Confirm Qty (${widget.item.skuName})", style: AppTextStyles.headingMedium),
@@ -1830,16 +2548,19 @@ class _QcUntrackedModalState extends State<_QcUntrackedModal> {
               style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
           const SizedBox(height: 16),
           TextFormField(
-            initialValue: _accepted.toString(),
+            controller: _acceptedController,
             decoration: const InputDecoration(labelText: "Good Qty (Accepted)"),
             keyboardType: TextInputType.number,
-            onChanged: (val) {
-              final v = int.tryParse(val) ?? 0;
-              if (v >= 0 && v <= rec) {
-                setState(() => _accepted = v);
-              }
-            },
+            onChanged: (val) => setState(() {}),
           ),
+          if (!isValid)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                "Error: Good Qty must be between 0 and $rec",
+                style: AppTextStyles.caption.copyWith(color: AppColors.error, fontWeight: FontWeight.w600),
+              ),
+            ),
           const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1853,18 +2574,21 @@ class _QcUntrackedModalState extends State<_QcUntrackedModal> {
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
         ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
-          onPressed: () {
+          style: ElevatedButton.styleFrom(
+            backgroundColor: isValid ? AppColors.primary : AppColors.textMuted,
+            foregroundColor: Colors.white,
+          ),
+          onPressed: isValid ? () {
             final updated = widget.item.copyWith(
-              acceptedQuantity: _accepted,
+              acceptedQuantity: acceptedVal,
               rejectedQuantity: rej,
               acceptedAmount: '0.0', // No prices
               rejectedAmount: '0.0',
               finalAmount: 0.0,
             );
-            widget.onSave(updated);
             Navigator.pop(context);
-          },
+            widget.onSave(updated);
+          } : null,
           child: const Text("Confirm Qty"),
         ),
       ],
@@ -1882,22 +2606,17 @@ class _RejectionReasonModal extends StatefulWidget {
 }
 
 class _RejectionReasonModalState extends State<_RejectionReasonModal> {
-  String? _selectedReason;
-  final _customController = TextEditingController();
+  final _reasonController = TextEditingController();
 
-  final List<String> _commonReasons = [
-    "Damaged during transit",
-    "Quality grade mismatch",
-    "Expired or near expiry date",
-    "Packaging damaged / broken seal",
-    "Incorrect specification / dimensions",
-    "Other (specify below)",
-  ];
+  @override
+  void dispose() {
+    _reasonController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final isOther = _selectedReason == "Other (specify below)";
-    final isValid = _selectedReason != null && (!isOther || _customController.text.trim().isNotEmpty);
+    final isValid = _reasonController.text.trim().isNotEmpty;
 
     return AlertDialog(
       title: Row(
@@ -1913,36 +2632,30 @@ class _RejectionReasonModalState extends State<_RejectionReasonModal> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("You have recorded 1 or more units as Bad Qty (Rejected) for this product. Please provide a mandatory reason for rejection.",
+            Text("You have recorded 1 or more units as Bad Qty (Rejected) for this product. Please enter the reason for rejection.",
                 style: AppTextStyles.caption.copyWith(color: AppColors.textPrimary)),
             const SizedBox(height: 16),
-            ..._commonReasons.map((r) {
-              return RadioListTile<String>(
-                title: Text(r, style: AppTextStyles.bodyMedium),
-                value: r,
-                groupValue: _selectedReason,
-                activeColor: AppColors.error,
-                onChanged: (val) => setState(() => _selectedReason = val),
-              );
-            }),
-            if (isOther) ...[
-              const SizedBox(height: 8),
-              TextField(
-                controller: _customController,
-                decoration: const InputDecoration(labelText: "Specify Reason *", hintText: "Enter exact issue"),
-                onChanged: (_) => setState(() {}),
+            TextField(
+              controller: _reasonController,
+              decoration: const InputDecoration(
+                labelText: "Rejection Reason *",
+                hintText: "Enter exact issue (e.g. Damaged during transit, quality mismatch)",
               ),
-            ],
+              maxLines: 3,
+              onChanged: (_) => setState(() {}),
+            ),
           ],
         ),
       ),
       actions: [
         ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: isValid ? AppColors.error : AppColors.textMuted,
+            foregroundColor: Colors.white,
+          ),
           onPressed: isValid
               ? () {
-                  final reason = isOther ? _customController.text.trim() : _selectedReason!;
-                  widget.onSave(reason);
+                  widget.onSave(_reasonController.text.trim());
                   Navigator.pop(context);
                 }
               : null,

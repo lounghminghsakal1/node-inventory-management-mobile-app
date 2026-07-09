@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../app/theme/app_colors.dart';
@@ -170,6 +169,64 @@ class ShipmentDetailScreen extends ConsumerWidget {
                 _ShipmentTimeline(shipment: shipment),
                 const SizedBox(height: 24),
 
+                // ── Primary Focus: Line Items ──────────────────────────────────
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.card,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.45), width: 1.5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.06),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(Icons.inventory_2_rounded, color: AppColors.primary, size: 20),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    'Line Items (${shipment.lineItems.length})',
+                                    style: AppTextStyles.headingSmall.copyWith(
+                                      color: AppColors.textPrimary,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      const Divider(height: 1),
+                      const SizedBox(height: 14),
+                      ...shipment.lineItems.map((li) => _LineItemRow(item: li, shipment: shipment)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+
                 // ── Order Info Card ───────────────────────────────────────────
                 _SectionCard(
                   title: 'Order Info',
@@ -211,12 +268,6 @@ class ShipmentDetailScreen extends ConsumerWidget {
                             Icons.receipt_long_outlined,
                             'Invoice Code',
                             shipment.invoiceCode!,
-                          ),
-                        if (shipment.trackingNumber != null && shipment.trackingNumber!.isNotEmpty)
-                          _infoTile(
-                            Icons.qr_code_2_outlined,
-                            'Tracking Number',
-                            shipment.trackingNumber!,
                           ),
                         if (shipment.invoiceDate != null)
                           _infoTile(
@@ -346,16 +397,6 @@ class ShipmentDetailScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 16),
                 ],
-
-                // ── Line Items ────────────────────────────────────────────────
-                _SectionCard(
-                  title: 'Line Items (${shipment.lineItems.length})',
-                  child: Column(
-                    children: shipment.lineItems
-                        .map((li) => _LineItemRow(item: li, shipment: shipment))
-                        .toList(),
-                  ),
-                ),
 
                 // ── Driver (if dispatched) ────────────────────────────────────
                 if (shipment.driverDetails != null) ...[
@@ -858,7 +899,7 @@ class _LineItemRow extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Good Qty: ${item.goodQty ?? 0}', style: AppTextStyles.bodySmall.copyWith(color: AppColors.success, fontWeight: FontWeight.w700)),
+                    Text('Good Qty: ${shipment.status == ShipmentStatus.returnCompleted ? item.goodQty : 0}', style: AppTextStyles.bodySmall.copyWith(color: AppColors.success, fontWeight: FontWeight.w700)),
                     if (item.goodBatches.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Wrap(
@@ -972,11 +1013,15 @@ class _LineItemRow extends ConsumerWidget {
           borderRadius: BorderRadius.circular(20),
           side: const BorderSide(color: AppColors.cardBorder),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.85,
+          ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1006,8 +1051,28 @@ class _LineItemRow extends ConsumerWidget {
                     ),
                 ],
               ),
-              const SizedBox(height: 4),
-              Text(item.product.name, style: AppTextStyles.caption),
+              const SizedBox(height: 6),
+              Text(
+                item.product.name,
+                style: AppTextStyles.bodyMedium.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  if (item.product.sku.isNotEmpty) ...[
+                    Text(
+                      item.product.sku,
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  TrackingTypeBadge(trackingType: item.product.trackingType.name),
+                ],
+              ),
               const SizedBox(height: 14),
               const Divider(height: 1),
               const SizedBox(height: 14),
@@ -1135,8 +1200,9 @@ class _LineItemRow extends ConsumerWidget {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   void _openEditModal(
     BuildContext context,
@@ -1402,7 +1468,7 @@ class _ActionButtons extends ConsumerWidget {
           const SizedBox(height: 12),
         ] else if (shipment.status == ShipmentStatus.packed) ...[
           AppButton(
-            label: 'Generate Invoice',
+            label: 'Create Invoice',
             icon: Icons.receipt_long_outlined,
             gradient: const LinearGradient(
               colors: [Color(0xFFA855F7), Color(0xFF6366F1)],

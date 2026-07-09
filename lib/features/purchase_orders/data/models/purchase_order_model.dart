@@ -174,6 +174,38 @@ class PoSkuItemModel {
     );
   }
 
+  PoSkuItemModel copyWith({
+    int? id,
+    int? productSkuId,
+    String? skuName,
+    String? skuCode,
+    String? displayName,
+    String? unitPrice,
+    int? totalUnits,
+    String? selectionType,
+    String? trackingType,
+    int? fulfilledQuantity,
+    int? yetToReceive,
+    int? currentGrnQty,
+    bool? fullyFulfilled,
+  }) {
+    return PoSkuItemModel(
+      id: id ?? this.id,
+      productSkuId: productSkuId ?? this.productSkuId,
+      skuName: skuName ?? this.skuName,
+      skuCode: skuCode ?? this.skuCode,
+      displayName: displayName ?? this.displayName,
+      unitPrice: unitPrice ?? this.unitPrice,
+      totalUnits: totalUnits ?? this.totalUnits,
+      selectionType: selectionType ?? this.selectionType,
+      trackingType: trackingType ?? this.trackingType,
+      fulfilledQuantity: fulfilledQuantity ?? this.fulfilledQuantity,
+      yetToReceive: yetToReceive ?? this.yetToReceive,
+      currentGrnQty: currentGrnQty ?? this.currentGrnQty,
+      fullyFulfilled: fullyFulfilled ?? this.fullyFulfilled,
+    );
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'id': id,

@@ -299,9 +299,6 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
     setState(() => _isLoading = true);
     try {
       final detailsMap = <String, dynamic>{
-        "courier_name": _nameCtrl.text.trim(),
-        "tracking_id": _vehicleCtrl.text.trim(),
-        "dispatched_by": _phoneCtrl.text.trim(),
         "driver_name": _nameCtrl.text.trim(),
         "driver_number": _phoneCtrl.text.trim(),
         "vehicle_number": _vehicleCtrl.text.trim(),

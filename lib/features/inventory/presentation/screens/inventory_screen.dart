@@ -84,17 +84,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     ],
                   ),
                 ),
-                Tab(
-                  height: 34,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.receipt_long_outlined, size: 15),
-                      SizedBox(width: 4),
-                      Flexible(child: Text("Ledger", maxLines: 1, overflow: TextOverflow.ellipsis)),
-                    ],
-                  ),
-                ),
               ],
             ),
           ),

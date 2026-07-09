@@ -33,39 +33,49 @@ class _PurchaseOrderDetailScreenState
       backgroundColor: AppColors.background,
       appBar: const NodeOpsAppBar(showBack: true, title: 'PO Details'),
       bottomNavigationBar: asyncPo.maybeWhen(
-        data: (po) => Container(
-          padding: const EdgeInsets.all(16),
-          decoration: const BoxDecoration(
-            color: AppColors.surface,
-            border: Border(top: BorderSide(color: AppColors.cardBorder)),
-          ),
-          child: SafeArea(
-            top: false,
-            child: AppButton(
-              label: 'Create GRN',
-              icon: Icons.add_box_outlined,
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => CreateGrnScreen(
-                      poId: po.id,
-                      poNumber: po.purchaseOrderNumber,
-                    ),
-                  ),
-                );
-              },
+        data: (po) {
+          final isAllGrnCompleted = po.goodsReceivedNotes.isEmpty ? true :
+              po.goodsReceivedNotes.every((grn) => grn.status == 'complete');
+          print(isAllGrnCompleted);
+          if (!isAllGrnCompleted) {
+            return null;
+          } else {
+            return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: const BoxDecoration(
+              color: AppColors.surface,
+              border: Border(top: BorderSide(color: AppColors.cardBorder)),
             ),
-          ),
-        ),
+            child: SafeArea(
+              top: false,
+              child: AppButton(
+                label: 'Create GRN',
+                icon: Icons.add_box_outlined,
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => CreateGrnScreen(
+                        poId: po.id,
+                        poNumber: po.purchaseOrderNumber,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          );
+          }
+        },
         orElse: () => null,
       ),
       body: asyncPo.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
-          child: Text('Failed to load purchase order\n$e',
-              textAlign: TextAlign.center,
-              style:
-                  AppTextStyles.bodySmall.copyWith(color: AppColors.error)),
+          child: Text(
+            'Failed to load purchase order\n$e',
+            textAlign: TextAlign.center,
+            style: AppTextStyles.bodySmall.copyWith(color: AppColors.error),
+          ),
         ),
         data: (po) {
           return SingleChildScrollView(
@@ -93,8 +103,9 @@ class _PurchaseOrderDetailScreenState
                 const SizedBox(height: 4),
                 Text(
                   'Click on any GRN below to expand its line items and inspection reports.',
-                  style: AppTextStyles.bodySmall
-                      .copyWith(color: AppColors.textSecondary),
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
                 ),
                 const SizedBox(height: 16),
 
@@ -133,14 +144,26 @@ class _PurchaseOrderDetailScreenState
           const SizedBox(height: 16),
           const Divider(height: 1),
           const SizedBox(height: 16),
-          _infoRow(Icons.inventory_2_outlined, 'Total Units',
-              '${po.totalUnits} units', AppColors.primary),
+          _infoRow(
+            Icons.inventory_2_outlined,
+            'Total Units',
+            '${po.totalUnits} units',
+            AppColors.primary,
+          ),
           const SizedBox(height: 10),
-          _infoRow(Icons.calendar_today_outlined, 'Delivery Date',
-              po.deliveryDate ?? 'N/A', AppColors.textPrimary),
+          _infoRow(
+            Icons.calendar_today_outlined,
+            'Delivery Date',
+            po.deliveryDate ?? 'N/A',
+            AppColors.textPrimary,
+          ),
           const SizedBox(height: 10),
-          _infoRow(Icons.event_busy_outlined, 'Expiry Date',
-              po.expiryDate ?? 'No Expiry', AppColors.textSecondary),
+          _infoRow(
+            Icons.event_busy_outlined,
+            'Expiry Date',
+            po.expiryDate ?? 'No Expiry',
+            AppColors.textSecondary,
+          ),
         ],
       ),
     );
@@ -159,22 +182,32 @@ class _PurchaseOrderDetailScreenState
         children: [
           Row(
             children: [
-              const Icon(Icons.storefront_rounded,
-                  color: AppColors.primary, size: 20),
+              const Icon(
+                Icons.storefront_rounded,
+                color: AppColors.primary,
+                size: 20,
+              ),
               const SizedBox(width: 8),
               Text('Vendor Information', style: AppTextStyles.headingSmall),
               const Spacer(),
-              StatusBadge(status: vendor.status),
             ],
           ),
           const SizedBox(height: 12),
           const Divider(height: 1),
           const SizedBox(height: 12),
-          _infoRow(Icons.business_outlined, 'Firm Name', vendor.firmName,
-              AppColors.textPrimary),
+          _infoRow(
+            Icons.business_outlined,
+            'Firm Name',
+            vendor.firmName,
+            AppColors.textPrimary,
+          ),
           const SizedBox(height: 8),
-          _infoRow(Icons.tag_outlined, 'Vendor Code', vendor.code,
-              AppColors.textSecondary),
+          _infoRow(
+            Icons.tag_outlined,
+            'Vendor Code',
+            vendor.code,
+            AppColors.textSecondary,
+          ),
         ],
       ),
     );
@@ -186,7 +219,9 @@ class _PurchaseOrderDetailScreenState
         color: AppColors.card,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: _isLineItemsExpanded ? AppColors.primary : AppColors.cardBorder,
+          color: _isLineItemsExpanded
+              ? AppColors.primary
+              : AppColors.cardBorder,
           width: _isLineItemsExpanded ? 1.5 : 1.0,
         ),
       ),
@@ -210,8 +245,11 @@ class _PurchaseOrderDetailScreenState
                       color: AppColors.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.list_alt_outlined,
-                        color: AppColors.primary, size: 22),
+                    child: const Icon(
+                      Icons.list_alt_outlined,
+                      color: AppColors.primary,
+                      size: 22,
+                    ),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -225,13 +263,17 @@ class _PurchaseOrderDetailScreenState
                         const SizedBox(height: 4),
                         Text(
                           'Items ordered in this purchase order',
-                          style: AppTextStyles.caption.copyWith(color: AppColors.textMuted),
+                          style: AppTextStyles.caption.copyWith(
+                            color: AppColors.textMuted,
+                          ),
                         ),
                       ],
                     ),
                   ),
                   Icon(
-                    _isLineItemsExpanded ? Icons.expand_less : Icons.expand_more,
+                    _isLineItemsExpanded
+                        ? Icons.expand_less
+                        : Icons.expand_more,
                     color: AppColors.textMuted,
                   ),
                 ],
@@ -258,79 +300,107 @@ class _PurchaseOrderDetailScreenState
                       child: Center(
                         child: Text(
                           'No line items found.',
-                          style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
+                          style: AppTextStyles.bodyMedium.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
                         ),
                       ),
                     )
                   else
-                    ...lineItems.map((li) => Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: AppColors.background,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppColors.cardBorder),
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      li.displayName.isNotEmpty ? li.displayName : li.skuName,
-                                      style: AppTextStyles.headingSmall,
+                    ...lineItems.map(
+                      (li) => Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppColors.background,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.cardBorder),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    li.displayName.isNotEmpty
+                                        ? li.displayName
+                                        : li.skuName,
+                                    style: AppTextStyles.headingSmall,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'SKU: ${li.skuCode}',
+                                    style: AppTextStyles.bodySmall.copyWith(
+                                      color: AppColors.textPrimary,
                                     ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'SKU: ${li.skuCode}',
-                                      style: AppTextStyles.bodySmall.copyWith(color: AppColors.textPrimary),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Row(
-                                      children: [
-                                        TrackingTypeBadge(trackingType: li.trackingType),
-                                        const SizedBox(width: 8),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: AppColors.surface,
-                                            borderRadius: BorderRadius.circular(4),
-                                            border: Border.all(color: AppColors.cardBorder),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Row(
+                                    children: [
+                                      TrackingTypeBadge(
+                                        trackingType: li.trackingType,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.surface,
+                                          borderRadius: BorderRadius.circular(
+                                            4,
                                           ),
-                                          child: Text(
-                                            'Selection: ${li.selectionType.toUpperCase()}',
-                                            style: AppTextStyles.caption.copyWith(fontSize: 11, color: AppColors.textSecondary),
+                                          border: Border.all(
+                                            color: AppColors.cardBorder,
                                           ),
                                         ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
+                                        child: Text(
+                                          'Selection: ${li.selectionType.toUpperCase()}',
+                                          style: AppTextStyles.caption.copyWith(
+                                            fontSize: 11,
+                                            color: AppColors.textSecondary,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
-                              const SizedBox(width: 12),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Column(
-                                  children: [
-                                    Text(
-                                      '${li.orderedQuantity}',
-                                      style: AppTextStyles.headingMedium.copyWith(color: AppColors.primary),
-                                    ),
-                                    Text(
-                                      'units',
-                                      style: AppTextStyles.caption.copyWith(color: AppColors.primary, fontSize: 10),
-                                    ),
-                                  ],
-                                ),
+                            ),
+                            const SizedBox(width: 12),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
                               ),
-                            ],
-                          ),
-                        )),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Column(
+                                children: [
+                                  Text(
+                                    '${li.orderedQuantity}',
+                                    style: AppTextStyles.headingMedium.copyWith(
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                  Text(
+                                    'units',
+                                    style: AppTextStyles.caption.copyWith(
+                                      color: AppColors.primary,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -349,10 +419,11 @@ class _PurchaseOrderDetailScreenState
         child: Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => Center(
-        child: Text('Failed to load GRNs\n$e',
-            textAlign: TextAlign.center,
-            style:
-                AppTextStyles.bodySmall.copyWith(color: AppColors.error)),
+        child: Text(
+          'Failed to load GRNs\n$e',
+          textAlign: TextAlign.center,
+          style: AppTextStyles.bodySmall.copyWith(color: AppColors.error),
+        ),
       ),
       data: (grns) {
         if (grns.isEmpty) {
@@ -366,12 +437,18 @@ class _PurchaseOrderDetailScreenState
             child: Center(
               child: Column(
                 children: [
-                  const Icon(Icons.inbox_outlined,
-                      size: 40, color: AppColors.textMuted),
+                  const Icon(
+                    Icons.inbox_outlined,
+                    size: 40,
+                    color: AppColors.textMuted,
+                  ),
                   const SizedBox(height: 12),
-                  Text('No Goods Received Notes recorded yet.',
-                      style: AppTextStyles.bodyMedium
-                          .copyWith(color: AppColors.textSecondary)),
+                  Text(
+                    'No Goods Received Notes recorded yet.',
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -388,8 +465,7 @@ class _PurchaseOrderDetailScreenState
                 isExpanded: _expandedGrnId == grn.id,
                 onToggle: () {
                   setState(() {
-                    _expandedGrnId =
-                        (_expandedGrnId == grn.id) ? null : grn.id;
+                    _expandedGrnId = (_expandedGrnId == grn.id) ? null : grn.id;
                   });
                 },
               ),
@@ -405,14 +481,17 @@ class _PurchaseOrderDetailScreenState
       children: [
         Icon(icon, size: 16, color: AppColors.textMuted),
         const SizedBox(width: 8),
-        Text(label,
-            style:
-                AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted)),
+        Text(
+          label,
+          style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted),
+        ),
         const Spacer(),
         Text(
           value,
-          style: AppTextStyles.bodySmall
-              .copyWith(color: valueColor, fontWeight: FontWeight.w600),
+          style: AppTextStyles.bodySmall.copyWith(
+            color: valueColor,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ],
     );

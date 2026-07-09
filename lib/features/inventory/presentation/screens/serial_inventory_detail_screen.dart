@@ -35,7 +35,7 @@ class SerialInventoryDetailScreen extends ConsumerWidget {
     final detailAsync = ref.watch(serialInventoryDetailProvider(serialItemId));
 
     return Scaffold(
-      appBar: const NodeOpsAppBar(title: "Serial Item Detail"),
+      appBar: const NodeOpsAppBar(title: "Serial Item Detail", hideLogoutButton: true,),
       body: detailAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(

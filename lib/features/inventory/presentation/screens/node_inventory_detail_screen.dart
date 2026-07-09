@@ -2,22 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
-import '../../data/models/batch_inventory_model.dart';
+import '../../data/models/node_inventory_model.dart';
 import '../../providers/inventory_provider.dart';
-import "../../../../core/widgets/app_shell.dart";
+import '../../../../core/widgets/app_shell.dart';
 
-class BatchInventoryDetailScreen extends ConsumerStatefulWidget {
-  final String batchInventoryId;
+class NodeInventoryDetailScreen extends ConsumerStatefulWidget {
+  final String inventoryId;
 
-  const BatchInventoryDetailScreen({super.key, required this.batchInventoryId});
+  const NodeInventoryDetailScreen({super.key, required this.inventoryId});
 
   @override
-  ConsumerState<BatchInventoryDetailScreen> createState() =>
-      _BatchInventoryDetailScreenState();
+  ConsumerState<NodeInventoryDetailScreen> createState() =>
+      _NodeInventoryDetailScreenState();
 }
 
-class _BatchInventoryDetailScreenState
-    extends ConsumerState<BatchInventoryDetailScreen> {
+class _NodeInventoryDetailScreenState
+    extends ConsumerState<NodeInventoryDetailScreen> {
   final ScrollController _scrollController = ScrollController();
 
   @override
@@ -29,7 +29,7 @@ class _BatchInventoryDetailScreenState
   void _onScroll() {
     if (_scrollController.position.extentAfter < 200) {
       ref
-          .read(batchTransactionsProvider(widget.batchInventoryId).notifier)
+          .read(nodeInventoryTransactionsProvider(widget.inventoryId).notifier)
           .fetchNextPage();
     }
   }
@@ -54,14 +54,18 @@ class _BatchInventoryDetailScreenState
   @override
   Widget build(BuildContext context) {
     final detailAsync = ref.watch(
-      batchInventoryDetailProvider(widget.batchInventoryId),
+      nodeInventoryDetailProvider(widget.inventoryId),
     );
     final txState = ref.watch(
-      batchTransactionsProvider(widget.batchInventoryId),
+      nodeInventoryTransactionsProvider(widget.inventoryId),
     );
 
     return Scaffold(
-      appBar: const NodeOpsAppBar(title: "Batch Inventory Detail", hideLogoutButton: true, ),
+      backgroundColor: AppColors.background,
+      appBar: const NodeOpsAppBar(
+        title: "Inventory Detail",
+        hideLogoutButton: true,
+      ),
       body: detailAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(
@@ -87,9 +91,18 @@ class _BatchInventoryDetailScreenState
               ),
               const SizedBox(height: 16),
               ElevatedButton.icon(
-                onPressed: () => ref.refresh(
-                  batchInventoryDetailProvider(widget.batchInventoryId),
-                ),
+                onPressed: () {
+                  ref.invalidate(
+                    nodeInventoryDetailProvider(widget.inventoryId),
+                  );
+                  ref
+                      .read(
+                        nodeInventoryTransactionsProvider(
+                          widget.inventoryId,
+                        ).notifier,
+                      )
+                      .fetchInitial();
+                },
                 icon: const Icon(Icons.refresh, size: 18),
                 label: const Text("Retry"),
               ),
@@ -99,12 +112,12 @@ class _BatchInventoryDetailScreenState
         data: (detail) {
           return RefreshIndicator(
             onRefresh: () async {
-              ref.invalidate(
-                batchInventoryDetailProvider(widget.batchInventoryId),
-              );
+              ref.invalidate(nodeInventoryDetailProvider(widget.inventoryId));
               await ref
                   .read(
-                    batchTransactionsProvider(widget.batchInventoryId).notifier,
+                    nodeInventoryTransactionsProvider(
+                      widget.inventoryId,
+                    ).notifier,
                   )
                   .fetchInitial();
             },
@@ -132,22 +145,17 @@ class _BatchInventoryDetailScreenState
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              detail.productSku?.skuName ?? 'Unknown SKU',
-                              style: AppTextStyles.headingLarge.copyWith(
-                                fontSize: 18,
-                              ),
-                            ),
-                          ),
-                        ],
+                      Text(
+                        detail.skuName.isNotEmpty
+                            ? detail.skuName
+                            : 'Unknown SKU',
+                        style: AppTextStyles.headingLarge.copyWith(
+                          fontSize: 18,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        "SKU Code: ${detail.productSku?.skuCode ?? 'N/A'}",
+                        "SKU Code: ${detail.skuCode.isNotEmpty ? detail.skuCode : 'N/A'} • Tracking: ${detail.trackingType.toUpperCase()}",
                         style: AppTextStyles.bodyMedium.copyWith(
                           color: AppColors.textMuted,
                         ),
@@ -156,33 +164,6 @@ class _BatchInventoryDetailScreenState
                       Divider(
                         color: AppColors.cardBorder.withValues(alpha: 0.6),
                         height: 1,
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Batch Details
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _InfoTile(
-                              label: "Batch Code",
-                              value: detail.batch?.batchCode ?? 'N/A',
-                            ),
-                          ),
-                          if (detail.batch?.manufacturingDate != null)
-                            Expanded(
-                              child: _InfoTile(
-                                label: "Mfg Date",
-                                value: detail.batch!.manufacturingDate!,
-                              ),
-                            ),
-                          if (detail.batch?.expiryDate != null)
-                            Expanded(
-                              child: _InfoTile(
-                                label: "Expiry Date",
-                                value: detail.batch!.expiryDate!,
-                              ),
-                            ),
-                        ],
                       ),
                       const SizedBox(height: 16),
 
@@ -291,7 +272,8 @@ class _BatchInventoryDetailScreenState
                   )
                 else
                   ...txState.transactions.map(
-                    (tx) => _TransactionCard(tx: tx, formatTxType: _formatTxType),
+                    (tx) =>
+                        _TransactionCard(tx: tx, formatTxType: _formatTxType),
                   ),
 
                 if (txState.isLoadingMore)
@@ -307,31 +289,6 @@ class _BatchInventoryDetailScreenState
           );
         },
       ),
-    );
-  }
-}
-
-class _InfoTile extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _InfoTile({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: AppTextStyles.caption.copyWith(color: AppColors.textMuted),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w600),
-        ),
-      ],
     );
   }
 }
@@ -362,10 +319,12 @@ class _StockBox extends StatelessWidget {
           Text(
             "$count",
             style: AppTextStyles.headingMedium.copyWith(
-              color: color,
               fontSize: 16,
+              color: color,
+              fontWeight: FontWeight.bold,
             ),
           ),
+          const SizedBox(height: 2),
           Text(
             label,
             style: AppTextStyles.caption.copyWith(
@@ -382,75 +341,57 @@ class _StockBox extends StatelessWidget {
 }
 
 class _TransactionCard extends StatelessWidget {
-  final BatchInventoryTransactionModel tx;
+  final NodeInventoryTransactionModel tx;
   final String Function(String) formatTxType;
 
   const _TransactionCard({required this.tx, required this.formatTxType});
 
   @override
   Widget build(BuildContext context) {
-    final details = tx.transactionDetails;
-    final txType = details['transaction_type']?.toString() ?? 'Adjustment';
-    final shipmentType = details['shipment_type']?.toString().toLowerCase() ?? '';
     final adj = tx.adjustmentType.toLowerCase();
-
-    bool isPositive;
+    final bool isPositive;
     if (adj == 'add') {
       isPositive = true;
     } else if (adj == 'remove') {
       isPositive = false;
     } else {
-      isPositive = tx.quantity > 0;
+      isPositive = tx.newQuantity >= tx.prevQuantity;
     }
 
-    final int qtyVal = tx.quantity.abs();
+    final diff = tx.newQuantity - tx.prevQuantity;
+    final int qtyVal = tx.quantity != 0 ? tx.quantity.abs() : diff.abs();
     final String diffStr = isPositive ? '+$qtyVal' : '-$qtyVal';
 
-    String displayTitle;
-    if (txType == 'Shipment' && shipmentType == 'reverse_shipment') {
-      displayTitle = 'Reverse Shipment';
-    } else if (txType == 'Shipment' && shipmentType == 'forward_shipment') {
-      displayTitle = 'Forward Shipment';
-    } else if (txType == 'GoodsReceivedNote') {
-      displayTitle = 'Goods Received Note';
-    } else {
-      displayTitle = formatTxType(txType);
-    }
-
-    String refText;
-    if (details.containsKey('grn_number')) {
-      refText = 'GRN #${details['grn_number']}';
-    } else if (details.containsKey('shipment_number')) {
-      refText = 'Shipment #${details['shipment_number']}';
-    } else if (details.containsKey('stock_transfer_order_number')) {
-      refText = 'STO #${details['stock_transfer_order_number']}';
-    } else if (details.containsKey('inventory_adjustment_number')) {
-      refText = 'Adj #${details['inventory_adjustment_number']}';
-    } else if (details.containsKey('internal_transfer_number')) {
-      refText = 'Transfer #${details['internal_transfer_number']}';
-    } else if (details.containsKey('reference_number')) {
-      refText = 'Ref #${details['reference_number']}';
-    } else if (details.containsKey('id')) {
-      refText = 'Ref #${details['id']}';
+    final String refText;
+    if (tx.details != null && tx.details!.referenceNumber.isNotEmpty) {
+      refText =
+          '${formatTxType(tx.details!.transactionType)} #${tx.details!.referenceNumber}';
+    } else if (tx.transactionReferenceType.isNotEmpty &&
+        tx.transactionReferenceId != 0) {
+      refText =
+          'Ref: ${tx.transactionReferenceType} #${tx.transactionReferenceId}';
+    } else if (tx.details != null && tx.details!.id != 0) {
+      refText = 'Ref #${tx.details!.id}';
     } else {
       refText = 'Ref #${tx.id}';
     }
 
-    final sourceName = tx.sourceDetails?['vendor_name'] ?? tx.sourceDetails?['node_name'] ?? tx.sourceDetails?['business_partner_name'] ?? tx.sourceDetails?['customer_name'] ?? tx.sourceDetails?['name'];
-    final destName = tx.destinationDetails?['node_name'] ?? tx.destinationDetails?['vendor_name'] ?? tx.destinationDetails?['business_partner_name'] ?? tx.destinationDetails?['customer_name'] ?? tx.destinationDetails?['name'];
     String partyInfo = '';
-    if (sourceName != null && sourceName.toString().isNotEmpty && destName != null && destName.toString().isNotEmpty) {
-      partyInfo = '$sourceName → $destName';
-    } else if (sourceName != null && sourceName.toString().isNotEmpty) {
-      partyInfo = 'From: $sourceName';
-    } else if (destName != null && destName.toString().isNotEmpty) {
-      partyInfo = 'To: $destName';
+    if (tx.sourceDetails != null &&
+        tx.sourceDetails!.name.isNotEmpty &&
+        tx.destinationDetails != null &&
+        tx.destinationDetails!.name.isNotEmpty) {
+      partyInfo = '${tx.sourceDetails!.name} → ${tx.destinationDetails!.name}';
+    } else if (tx.sourceDetails != null && tx.sourceDetails!.name.isNotEmpty) {
+      partyInfo = 'From: ${tx.sourceDetails!.name}';
+    } else if (tx.destinationDetails != null &&
+        tx.destinationDetails!.name.isNotEmpty) {
+      partyInfo = 'To: ${tx.destinationDetails!.name}';
     }
 
-    final dateText = (details['completed_date'] ?? details['delivered_date'] ?? details['returned_date'] ?? details['created_at'] ?? '').toString();
-
-    final prevQty = details['prev_quantity'] ?? details['previous_quantity'];
-    final newQty = details['new_quantity'];
+    final dateText = tx.createdAt.isNotEmpty
+        ? tx.createdAt
+        : (tx.details?.completedDate ?? '');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -484,7 +425,7 @@ class _TransactionCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  displayTitle,
+                  formatTxType(tx.transactionType),
                   style: AppTextStyles.bodyMedium.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -529,15 +470,13 @@ class _TransactionCard extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              if (prevQty != null && newQty != null) ...[
-                const SizedBox(height: 2),
-                Text(
-                  'Qty: $prevQty → $newQty',
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
+              const SizedBox(height: 2),
+              Text(
+                'Qty: ${tx.prevQuantity} → ${tx.newQuantity}',
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.textSecondary,
                 ),
-              ],
+              ),
             ],
           ),
         ],

@@ -306,9 +306,36 @@ class _BatchCard extends StatelessWidget {
             const SizedBox(height: 6),
 
             // SKU Code & Batch Code
-            Text(
-              "SKU: ${item.productSku?.skuCode ?? 'N/A'} • Batch: ${item.batch?.batchCode ?? 'N/A'}",
-              style: AppTextStyles.caption.copyWith(color: AppColors.textMuted, fontWeight: FontWeight.w600),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    "SKU: ${item.productSku?.skuCode ?? 'N/A'}",
+                    style: AppTextStyles.caption.copyWith(color: AppColors.textMuted, fontWeight: FontWeight.w600),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (item.batch?.batchCode != null && item.batch!.batchCode.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                    ),
+                    child: Text(
+                      "Batch: ${item.batch!.batchCode}",
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
             const SizedBox(height: 12),
 

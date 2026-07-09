@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/widgets/app_text_field.dart';
-import '../../../../core/widgets/tracking_type_badge.dart';
 import '../../data/models/node_inventory_model.dart';
 import '../../providers/inventory_provider.dart';
+import '../screens/node_inventory_detail_screen.dart';
 
 class NodeInventoryListView extends ConsumerStatefulWidget {
   const NodeInventoryListView({super.key});
@@ -37,7 +37,7 @@ class _NodeInventoryListViewState extends ConsumerState<NodeInventoryListView> {
     super.dispose();
   }
 
-  void _showTransactionsModal(NodeInventoryModel item) {
+  void _openFilterSheet(NodeInventoryListState state) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -45,7 +45,24 @@ class _NodeInventoryListViewState extends ConsumerState<NodeInventoryListView> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) => _NodeInventoryTransactionsModal(inventoryId: item.id.toString()),
+      builder: (ctx) => _NodeInventoryFilterSheet(
+        initialSkuName: state.bySkuName,
+        initialSkuCode: state.bySkuCode,
+        initialSkuId: state.bySkuId,
+        initialAvailableOnly: state.availableOnly,
+        onApply: (skuName, skuCode, skuId, availOnly) {
+          ref.read(nodeInventoryListProvider.notifier).updateFilters(
+                bySkuName: skuName,
+                bySkuCode: skuCode,
+                bySkuId: skuId,
+                availableOnly: availOnly,
+              );
+        },
+        onReset: () {
+          ref.read(nodeInventoryListProvider.notifier).clearFilters();
+          _searchController.clear();
+        },
+      ),
     );
   }
 
@@ -56,77 +73,120 @@ class _NodeInventoryListViewState extends ConsumerState<NodeInventoryListView> {
     return Column(
       children: [
         // ── Search & Filter Bar ───────────────────────────────────────────────
-        Container(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-          decoration: const BoxDecoration(
-            color: AppColors.card,
-            border: Border(bottom: BorderSide(color: AppColors.cardBorder)),
-          ),
-          child: Column(
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: Row(
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: AppTextField(
-                      controller: _searchController,
-                      label: '',
-                      hint: 'Search by SKU Name or Code...',
-                      prefixIcon: Icons.search,
-                      suffix: _searchController.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear, size: 18, color: AppColors.textMuted),
-                              onPressed: () {
-                                _searchController.clear();
-                                ref.read(nodeInventoryListProvider.notifier).clearFilters();
-                              },
-                            )
-                          : null,
-                      onSubmitted: (val) {
-                        ref.read(nodeInventoryListProvider.notifier).updateFilters(
-                              bySkuName: val.trim().isNotEmpty ? val.trim() : null,
-                              bySkuCode: val.trim().isNotEmpty ? val.trim() : null,
-                            );
-                      },
+              Expanded(
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: "Search by SKU Name or Code...",
+                    hintStyle: AppTextStyles.caption.copyWith(color: AppColors.textMuted),
+                    prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textMuted, size: 20),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, size: 18, color: AppColors.textMuted),
+                            onPressed: () {
+                              _searchController.clear();
+                              ref.read(nodeInventoryListProvider.notifier).updateFilters(bySkuName: '', bySkuCode: '');
+                            },
+                          )
+                        : null,
+                    filled: true,
+                    fillColor: AppColors.surface,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppColors.cardBorder),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppColors.cardBorder),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppColors.primary),
                     ),
                   ),
-                ],
+                  onSubmitted: (val) {
+                    ref.read(nodeInventoryListProvider.notifier).updateFilters(bySkuName: val.trim());
+                  },
+                ),
               ),
-              const SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Row(
-                      children: [
-                        Icon(Icons.check_circle_outline, size: 18, color: state.availableOnly ? AppColors.success : AppColors.textMuted),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            'Available Stock Only',
-                            style: AppTextStyles.bodyMedium.copyWith(
-                              color: state.availableOnly ? AppColors.textPrimary : AppColors.textSecondary,
-                              fontWeight: state.availableOnly ? FontWeight.bold : FontWeight.normal,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
+              const SizedBox(width: 10),
+              InkWell(
+                onTap: () => _openFilterSheet(state),
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: (state.bySkuCode != null || state.bySkuId != null || !state.availableOnly)
+                          ? AppColors.primary
+                          : AppColors.cardBorder,
+                      width: (state.bySkuCode != null || state.bySkuId != null || !state.availableOnly) ? 1.5 : 1,
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Switch(
-                    value: state.availableOnly,
-                    activeThumbColor: AppColors.primary,
-                    onChanged: (val) {
-                      ref.read(nodeInventoryListProvider.notifier).filterAvailableOnly(val);
-                    },
+                  child: Icon(
+                    Icons.filter_list_rounded,
+                    color: (state.bySkuCode != null || state.bySkuId != null || !state.availableOnly)
+                        ? AppColors.primary
+                        : AppColors.textMuted,
+                    size: 22,
                   ),
-                ],
+                ),
               ),
             ],
           ),
         ),
+
+        // Active Filter Chips
+        if (state.bySkuName != null || state.bySkuCode != null || state.bySkuId != null || !state.availableOnly)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  if (state.bySkuName != null && state.bySkuName!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: _FilterChip(
+                        label: "Name: ${state.bySkuName}",
+                        onRemove: () => ref.read(nodeInventoryListProvider.notifier).updateFilters(bySkuName: ''),
+                      ),
+                    ),
+                  if (state.bySkuCode != null && state.bySkuCode!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: _FilterChip(
+                        label: "Code: ${state.bySkuCode}",
+                        onRemove: () => ref.read(nodeInventoryListProvider.notifier).updateFilters(bySkuCode: ''),
+                      ),
+                    ),
+                  if (state.bySkuId != null && state.bySkuId!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: _FilterChip(
+                        label: "ID: ${state.bySkuId}",
+                        onRemove: () => ref.read(nodeInventoryListProvider.notifier).updateFilters(bySkuId: ''),
+                      ),
+                    ),
+                  if (!state.availableOnly)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: _FilterChip(
+                        label: "Showing All Stock",
+                        onRemove: () => ref.read(nodeInventoryListProvider.notifier).filterAvailableOnly(true),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
 
         // ── List View ─────────────────────────────────────────────────────────
         Expanded(
@@ -195,133 +255,127 @@ class _NodeInventoryListViewState extends ConsumerState<NodeInventoryListView> {
   Widget _buildInventoryCard(NodeInventoryModel item) {
     final trackingType = item.trackingType.toLowerCase();
 
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.cardBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => NodeInventoryDetailScreen(inventoryId: item.id.toString()),
           ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header Row
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.skuName,
-                        style: AppTextStyles.headingMedium.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'SKU Code: ${item.skuCode}',
-                        style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
-                      ),
-                    ],
-                  ),
-                ),
-                TrackingTypeBadge(trackingType: item.trackingType),
-              ],
+        );
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.cardBorder),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
-            const SizedBox(height: 16),
-            Divider(color: AppColors.cardBorder.withValues(alpha: 0.5), height: 1),
-            const SizedBox(height: 14),
-
-            // Quantities Grid
-            Row(
-              children: [
-                Expanded(
-                  child: _buildQtyBox('Total', item.totalQuantity, AppColors.textPrimary, isBold: true),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildQtyBox('Available', item.availableQuantity, AppColors.success, isBold: true),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildQtyBox('Blocked', item.blockedQuantity, AppColors.warning),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildQtyBox('In Transit', item.inTransitQuantity, AppColors.secondary),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildQtyBox('Damaged', item.damagedQuantity, AppColors.error),
-                ),
-                const SizedBox(width: 8),
-                Expanded(child: const SizedBox.shrink()),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Divider(color: AppColors.cardBorder.withValues(alpha: 0.5), height: 1),
-            const SizedBox(height: 12),
-
-            // Actions Row
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _showTransactionsModal(item),
-                    icon: const Icon(Icons.history_rounded, size: 18, color: AppColors.primary),
-                    label: const Text('History'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.primary,
-                      side: BorderSide(color: AppColors.primary.withValues(alpha: 0.4)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                    ),
-                  ),
-                ),
-                if (trackingType == 'batch' || trackingType == 'serial') ...[
-                  const SizedBox(width: 10),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header Row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
                   Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        if (trackingType == 'batch') {
-                          ref.read(batchInventoryListProvider.notifier).updateFilters(bySkuCode: item.skuCode);
-                          DefaultTabController.of(context).animateTo(1);
-                        } else if (trackingType == 'serial') {
-                          ref.read(serialInventoryListProvider.notifier).updateFilters(bySkuCode: item.skuCode);
-                          DefaultTabController.of(context).animateTo(2);
-                        }
-                      },
-                      icon: Icon(
-                        trackingType == 'batch' ? Icons.layers_outlined : Icons.qr_code_2_outlined,
-                        size: 18,
-                      ),
-                      label: Text(trackingType == 'batch' ? 'Batches' : 'Serials'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.getTrackingTextColor(trackingType),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.skuName,
+                          style: AppTextStyles.headingMedium.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'SKU Code: ${item.skuCode}',
+                          style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+                        ),
+                      ],
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 16),
+
+              // Quantities Grid
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildQtyBox('Total', item.totalQuantity, AppColors.textPrimary, isBold: true),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildQtyBox('Available', item.availableQuantity, AppColors.success, isBold: true),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildQtyBox('Blocked', item.blockedQuantity, AppColors.warning),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildQtyBox('In Transit', item.inTransitQuantity, AppColors.secondary),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildQtyBox('Damaged', item.damagedQuantity, AppColors.error),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildQtyBox('Missing', item.missingQuantity, AppColors.error),
+                  ),
+                ],
+              ),
+
+              if (trackingType == 'batch' || trackingType == 'serial') ...[
+                const SizedBox(height: 16),
+                Divider(color: AppColors.cardBorder.withValues(alpha: 0.5), height: 1),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          if (trackingType == 'batch') {
+                            ref.read(batchInventoryListProvider.notifier).updateFilters(bySkuCode: item.skuCode);
+                            DefaultTabController.of(context).animateTo(1);
+                          } else if (trackingType == 'serial') {
+                            ref.read(serialInventoryListProvider.notifier).updateFilters(bySkuCode: item.skuCode);
+                            DefaultTabController.of(context).animateTo(2);
+                          }
+                        },
+                        icon: Icon(
+                          trackingType == 'batch' ? Icons.layers_outlined : Icons.qr_code_2_outlined,
+                          size: 18,
+                        ),
+                        label: Text(trackingType == 'batch' ? 'Batches' : 'Serials'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.getTrackingTextColor(trackingType),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ],
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -357,184 +411,150 @@ class _NodeInventoryListViewState extends ConsumerState<NodeInventoryListView> {
   }
 }
 
-// ── Transactions Modal ────────────────────────────────────────────────────────
-class _NodeInventoryTransactionsModal extends ConsumerStatefulWidget {
-  final String inventoryId;
+class _FilterChip extends StatelessWidget {
+  final String label;
+  final VoidCallback onRemove;
 
-  const _NodeInventoryTransactionsModal({required this.inventoryId});
+  const _FilterChip({required this.label, required this.onRemove});
 
   @override
-  ConsumerState<_NodeInventoryTransactionsModal> createState() => _NodeInventoryTransactionsModalState();
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label, style: AppTextStyles.labelSmall.copyWith(color: AppColors.primary, fontWeight: FontWeight.w600)),
+          const SizedBox(width: 6),
+          InkWell(
+            onTap: onRemove,
+            child: const Icon(Icons.close, size: 14, color: AppColors.primary),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-class _NodeInventoryTransactionsModalState extends ConsumerState<_NodeInventoryTransactionsModal> {
-  final ScrollController _scrollController = ScrollController();
+class _NodeInventoryFilterSheet extends StatefulWidget {
+  final String? initialSkuName;
+  final String? initialSkuCode;
+  final String? initialSkuId;
+  final bool initialAvailableOnly;
+  final Function(String? skuName, String? skuCode, String? skuId, bool availableOnly) onApply;
+  final VoidCallback onReset;
+
+  const _NodeInventoryFilterSheet({
+    required this.initialSkuName,
+    required this.initialSkuCode,
+    required this.initialSkuId,
+    required this.initialAvailableOnly,
+    required this.onApply,
+    required this.onReset,
+  });
+
+  @override
+  State<_NodeInventoryFilterSheet> createState() => _NodeInventoryFilterSheetState();
+}
+
+class _NodeInventoryFilterSheetState extends State<_NodeInventoryFilterSheet> {
+  late TextEditingController _skuNameCtrl;
+  late TextEditingController _skuCodeCtrl;
+  late TextEditingController _skuIdCtrl;
+  late bool _availableOnly;
 
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
-  }
-
-  void _onScroll() {
-    if (_scrollController.position.extentAfter < 200) {
-      ref.read(nodeInventoryTransactionsProvider(widget.inventoryId).notifier).fetchNextPage();
-    }
+    _skuNameCtrl = TextEditingController(text: widget.initialSkuName ?? '');
+    _skuCodeCtrl = TextEditingController(text: widget.initialSkuCode ?? '');
+    _skuIdCtrl = TextEditingController(text: widget.initialSkuId ?? '');
+    _availableOnly = widget.initialAvailableOnly;
   }
 
   @override
   void dispose() {
-    _scrollController.dispose();
+    _skuNameCtrl.dispose();
+    _skuCodeCtrl.dispose();
+    _skuIdCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(nodeInventoryTransactionsProvider(widget.inventoryId));
-
-    return DraggableScrollableSheet(
-      initialChildSize: 0.85,
-      maxChildSize: 0.95,
-      minChildSize: 0.5,
-      expand: false,
-      builder: (context, scrollController) {
-        return Column(
-          children: [
-            // Modal Handle Bar
-            Container(
-              margin: const EdgeInsets.symmetric(vertical: 12),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.textMuted.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Transaction History', style: AppTextStyles.headingLarge, maxLines: 1, overflow: TextOverflow.ellipsis),
-                        if (state.nodeInventory != null)
-                          Text(
-                            '${state.nodeInventory!.skuName} (${state.nodeInventory!.skuCode})',
-                            style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                      ],
-                    ),
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 16, 20, MediaQuery.of(context).viewInsets.bottom + 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text("Filter Node Inventory", style: AppTextStyles.headingLarge),
+              IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+            ],
+          ),
+          const SizedBox(height: 16),
+          AppTextField(label: "SKU Name", controller: _skuNameCtrl, hint: "Enter SKU name..."),
+          const SizedBox(height: 12),
+          AppTextField(label: "SKU Code", controller: _skuCodeCtrl, hint: "Enter SKU code..."),
+          const SizedBox(height: 12),
+          AppTextField(label: "SKU ID", controller: _skuIdCtrl, hint: "Enter SKU ID..."),
+          const SizedBox(height: 16),
+          SwitchListTile(
+            title: Text("Available Inventory Only", style: AppTextStyles.bodyMedium),
+            value: _availableOnly,
+            activeThumbColor: AppColors.primary,
+            contentPadding: EdgeInsets.zero,
+            onChanged: (val) => setState(() => _availableOnly = val),
+          ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () {
+                    widget.onReset();
+                    Navigator.pop(context);
+                  },
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
+                  child: Text("Reset", style: AppTextStyles.labelLarge),
+                ),
               ),
-            ),
-            const Divider(height: 24),
-            Expanded(
-              child: state.isLoading && state.transactions.isEmpty
-                  ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-                  : state.transactions.isEmpty
-                      ? Center(
-                          child: Text(
-                            'No transactions recorded',
-                            style: AppTextStyles.bodyLarge.copyWith(color: AppColors.textSecondary),
-                          ),
-                        )
-                      : ListView.builder(
-                          controller: scrollController,
-                          padding: const EdgeInsets.all(16),
-                          itemCount: state.transactions.length + (state.isLoadingMore ? 1 : 0),
-                          itemBuilder: (context, index) {
-                            if (index == state.transactions.length) {
-                              return const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 16),
-                                child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary)),
-                              );
-                            }
-                            final tx = state.transactions[index];
-                            final isPositive = tx.newQuantity >= tx.prevQuantity;
-                            final diff = tx.newQuantity - tx.prevQuantity;
-                            final diffStr = diff >= 0 ? '+$diff' : '$diff';
-
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: AppColors.background,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: AppColors.cardBorder),
-                              ),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(10),
-                                    decoration: BoxDecoration(
-                                      color: (isPositive ? AppColors.success : AppColors.error).withValues(alpha: 0.12),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      isPositive ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
-                                      color: isPositive ? AppColors.success : AppColors.error,
-                                      size: 20,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 14),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          tx.transactionType.toUpperCase(),
-                                          style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.bold),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          'Ref: ${tx.transactionReferenceType} #${tx.transactionReferenceId}',
-                                          style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          tx.createdAt,
-                                          style: AppTextStyles.caption.copyWith(color: AppColors.textMuted),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: [
-                                      Text(
-                                        diffStr,
-                                        style: AppTextStyles.headingMedium.copyWith(
-                                          color: isPositive ? AppColors.success : AppColors.error,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        'Qty: ${tx.prevQuantity} → ${tx.newQuantity}',
-                                        style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-            ),
-          ],
-        );
-      },
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () {
+                    widget.onApply(
+                      _skuNameCtrl.text.trim().isEmpty ? null : _skuNameCtrl.text.trim(),
+                      _skuCodeCtrl.text.trim().isEmpty ? null : _skuCodeCtrl.text.trim(),
+                      _skuIdCtrl.text.trim().isEmpty ? null : _skuIdCtrl.text.trim(),
+                      _availableOnly,
+                    );
+                    Navigator.pop(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  child: Text("Apply Filters", style: AppTextStyles.labelLarge.copyWith(color: Colors.white)),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

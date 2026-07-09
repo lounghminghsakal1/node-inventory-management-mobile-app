@@ -24,11 +24,14 @@ class NodeOpsAppBar extends ConsumerWidget implements PreferredSizeWidget {
   /// Extra actions to prepend before logout (e.g. status badge in detail screens).
   final List<Widget> extraActions;
 
+  final bool hideLogoutButton;
+
   const NodeOpsAppBar({
     super.key,
     this.title,
     this.showBack = false,
     this.extraActions = const [],
+    this.hideLogoutButton = false
   });
 
   @override
@@ -42,7 +45,8 @@ class NodeOpsAppBar extends ConsumerWidget implements PreferredSizeWidget {
     final nodeName = (splash?.nodeName != null && splash!.nodeName.isNotEmpty)
         ? splash.nodeName
         : (auth.node?.name ?? 'Select Node');
-    final adminName = (splash?.nodeAdminName != null && splash!.nodeAdminName.isNotEmpty)
+    final adminName =
+        (splash?.nodeAdminName != null && splash!.nodeAdminName.isNotEmpty)
         ? splash.nodeAdminName
         : (auth.user?.name ?? '');
     final canPop = Navigator.of(context).canPop() || showBack;
@@ -73,11 +77,17 @@ class NodeOpsAppBar extends ConsumerWidget implements PreferredSizeWidget {
               child: InkWell(
                 onTap: () {
                   ref.invalidate(nodeListProvider);
-                  context.pushNamed('node-select', queryParameters: const {'back': 'true'});
+                  context.pushNamed(
+                    'node-select',
+                    queryParameters: const {'back': 'true'},
+                  );
                 },
                 borderRadius: BorderRadius.circular(12),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 4,
+                  ),
                   child: Row(
                     children: [
                       Container(
@@ -158,6 +168,7 @@ class NodeOpsAppBar extends ConsumerWidget implements PreferredSizeWidget {
       // ── Actions ──────────────────────────────────────────────────────────
       actions: [
         ...extraActions,
+        if(!hideLogoutButton)
         IconButton(
           icon: const Icon(
             Icons.logout_rounded,
@@ -190,18 +201,22 @@ class NodeOpsAppBar extends ConsumerWidget implements PreferredSizeWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text('Cancel',
-                style: AppTextStyles.labelMedium
-                    .copyWith(color: AppColors.textSecondary)),
+            child: Text(
+              'Cancel',
+              style: AppTextStyles.labelMedium.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
           ),
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
               ref.read(authProvider.notifier).logout();
             },
-            child: Text('Logout',
-                style:
-                    AppTextStyles.labelMedium.copyWith(color: AppColors.error)),
+            child: Text(
+              'Logout',
+              style: AppTextStyles.labelMedium.copyWith(color: AppColors.error),
+            ),
           ),
         ],
       ),

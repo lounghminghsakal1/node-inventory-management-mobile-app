@@ -33,10 +33,12 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
   final Map<int, TextEditingController> _skuQtyControllers = {};
   final Map<int, List<GrnBatchModel>> _skuBatches = {};
   final Map<int, List<String>> _skuSerials = {};
+  List<int?> _inwardBlocks = [null];
 
   // QC state (for 'qc_pending' status)
   final Map<int, GrnLineItemModel> _qcModifiedItems = {};
   String? _loadingAction;
+  GrnLineItemModel? _editingGrnLineItem;
 
   @override
   void dispose() {
@@ -51,6 +53,8 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.grn.id != widget.grn.id || oldWidget.grn.status != widget.grn.status) {
       _qcModifiedItems.clear();
+      _inwardBlocks = [null];
+      _editingGrnLineItem = null;
     }
   }
 
@@ -94,7 +98,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                         Text(grn.grnNumber, style: AppTextStyles.labelLarge),
                         const SizedBox(height: 4),
                         Text(
-                          'Received: ${grn.receivedDate ?? "N/A"} • Items: ${grn.lineItems.length}',
+                          'Received: ${grn.receivedDate ?? "N/A"}', //• Items: ${grn.lineItems.length}
                           style: AppTextStyles.caption.copyWith(color: AppColors.textMuted),
                         ),
                       ],
@@ -204,242 +208,409 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ...skuItems.map((poLi) {
-                  final isFulfilled = poLi.fullyFulfilled || poLi.remainingQuantity <= 0;
-                  final controller = _skuQtyControllers.putIfAbsent(poLi.productSkuId, () => TextEditingController());
-                  final batches = _skuBatches.putIfAbsent(poLi.productSkuId, () => []);
-                  final serials = _skuSerials.putIfAbsent(poLi.productSkuId, () => []);
-
-                  if (isFulfilled) {
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: AppColors.card.withValues(alpha: 0.5),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.cardBorder.withValues(alpha: 0.5)),
-                      ),
-                      child: Wrap(
-                        alignment: WrapAlignment.spaceBetween,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 12,
-                        runSpacing: 8,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(poLi.skuName, style: AppTextStyles.labelMedium.copyWith(color: AppColors.textMuted)),
-                              const SizedBox(height: 4),
-                              Wrap(
-                                spacing: 6,
-                                runSpacing: 4,
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                children: [
-                                  Text("SKU: ${poLi.skuCode}", style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
-                                  TrackingTypeBadge(trackingType: poLi.trackingType),
-                                ],
-                              ),
-                            ],
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: AppColors.textMuted.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text("Remaining Qty: 0 (Fully Inwarded)", style: AppTextStyles.caption.copyWith(color: AppColors.textMuted, fontWeight: FontWeight.bold)),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppColors.card,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.cardBorder),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Wrap(
-                          alignment: WrapAlignment.spaceBetween,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          spacing: 12,
-                          runSpacing: 8,
-                          children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(poLi.skuName, style: AppTextStyles.headingMedium.copyWith(fontSize: 16)),
-                                const SizedBox(height: 4),
-                                Wrap(
-                                  spacing: 6,
-                                  runSpacing: 4,
-                                  crossAxisAlignment: WrapCrossAlignment.center,
-                                  children: [
-                                    Text("SKU: ${poLi.skuCode}", style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
-                                    TrackingTypeBadge(trackingType: poLi.trackingType),
-                                    if (poLi.selectionType.isNotEmpty)
-                                      Text("• ${poLi.selectionType}", style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: AppColors.primary.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text("Remaining Qty: ${poLi.remainingQuantity} / Total: ${poLi.totalUnits}",
-                                  style: AppTextStyles.labelMedium.copyWith(color: AppColors.primary, fontWeight: FontWeight.bold)),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Builder(
-                          builder: (context) {
-                            final enteredQty = int.tryParse(controller.text) ?? 0;
-                            final isQtyExceeded = enteredQty > poLi.remainingQuantity;
-                            final isBatchesAdded = batches.isNotEmpty && batches.fold<int>(0, (s, b) => s + b.quantity) == enteredQty && enteredQty > 0;
-                            final isSerialsAdded = serials.isNotEmpty && serials.length == enteredQty && enteredQty > 0;
-
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                LayoutBuilder(
-                                  builder: (context, constraints) {
-                                    final isNarrow = constraints.maxWidth < 460;
-                                    final textFieldWidget = AppTextField(
-                                      label: "Received Qty (Max: ${poLi.remainingQuantity})",
-                                      controller: controller,
-                                      keyboardType: TextInputType.number,
-                                      onChanged: (val) {
-                                        final newQty = int.tryParse(val) ?? 0;
-                                        if (poLi.trackingType == 'batch') {
-                                          final currentBatchSum = batches.fold<int>(0, (s, b) => s + b.quantity);
-                                          if (newQty != currentBatchSum) {
-                                            batches.clear();
-                                          }
-                                        } else if (poLi.trackingType == 'serial') {
-                                          if (newQty != serials.length) {
-                                            serials.clear();
-                                          }
-                                        }
-                                        setState(() {});
-                                      },
-                                    );
-
-                                    final actionContainer = Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),                                
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          if (poLi.trackingType == 'batch')
-                                            Expanded(
-                                              child: ElevatedButton.icon(
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor: isBatchesAdded ? AppColors.success : AppColors.getTrackingTextColor('batch'),
-                                                  foregroundColor: Colors.white,
-                                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                                ),
-                                                icon: Icon(isBatchesAdded ? Icons.check_circle_outline : Icons.layers_outlined, size: 18),
-                                                label: Text(
-                                                  isBatchesAdded ? "Batches Added (${batches.length})" : "Add Batches (${batches.length})",
-                                                  overflow: TextOverflow.ellipsis,
-                                                ),
-                                                onPressed: () => _openBatchModalForSku(poLi),
-                                              ),
-                                            )
-                                          else if (poLi.trackingType == 'serial')
-                                            Expanded(
-                                              child: ElevatedButton.icon(
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor: isSerialsAdded ? AppColors.success : AppColors.getTrackingTextColor('serial'),
-                                                  foregroundColor: Colors.white,
-                                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                                ),
-                                                icon: Icon(isSerialsAdded ? Icons.check_circle_outline : Icons.qr_code_scanner_outlined, size: 18),
-                                                label: Text(
-                                                  isSerialsAdded ? "Serials Added (${serials.length})" : "Add Serials (${serials.length})",
-                                                  overflow: TextOverflow.ellipsis,
-                                                ),
-                                                onPressed: () => _openSerialModalForSku(poLi),
-                                              ),
-                                            )
-                                          else
-                                            const Expanded(
-                                              child: Center(
-                                                child: TrackingTypeBadge(trackingType: 'untracked'),
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                                    );
-
-                                    if (isNarrow) {
-                                      return Column(
-                                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                                        children: [
-                                          textFieldWidget,
-                                          const SizedBox(height: 12),
-                                          actionContainer,
-                                        ],
-                                      );
-                                    }
-                                    return Row(
-                                      children: [
-                                        Expanded(
-                                          flex: 2,
-                                          child: textFieldWidget,
-                                        ),
-                                        const SizedBox(width: 16),
-                                        Expanded(
-                                          flex: 3,
-                                          child: actionContainer,
-                                        ),
-                                      ],
-                                    );
-                                  },
-                                ),
-                                if (isQtyExceeded) ...[
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    "Received quantity ($enteredQty) cannot exceed remaining quantity (${poLi.remainingQuantity}).",
-                                    style: AppTextStyles.caption.copyWith(color: AppColors.error, fontWeight: FontWeight.w600),
-                                  ),
-                                ],
-                              ],
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  );
-                }),
-                const SizedBox(height: 16),
                 Builder(
                   builder: (context) {
-                    final hasExceededQty = skuItems.any((poLi) {
-                      if (poLi.fullyFulfilled || poLi.remainingQuantity <= 0) return false;
-                      final q = int.tryParse(_skuQtyControllers[poLi.productSkuId]?.text ?? '0') ?? 0;
-                      return q > poLi.remainingQuantity;
-                    });
-                    return SizedBox(
-                      width: double.infinity,
-                      child: AppButton(
-                        label: "Add Line Items to GRN",
-                        icon: Icons.add_circle_outline,
-                        height: 48,
-                        isLoading: _loadingAction == 'add',
-                        onPressed: (hasExceededQty || _loadingAction != null) ? null : () => _addItemsToGrn(skuItems),
-                      ),
+
+                    final unfulfilledSkus = skuItems.where((item) {
+                      if (_editingGrnLineItem != null && item.productSkuId == _editingGrnLineItem!.productSkuId) return true;
+                      return !item.fullyFulfilled && item.remainingQuantity > 0;
+                    }).map((poLi) {
+                      if (_editingGrnLineItem != null && poLi.productSkuId == _editingGrnLineItem!.productSkuId) {
+                        return poLi.copyWith(
+                          yetToReceive: poLi.remainingQuantity + _editingGrnLineItem!.receivedQuantity,
+                          fullyFulfilled: false,
+                        );
+                      }
+                      return poLi;
+                    }).toList();
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (_editingGrnLineItem != null)
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 16),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.edit_outlined, color: AppColors.primary, size: 20),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        "Editing Line Item: ${_editingGrnLineItem!.skuName}",
+                                        style: AppTextStyles.labelMedium.copyWith(color: AppColors.primary, fontWeight: FontWeight.bold),
+                                      ),
+                                      Text(
+                                        "Original Quantity: ${_editingGrnLineItem!.receivedQuantity} units. Make changes below and resubmit.",
+                                        style: AppTextStyles.caption.copyWith(color: AppColors.textPrimary),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                TextButton.icon(
+                                  icon: const Icon(Icons.close, size: 16),
+                                  label: const Text("Cancel"),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: AppColors.error,
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    minimumSize: Size.zero,
+                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                  onPressed: () {
+                                    setState(() {
+                                      _editingGrnLineItem = null;
+                                      for (final c in _skuQtyControllers.values) {
+                                        c.clear();
+                                      }
+                                      _skuBatches.clear();
+                                      _skuSerials.clear();
+                                      _inwardBlocks = [null];
+                                    });
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+
+                        // 2. Unfulfilled SKUs dynamic inwarding blocks
+                        if (unfulfilledSkus.isEmpty)
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 16),
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: AppColors.success.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.check_circle_outline, color: AppColors.success),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    "All line items in this purchase order have been fully inwarded.",
+                                    style: AppTextStyles.bodyMedium.copyWith(color: AppColors.success, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        else ...[
+                          for (int i = 0; i < _inwardBlocks.length; i++)
+                            Builder(
+                              builder: (context) {
+                                final selectedSkuId = _inwardBlocks[i];
+                                final poLi = selectedSkuId == null
+                                    ? null
+                                    : unfulfilledSkus.where((item) => item.productSkuId == selectedSkuId).firstOrNull;
+
+                                final currentlySelectedIds = _inwardBlocks
+                                    .where((id) => id != null && id != selectedSkuId)
+                                    .toSet();
+                                final availableSkusForBlock = unfulfilledSkus
+                                    .where((sku) => !currentlySelectedIds.contains(sku.productSkuId))
+                                    .toList();
+
+                                final controller = poLi == null
+                                    ? null
+                                    : _skuQtyControllers.putIfAbsent(poLi.productSkuId, () => TextEditingController());
+                                final batches = poLi == null
+                                    ? <GrnBatchModel>[]
+                                    : _skuBatches.putIfAbsent(poLi.productSkuId, () => []);
+                                final serials = poLi == null
+                                    ? <String>[]
+                                    : _skuSerials.putIfAbsent(poLi.productSkuId, () => []);
+
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 14),
+                                  padding: const EdgeInsets.all(14),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.card,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: AppColors.cardBorder),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      // Dropdown + Remove button
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: InputDecorator(
+                                              decoration: InputDecoration(
+                                                labelText: "Select SKU to Inward",
+                                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                                                border: OutlineInputBorder(
+                                                  borderRadius: BorderRadius.circular(10),
+                                                  borderSide: const BorderSide(color: AppColors.cardBorder),
+                                                ),
+                                                enabledBorder: OutlineInputBorder(
+                                                  borderRadius: BorderRadius.circular(10),
+                                                  borderSide: const BorderSide(color: AppColors.cardBorder),
+                                                ),
+                                                focusedBorder: OutlineInputBorder(
+                                                  borderRadius: BorderRadius.circular(10),
+                                                  borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                                                ),
+                                                filled: true,
+                                                fillColor: AppColors.surface,
+                                              ),
+                                              child: DropdownButtonHideUnderline(
+                                                child: DropdownButton<int?>(
+                                                  value: selectedSkuId,
+                                                  isExpanded: true,
+                                                  icon: const Icon(Icons.arrow_drop_down, color: AppColors.textSecondary),
+                                                  items: availableSkusForBlock.map((sku) {
+                                                    return DropdownMenuItem<int?>(
+                                                      value: sku.productSkuId,
+                                                      child: Text(
+                                                        "${sku.skuName} (${sku.skuCode})",
+                                                        style: AppTextStyles.bodyMedium,
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+                                                    );
+                                                  }).toList(),
+                                                  onChanged: (newVal) {
+                                                    setState(() {
+                                                      if (selectedSkuId != null && selectedSkuId != newVal) {
+                                                        _skuQtyControllers.remove(selectedSkuId)?.dispose();
+                                                        _skuBatches.remove(selectedSkuId);
+                                                        _skuSerials.remove(selectedSkuId);
+                                                      }
+                                                      _inwardBlocks[i] = newVal;
+                                                    });
+                                                  },
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          if (_inwardBlocks.length > 1) ...[
+                                            const SizedBox(width: 8),
+                                            IconButton(
+                                              icon: const Icon(Icons.delete_outline, color: AppColors.error),
+                                              tooltip: "Remove this block",
+                                              onPressed: () {
+                                                setState(() {
+                                                  final removedId = _inwardBlocks.removeAt(i);
+                                                  if (removedId != null) {
+                                                    _skuQtyControllers.remove(removedId)?.dispose();
+                                                    _skuBatches.remove(removedId);
+                                                    _skuSerials.remove(removedId);
+                                                  }
+                                                });
+                                              },
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                      if (poLi != null && controller != null) ...[
+                                        const SizedBox(height: 14),
+                                        Wrap(
+                                          alignment: WrapAlignment.spaceBetween,
+                                          crossAxisAlignment: WrapCrossAlignment.center,
+                                          spacing: 12,
+                                          runSpacing: 8,
+                                          children: [
+                                            Wrap(
+                                              spacing: 6,
+                                              runSpacing: 4,
+                                              crossAxisAlignment: WrapCrossAlignment.center,
+                                              children: [
+                                                Text("SKU: ${poLi.skuCode}", style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
+                                                TrackingTypeBadge(trackingType: poLi.trackingType),
+                                                if (poLi.selectionType.isNotEmpty)
+                                                  Text("• ${poLi.selectionType}", style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
+                                              ],
+                                            ),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                              decoration: BoxDecoration(
+                                                color: AppColors.primary.withValues(alpha: 0.1),
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                              child: Text(
+                                                "Remaining Qty: ${poLi.remainingQuantity} / Total: ${poLi.totalUnits}",
+                                                style: AppTextStyles.labelMedium.copyWith(color: AppColors.primary, fontWeight: FontWeight.bold),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 14),
+                                        Builder(
+                                          builder: (context) {
+                                            final enteredQty = int.tryParse(controller.text) ?? 0;
+                                            final isQtyExceeded = enteredQty > poLi.remainingQuantity;
+                                            final isBatchesAdded = batches.isNotEmpty && batches.fold<int>(0, (s, b) => s + b.quantity) == enteredQty && enteredQty > 0;
+                                            final isSerialsAdded = serials.isNotEmpty && serials.length == enteredQty && enteredQty > 0;
+
+                                            return Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                LayoutBuilder(
+                                                  builder: (context, constraints) {
+                                                    final isNarrow = constraints.maxWidth < 460;
+                                                    final textFieldWidget = AppTextField(
+                                                      label: "Received Qty (Max: ${poLi.remainingQuantity})",
+                                                      controller: controller,
+                                                      keyboardType: TextInputType.number,
+                                                      onChanged: (val) {
+                                                        final newQty = int.tryParse(val) ?? 0;
+                                                        if (poLi.trackingType == 'batch') {
+                                                          final currentBatchSum = batches.fold<int>(0, (s, b) => s + b.quantity);
+                                                          if (newQty != currentBatchSum) {
+                                                            batches.clear();
+                                                          }
+                                                        } else if (poLi.trackingType == 'serial') {
+                                                          if (newQty != serials.length) {
+                                                            serials.clear();
+                                                          }
+                                                        }
+                                                        setState(() {});
+                                                      },
+                                                    );
+
+                                                    final actionContainer = Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                                      child: Row(
+                                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                        children: [
+                                                          if (poLi.trackingType == 'batch')
+                                                            Expanded(
+                                                              child: ElevatedButton.icon(
+                                                                style: ElevatedButton.styleFrom(
+                                                                  backgroundColor: isBatchesAdded ? AppColors.success : AppColors.getTrackingTextColor('batch'),
+                                                                  foregroundColor: Colors.white,
+                                                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                                                ),
+                                                                icon: Icon(isBatchesAdded ? Icons.check_circle_outline : Icons.layers_outlined, size: 18),
+                                                                label: Text(
+                                                                  isBatchesAdded ? "Batches Added (${batches.length})" : "Add Batches (${batches.length})",
+                                                                  overflow: TextOverflow.ellipsis,
+                                                                ),
+                                                                onPressed: () => _openBatchModalForSku(poLi),
+                                                              ),
+                                                            )
+                                                          else if (poLi.trackingType == 'serial')
+                                                            Expanded(
+                                                              child: ElevatedButton.icon(
+                                                                style: ElevatedButton.styleFrom(
+                                                                  backgroundColor: isSerialsAdded ? AppColors.success : AppColors.getTrackingTextColor('serial'),
+                                                                  foregroundColor: Colors.white,
+                                                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                                                ),
+                                                                icon: Icon(isSerialsAdded ? Icons.check_circle_outline : Icons.qr_code_scanner_outlined, size: 18),
+                                                                label: Text(
+                                                                  isSerialsAdded ? "Serials Added (${serials.length})" : "Add Serials (${serials.length})",
+                                                                  overflow: TextOverflow.ellipsis,
+                                                                ),
+                                                                onPressed: () => _openSerialModalForSku(poLi),
+                                                              ),
+                                                            )
+                                                          else
+                                                            const Expanded(
+                                                              child: Center(
+                                                                child: TrackingTypeBadge(trackingType: 'untracked'),
+                                                              ),
+                                                            ),
+                                                        ],
+                                                      ),
+                                                    );
+
+                                                    if (isNarrow) {
+                                                      return Column(
+                                                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                                                        children: [
+                                                          textFieldWidget,
+                                                          const SizedBox(height: 12),
+                                                          actionContainer,
+                                                        ],
+                                                      );
+                                                    }
+                                                    return Row(
+                                                      children: [
+                                                        Expanded(
+                                                          flex: 2,
+                                                          child: textFieldWidget,
+                                                        ),
+                                                        const SizedBox(width: 16),
+                                                        Expanded(
+                                                          flex: 3,
+                                                          child: actionContainer,
+                                                        ),
+                                                      ],
+                                                    );
+                                                  },
+                                                ),
+                                                if (isQtyExceeded) ...[
+                                                  const SizedBox(height: 6),
+                                                  Text(
+                                                    "Received quantity ($enteredQty) cannot exceed remaining quantity (${poLi.remainingQuantity}).",
+                                                    style: AppTextStyles.caption.copyWith(color: AppColors.error, fontWeight: FontWeight.w600),
+                                                  ),
+                                                ],
+                                              ],
+                                            );
+                                          },
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+
+                          if (unfulfilledSkus.length > _inwardBlocks.length) ...[
+                            const SizedBox(height: 4),
+                            SizedBox(
+                              width: double.infinity,
+                              child: AppButton(
+                                label: "Add One More Line Item",
+                                icon: Icons.add,
+                                height: 44,
+                                isOutlined: true,
+                                onPressed: () {
+                                  setState(() {
+                                    _inwardBlocks.add(null);
+                                  });
+                                },
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                          ] else
+                            const SizedBox(height: 16),
+
+                          Builder(
+                            builder: (context) {
+                              final hasExceededQty = unfulfilledSkus.any((poLi) {
+                                if (!_inwardBlocks.contains(poLi.productSkuId)) return false;
+                                final q = int.tryParse(_skuQtyControllers[poLi.productSkuId]?.text ?? '0') ?? 0;
+                                return q > poLi.remainingQuantity;
+                              });
+                              final hasAnySelection = _inwardBlocks.any((id) => id != null);
+                              return SizedBox(
+                                width: double.infinity,
+                                child: AppButton(
+                                  label: _editingGrnLineItem != null ? "Update & Resubmit Line Item" : "Add Line Items to GRN",
+                                  icon: _editingGrnLineItem != null ? Icons.update : Icons.add_circle_outline,
+                                  height: 48,
+                                  isLoading: _loadingAction == 'add',
+                                  onPressed: (!hasAnySelection || hasExceededQty || _loadingAction != null) ? null : () => _addItemsToGrn(skuItems),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ],
                     );
                   },
                 ),
@@ -492,57 +663,71 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                         TrackingTypeBadge(trackingType: li.trackingType),
                       ],
                     ),
-                    if (li.trackingType == 'batch' || li.trackingType == 'serial') ...[
-                      const SizedBox(height: 8),
-                      InkWell(
-                        onTap: () => _showInwardedItemDetailsModal(li, isEditing: false),
-                        borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: AppColors.getTrackingBgColor(li.trackingType),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AppColors.getTrackingTextColor(li.trackingType).withValues(alpha: 0.3)),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.visibility_outlined, size: 16, color: AppColors.getTrackingTextColor(li.trackingType)),
-                              const SizedBox(width: 6),
-                              Text(
-                                li.trackingType == 'batch'
-                                    ? "View Batches (${li.receivedBatches.length})"
-                                    : "View Serials (${li.receivedSerials.length})",
-                                style: AppTextStyles.labelSmall.copyWith(
-                                  color: AppColors.getTrackingTextColor(li.trackingType),
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                    // const SizedBox(height: 12),
+                    const SizedBox(height: 12),
                     Wrap(
-                      alignment: WrapAlignment.end,
+                      alignment: WrapAlignment.spaceBetween,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       spacing: 8,
-                      runSpacing: 4,
+                      runSpacing: 8,
                       children: [
-                        if (_loadingAction == 'update_${li.id}' || _loadingAction == 'delete_${li.id}')
-                          const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                        if (li.trackingType == 'batch' || li.trackingType == 'serial')
+                          InkWell(
+                            onTap: () => _showInwardedItemDetailsModal(li, isEditing: false),
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: AppColors.getTrackingBgColor(li.trackingType),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: AppColors.getTrackingTextColor(li.trackingType).withValues(alpha: 0.3)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.visibility_outlined, size: 16, color: AppColors.getTrackingTextColor(li.trackingType)),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    li.trackingType == 'batch'
+                                        ? "View Batches (${li.receivedBatches.length})"
+                                        : "View Serials (${li.receivedSerials.length})",
+                                    style: AppTextStyles.labelSmall.copyWith(
+                                      color: AppColors.getTrackingTextColor(li.trackingType),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           )
-                        else ...[
-                          TextButton.icon(
-                            icon: const Icon(Icons.edit_outlined, size: 18),
-                            label: const Text("Edit"),
-                            onPressed: _loadingAction != null ? null : () => _showInwardedItemDetailsModal(li, isEditing: true),
-                          ),
-                        ],
+                        else
+                          const SizedBox.shrink(),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (_loadingAction == 'update_${li.id}' || _loadingAction == 'delete_${li.id}')
+                              const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 12),
+                                child: SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                                ),
+                              )
+                            else ...[
+                              TextButton.icon(
+                                icon: const Icon(Icons.edit_outlined, size: 18),
+                                label: const Text("Edit"),
+                                onPressed: _loadingAction != null ? null : () => _startEditingInwardedItem(li),
+                              ),
+                              const SizedBox(width: 4),
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline, color: AppColors.error, size: 20),
+                                tooltip: "Remove Line Item",
+                                onPressed: _loadingAction != null ? null : () {},
+                              ),
+                            ],
+                          ],
+                        ),
                       ],
                     ),
                   ],
@@ -617,10 +802,28 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
     );
   }
 
+  void _startEditingInwardedItem(GrnLineItemModel li) {
+    setState(() {
+      _editingGrnLineItem = li;
+      _inwardBlocks = [li.productSkuId];
+      final controller = _skuQtyControllers.putIfAbsent(li.productSkuId, () => TextEditingController());
+      controller.text = li.receivedQuantity.toString();
+      _skuBatches[li.productSkuId] = List.from(li.receivedBatches);
+      _skuSerials[li.productSkuId] = List.from(li.receivedSerials);
+    });
+  }
+
   Future<void> _addItemsToGrn(List<PoSkuItemModel> allSkuItems) async {
     List<GrnLineItemModel> payloadItems = [];
 
-    for (final poLi in allSkuItems) {
+    for (var poLi in allSkuItems) {
+      if (!_inwardBlocks.contains(poLi.productSkuId)) continue;
+      if (_editingGrnLineItem != null && poLi.productSkuId == _editingGrnLineItem!.productSkuId) {
+        poLi = poLi.copyWith(
+          yetToReceive: poLi.remainingQuantity + _editingGrnLineItem!.receivedQuantity,
+          fullyFulfilled: false,
+        );
+      }
       if (poLi.remainingQuantity <= 0 || poLi.fullyFulfilled) continue;
       final controller = _skuQtyControllers[poLi.productSkuId];
       final qtyVal = int.tryParse(controller?.text ?? '') ?? 0;
@@ -668,8 +871,11 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
         }
       }
 
+      final existingItem = (_editingGrnLineItem != null && _editingGrnLineItem!.productSkuId == poLi.productSkuId)
+          ? _editingGrnLineItem
+          : null;
       payloadItems.add(GrnLineItemModel(
-        id: DateTime.now().millisecondsSinceEpoch % 100000 + poLi.productSkuId,
+        id: existingItem?.id ?? (DateTime.now().millisecondsSinceEpoch % 100000 + poLi.productSkuId),
         productSkuId: poLi.productSkuId,
         skuName: poLi.skuName,
         skuCode: poLi.skuCode,
@@ -718,18 +924,23 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
       await ref.read(grnControllerProvider.notifier).updateGrnLineItems(widget.grn.id, widget.grn.purchaseOrderId, updatedList);
       if (!mounted) return;
       setState(() {
+        _editingGrnLineItem = null;
         for (final c in _skuQtyControllers.values) {
           c.clear();
         }
         _skuBatches.clear();
         _skuSerials.clear();
+        _inwardBlocks = [null];
       });
       ref.invalidate(grnDetailProvider(widget.grn.id));
       await ref.read(grnDetailProvider(widget.grn.id).future);
       if (!mounted) return;
       ref.invalidate(poSkuItemsProvider(widget.grn.purchaseOrderId));
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Line items added to GRN successfully"), backgroundColor: AppColors.success),
+        SnackBar(
+          content: Text(_editingGrnLineItem != null ? "Line item updated successfully" : "Line items added to GRN successfully"),
+          backgroundColor: AppColors.success,
+        ),
       );
     } catch (e) {
       if (!mounted) return;
@@ -758,6 +969,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
         initialEditing: isEditing,
         onSave: (updatedItem) => _handleInwardedItemUpdate(updatedItem),
         onDelete: () => _confirmRemoveInwardedItem(li),
+        onEdit: () => _startEditingInwardedItem(li),
       ),
     );
   }
@@ -929,20 +1141,20 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text("Quality Check Items", style: AppTextStyles.headingMedium),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              ),
-              icon: const Icon(Icons.fact_check_outlined, size: 16),
-              label: const Text("QC Check"),
-              onPressed: () {
-                if (grn.lineItems.isNotEmpty) {
-                  _openQcModal(_qcModifiedItems[grn.lineItems.first.id] ?? grn.lineItems.first);
-                }
-              },
-            ),
+            // ElevatedButton.icon(
+            //   style: ElevatedButton.styleFrom(
+            //     backgroundColor: AppColors.primary,
+            //     foregroundColor: Colors.white,
+            //     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            //   ),
+            //   icon: const Icon(Icons.fact_check_outlined, size: 16),
+            //   label: const Text("QC Check"),
+            //   onPressed: () {
+            //     if (grn.lineItems.isNotEmpty) {
+            //       _openQcModal(_qcModifiedItems[grn.lineItems.first.id] ?? grn.lineItems.first);
+            //     }
+            //   },
+            // ),
           ],
         ),
         const SizedBox(height: 12),
@@ -1544,6 +1756,7 @@ class _InwardedItemDetailsModal extends ConsumerStatefulWidget {
   final bool initialEditing;
   final Function(GrnLineItemModel) onSave;
   final VoidCallback? onDelete;
+  final VoidCallback? onEdit;
 
   const _InwardedItemDetailsModal({
     required this.item,
@@ -1551,6 +1764,7 @@ class _InwardedItemDetailsModal extends ConsumerStatefulWidget {
     required this.initialEditing,
     required this.onSave,
     this.onDelete,
+    this.onEdit,
   });
 
   @override
@@ -1575,6 +1789,7 @@ class _InwardedItemDetailsModalState extends ConsumerState<_InwardedItemDetailsM
 
   @override
   void dispose() {
+    FocusManager.instance.primaryFocus?.unfocus();
     _qtyController.dispose();
     super.dispose();
   }
@@ -1678,6 +1893,8 @@ class _InwardedItemDetailsModalState extends ConsumerState<_InwardedItemDetailsM
       receivedBatches: _batches,
       receivedSerials: _serials,
     );
+    FocusScope.of(context).unfocus();
+    FocusManager.instance.primaryFocus?.unfocus();
     Navigator.pop(context);
     widget.onSave(updated);
   }
@@ -1963,24 +2180,17 @@ class _InwardedItemDetailsModalState extends ConsumerState<_InwardedItemDetailsM
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                if (widget.onDelete != null)
-                  TextButton.icon(
-                    style: TextButton.styleFrom(foregroundColor: AppColors.error),
-                    icon: const Icon(Icons.delete_outline, size: 18),
-                    label: const Text("Remove"),
-                    onPressed: () {
-                      Navigator.pop(context);
-                      widget.onDelete!();
-                    },
-                  )
-                else
-                  const SizedBox.shrink(),
+                SizedBox.shrink(),
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (!_isEditing) ...[
                       TextButton(
-                        onPressed: () => Navigator.pop(context),
+                        onPressed: () {
+                          FocusScope.of(context).unfocus();
+                          FocusManager.instance.primaryFocus?.unfocus();
+                          Navigator.pop(context);
+                        },
                         child: const Text("Close"),
                       ),
                       const SizedBox(width: 12),
@@ -1989,13 +2199,22 @@ class _InwardedItemDetailsModalState extends ConsumerState<_InwardedItemDetailsM
                           backgroundColor: AppColors.primary,
                           foregroundColor: Colors.white,
                         ),
-                        onPressed: () => setState(() => _isEditing = true),
+                        onPressed: () {
+                          if (widget.onEdit != null) {
+                            Navigator.pop(context);
+                            widget.onEdit!();
+                          } else {
+                            setState(() => _isEditing = true);
+                          }
+                        },
                         icon: const Icon(Icons.edit_outlined, size: 18),
                         label: const Text("Edit"),
                       ),
                     ] else ...[
                       TextButton(
                         onPressed: () {
+                          FocusScope.of(context).unfocus();
+                          FocusManager.instance.primaryFocus?.unfocus();
                           if (widget.initialEditing) {
                             Navigator.pop(context);
                           } else {
@@ -2052,6 +2271,12 @@ class _BatchInputModalState extends State<_BatchInputModal> {
     if (_batches.isEmpty) {
       _batches.add(const GrnBatchModel(quantity: 0, batchCode: '', manufactureDate: '', expiryDate: ''));
     }
+  }
+
+  @override
+  void dispose() {
+    FocusManager.instance.primaryFocus?.unfocus();
+    super.dispose();
   }
 
   Future<void> _selectDate(BuildContext context, int index, bool isMfg) async {
@@ -2192,11 +2417,20 @@ class _BatchInputModalState extends State<_BatchInputModal> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+        TextButton(
+          onPressed: () {
+            FocusScope.of(context).unfocus();
+            FocusManager.instance.primaryFocus?.unfocus();
+            Navigator.pop(context);
+          },
+          child: const Text("Cancel"),
+        ),
         ElevatedButton(
           style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
           onPressed: isValid
               ? () {
+                  FocusScope.of(context).unfocus();
+                  FocusManager.instance.primaryFocus?.unfocus();
                   widget.onSave(_batches);
                   Navigator.pop(context);
                 }
@@ -2236,6 +2470,7 @@ class _SerialInputModalState extends ConsumerState<_SerialInputModal> {
 
   @override
   void dispose() {
+    FocusManager.instance.primaryFocus?.unfocus();
     _manualController.dispose();
     _bulkController.dispose();
     super.dispose();
@@ -2398,11 +2633,20 @@ class _SerialInputModalState extends ConsumerState<_SerialInputModal> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+        TextButton(
+          onPressed: () {
+            FocusScope.of(context).unfocus();
+            FocusManager.instance.primaryFocus?.unfocus();
+            Navigator.pop(context);
+          },
+          child: const Text("Cancel"),
+        ),
         ElevatedButton(
           style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
           onPressed: isValid
               ? () {
+                  FocusScope.of(context).unfocus();
+                  FocusManager.instance.primaryFocus?.unfocus();
                   widget.onSave(_serials);
                   Navigator.pop(context);
                 }

@@ -117,12 +117,15 @@ class _GoodBadAllocationScreenState extends ConsumerState<GoodBadAllocationScree
 
   @override
   void dispose() {
-    if (_items != null) {
-      for (final item in _items!) {
-        item.dispose();
-      }
-    }
+    final itemsToDispose = _items;
     super.dispose();
+    if (itemsToDispose != null) {
+      Future.delayed(const Duration(milliseconds: 300), () {
+        for (final item in itemsToDispose) {
+          item.dispose();
+        }
+      });
+    }
   }
 
   void _initItems(List<Map<String, dynamic>> infoList, Shipment? shipment) {
@@ -440,15 +443,14 @@ class _GoodBadAllocationScreenState extends ConsumerState<GoodBadAllocationScree
                         final row = entry.value;
                         final rowId = row.batchCode;
 
-                        final poolItem = availablePool.firstWhere(
+                        final poolItem = availablePool.where(
                           (p) => (p[idKey]?.toString() ?? '') == rowId,
-                          orElse: () => {'quantity': 0},
-                        );
+                        ).firstOrNull ?? <String, dynamic>{'quantity': 0};
                         final batchTotal = int.tryParse(poolItem['quantity'].toString()) ?? 0;
-                        final otherAlloc = int.tryParse(otherList.firstWhere(
+                        final otherItem = otherList.where(
                           (eb) => (eb[idKey]?.toString() ?? '') == rowId,
-                          orElse: () => {'quantity': 0},
-                        )['quantity'].toString()) ?? 0;
+                        ).firstOrNull;
+                        final otherAlloc = int.tryParse((otherItem?['quantity'] ?? 0).toString()) ?? 0;
                         final maxAllowedForBatch = (batchTotal - otherAlloc).clamp(0, batchTotal);
                         final isExceeding = row.quantity > maxAllowedForBatch;
                         if (isExceeding) {
@@ -479,10 +481,10 @@ class _GoodBadAllocationScreenState extends ConsumerState<GoodBadAllocationScree
                                       items: availableOptions.map((opt) {
                                         final optId = opt[idKey]?.toString() ?? '';
                                         final optTotal = int.tryParse(opt['quantity'].toString()) ?? 0;
-                                        final optOther = int.tryParse(otherList.firstWhere(
+                                        final optOtherItem = otherList.where(
                                           (eb) => (eb[idKey]?.toString() ?? '') == optId,
-                                          orElse: () => {'quantity': 0},
-                                        )['quantity'].toString()) ?? 0;
+                                        ).firstOrNull;
+                                        final optOther = int.tryParse((optOtherItem?['quantity'] ?? 0).toString()) ?? 0;
                                         final optMax = (optTotal - optOther).clamp(0, optTotal);
                                         return DropdownMenuItem(
                                           value: optId,
@@ -530,9 +532,12 @@ class _GoodBadAllocationScreenState extends ConsumerState<GoodBadAllocationScree
                                     IconButton(
                                       icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error),
                                       onPressed: () {
+                                        final oldRow = row;
                                         setDialogState(() {
-                                          row.dispose();
                                           rows.removeAt(idx);
+                                        });
+                                        Future.delayed(const Duration(milliseconds: 300), () {
+                                          oldRow.dispose();
                                         });
                                       },
                                     ),
@@ -564,10 +569,9 @@ class _GoodBadAllocationScreenState extends ConsumerState<GoodBadAllocationScree
                       if (selectedIds.length < availablePool.length)
                         TextButton.icon(
                           onPressed: () {
-                            final nextOpt = availablePool.firstWhere(
+                            final nextOpt = availablePool.where(
                               (p) => !selectedIds.contains(p[idKey]?.toString()),
-                              orElse: () => {idKey: ''},
-                            );
+                            ).firstOrNull ?? <String, dynamic>{idKey: ''};
                             final nextId = nextOpt[idKey]?.toString() ?? '';
                             if (nextId.isNotEmpty) {
                               setDialogState(() {
@@ -601,15 +605,15 @@ class _GoodBadAllocationScreenState extends ConsumerState<GoodBadAllocationScree
                 ElevatedButton(
                   onPressed: !anyExceeds && currentSum == targetQty && rows.every((r) => r.quantity > 0 && r.batchCode.isNotEmpty)
                       ? () {
+                          final mapList = rows.map((r) => <String, dynamic>{idKey: r.batchCode, 'quantity': r.quantity}).toList();
+                          Navigator.pop(ctx);
                           setState(() {
-                            final mapList = rows.map((r) => {idKey: r.batchCode, 'quantity': r.quantity}).toList();
                             if (isGood) {
                               item.goodBatches = mapList;
                             } else {
                               item.badBatches = mapList;
                             }
                           });
-                          Navigator.pop(ctx);
                         }
                       : null,
                   child: const Text('Save'),
@@ -620,9 +624,11 @@ class _GoodBadAllocationScreenState extends ConsumerState<GoodBadAllocationScree
         );
       },
     ).then((_) {
-      for (final r in rows) {
-        r.dispose();
-      }
+      Future.delayed(const Duration(milliseconds: 300), () {
+        for (final r in rows) {
+          r.dispose();
+        }
+      });
     });
   }
 
@@ -693,14 +699,15 @@ class _GoodBadAllocationScreenState extends ConsumerState<GoodBadAllocationScree
                 ElevatedButton(
                   onPressed: currentSet.length == targetQty
                       ? () {
+                          final resultList = currentSet.toList();
+                          Navigator.pop(ctx);
                           setState(() {
                             if (isGood) {
-                              item.goodSerials = currentSet.toList();
+                              item.goodSerials = resultList;
                             } else {
-                              item.badSerials = currentSet.toList();
+                              item.badSerials = resultList;
                             }
                           });
-                          Navigator.pop(ctx);
                         }
                       : null,
                   child: const Text('Save'),

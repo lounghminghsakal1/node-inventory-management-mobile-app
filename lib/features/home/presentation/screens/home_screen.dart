@@ -169,7 +169,7 @@ class HomeScreen extends ConsumerWidget {
             value: '${splash.returnInitiatedShipmentsCount}',
             icon: Icons.assignment_return_outlined,
             gradient: AppColors.warningGradient,
-            onTap: () => context.go('/inventory'),
+            onTap: () => context.go('/shipments'),
           ),
         ),
         const SizedBox(width: 12),

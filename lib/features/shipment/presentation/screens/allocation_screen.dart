@@ -823,12 +823,15 @@ class _BatchAllocationModalState extends ConsumerState<BatchAllocationModal> {
 
   @override
   void dispose() {
-    if (_rows != null) {
-      for (final r in _rows!) {
-        r.qtyCtrl.dispose();
-      }
-    }
+    final rowsToDispose = _rows;
     super.dispose();
+    if (rowsToDispose != null) {
+      Future.delayed(const Duration(milliseconds: 300), () {
+        for (final r in rowsToDispose) {
+          r.qtyCtrl.dispose();
+        }
+      });
+    }
   }
 
   @override
@@ -1124,19 +1127,22 @@ class _BatchAllocationModalState extends ConsumerState<BatchAllocationModal> {
                                   ),
                                   const SizedBox(width: 4),
                                   if (_rows!.length > 1)
-                                    IconButton(
-                                      icon: const Icon(
-                                        Icons.remove_circle_outline,
-                                        color: AppColors.error,
-                                        size: 20,
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.remove_circle_outline,
+                                          color: AppColors.error,
+                                          size: 20,
+                                        ),
+                                        onPressed: () {
+                                          final oldRow = row;
+                                          setState(() {
+                                            _rows!.removeAt(idx);
+                                          });
+                                          Future.delayed(const Duration(milliseconds: 300), () {
+                                            oldRow.qtyCtrl.dispose();
+                                          });
+                                        },
                                       ),
-                                      onPressed: () {
-                                        setState(() {
-                                          row.qtyCtrl.dispose();
-                                          _rows!.removeAt(idx);
-                                        });
-                                      },
-                                    ),
                                 ],
                               ),
                               if (exceedsAvail)
@@ -1212,8 +1218,8 @@ class _BatchAllocationModalState extends ConsumerState<BatchAllocationModal> {
                                   .where((r) => r.code != null && r.code!.isNotEmpty)
                                   .map((r) => {'code': r.code!, 'qty': r.qty})
                                   .toList();
-                              widget.onConfirm(res);
                               Navigator.pop(context);
+                              widget.onConfirm(res);
                             }
                           : null,
                     ),

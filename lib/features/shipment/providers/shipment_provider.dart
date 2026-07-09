@@ -72,10 +72,10 @@ class ShipmentListNotifier extends StateNotifier<ShipmentListState> {
     if (!mounted) return;
     final targetShipmentType = byShipmentType ?? state.byShipmentType;
     if (page == 1) {
-      state = state.copyWith(isLoading: true, error: null, byShipmentType: targetShipmentType, byStatus: byStatus);
+      state = state.copyWith(isLoading: true, error: null, byShipmentType: targetShipmentType, byStatus: byStatus, shipments: []);
     } else {
       if (state.isLoading || state.isMoreLoading || state.currentPage >= state.totalPages) return;
-      state = state.copyWith(isMoreLoading: true, error: null);
+      state = state.copyWith(isMoreLoading: true, error: null,);
     }
     try {
       final res = await _repo.getShipmentsApi(

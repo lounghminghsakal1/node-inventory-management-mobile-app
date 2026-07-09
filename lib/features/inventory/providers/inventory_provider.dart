@@ -698,6 +698,11 @@ final nodeInventoryTransactionsProvider = StateNotifierProvider.family<NodeInven
   return NodeInventoryTransactionsNotifier(repo, id);
 });
 
+final nodeInventoryDetailProvider = FutureProvider.family<NodeInventoryModel, String>((ref, id) async {
+  final repo = ref.read(inventoryRepositoryProvider);
+  return await repo.getNodeInventoryDetail(id);
+});
+
 // ── Node Inventory Ledger State & Notifier ────────────────────────────────────
 class NodeInventoryLedgerState {
   final List<NodeInventoryLedgerModel> items;

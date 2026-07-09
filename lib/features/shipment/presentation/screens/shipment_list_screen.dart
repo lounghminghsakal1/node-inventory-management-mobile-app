@@ -24,22 +24,26 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
   String _shipmentType = 'forward_shipment';
 
   static const _forwardStatusTabs = [
-    ('All', null),
-    ('Created', ShipmentStatus.created),
-    ('Allocated', ShipmentStatus.allocated),
-    ('Packed', ShipmentStatus.packed),
-    ('Invoiced', ShipmentStatus.invoiced),
-    ('Dispatched', ShipmentStatus.dispatched),
-    ('Delivered', ShipmentStatus.delivered),
+    (
+      'Pending',
+      [
+        ShipmentStatus.created,
+        ShipmentStatus.allocated,
+        ShipmentStatus.packed,
+        ShipmentStatus.invoiced,
+      ],
+    ),
+    ('Dispatched', [ShipmentStatus.dispatched]),
+    ('Delivered', [ShipmentStatus.delivered]),
   ];
 
   static const _returnStatusTabs = [
     ('All', null),
-    ('Return Initiated', ShipmentStatus.returnInitiated),
-    ('Return Completed', ShipmentStatus.returnCompleted),
+    ('Return Initiated', [ShipmentStatus.returnInitiated]),
+    ('Return Completed', [ShipmentStatus.returnCompleted]),
   ];
 
-  List<(String, ShipmentStatus?)> get _currentStatusTabs =>
+  List<(String, List<ShipmentStatus>?)> get _currentStatusTabs =>
       _shipmentType == 'forward_shipment'
           ? _forwardStatusTabs
           : _returnStatusTabs;
@@ -89,6 +93,16 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (_statusTabCtrl.length != _currentStatusTabs.length) {
+      _statusTabCtrl.removeListener(_onStatusTabChanged);
+      _statusTabCtrl.dispose();
+      _statusTabCtrl = TabController(
+        length: _currentStatusTabs.length,
+        vsync: this,
+      );
+      _statusTabCtrl.addListener(_onStatusTabChanged);
+    }
+
     final state = ref.watch(shipmentListProvider);
     final allShipments = state.shipments;
 
@@ -139,7 +153,7 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
                     style: AppTextStyles.bodyMedium,
                     cursorColor: AppColors.primary,
                     decoration: InputDecoration(
-                      hintText: 'Search by shipment ID or customer...',
+                      hintText: 'Search by shipment number...',
                       hintStyle: AppTextStyles.bodySmall,
                       prefixIcon: const Icon(Icons.search_rounded, size: 20),
                       isDense: true,
@@ -197,7 +211,8 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
               controller: _statusTabCtrl,
               children: _currentStatusTabs.map((tab) {
                 final filtered = allShipments.where((s) {
-                  final matchesStatus = tab.$2 == null || s.status == tab.$2;
+                  final matchesStatus =
+                      tab.$2 == null || tab.$2!.contains(s.status);
                   final q = _search.toLowerCase();
                   final matchesSearch =
                       q.isEmpty ||

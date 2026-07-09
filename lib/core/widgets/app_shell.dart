@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_text_styles.dart';
 import '../../features/auth/providers/auth_provider.dart';
+import '../../features/home/providers/home_provider.dart';
+import '../../features/node_selection/providers/node_provider.dart';
 
 /// A minimal, shared [AppBar] used across all in-app screens.
 ///
@@ -35,7 +37,14 @@ class NodeOpsAppBar extends ConsumerWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final auth = ref.watch(authProvider);
-    final nodeName = auth.node?.name ?? 'Select Node';
+    final splash = ref.watch(splashDataProvider).valueOrNull;
+
+    final nodeName = (splash?.nodeName != null && splash!.nodeName.isNotEmpty)
+        ? splash.nodeName
+        : (auth.node?.name ?? 'Select Node');
+    final adminName = (splash?.nodeAdminName != null && splash!.nodeAdminName.isNotEmpty)
+        ? splash.nodeAdminName
+        : (auth.user?.name ?? '');
     final canPop = Navigator.of(context).canPop() || showBack;
 
     return AppBar(
@@ -56,48 +65,92 @@ class NodeOpsAppBar extends ConsumerWidget implements PreferredSizeWidget {
               tooltip: 'Back',
             )
           : null,
-      // ── Title: tappable node name ────────────────────────────────────────
+      // ── Title: tappable node & admin info ────────────────────────────────
       title: title != null
           ? Text(title!, style: AppTextStyles.headingMedium)
-          : GestureDetector(
-              onTap: () => context.push('/node-select?back=true'),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: AppColors.primary.withValues(alpha: 0.25),
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.location_on_rounded,
-                      size: 13,
-                      color: AppColors.primary,
-                    ),
-                    const SizedBox(width: 5),
-                    Flexible(
-                      child: Text(
-                        nodeName,
-                        style: AppTextStyles.labelMedium.copyWith(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w600,
+          : Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  ref.invalidate(nodeListProvider);
+                  context.pushNamed('node-select', queryParameters: const {'back': 'true'});
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.12),
+                          shape: BoxShape.circle,
                         ),
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
+                        child: const Icon(
+                          Icons.storefront_rounded,
+                          size: 20,
+                          color: AppColors.primary,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 4),
-                    const Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      size: 15,
-                      color: AppColors.primary,
-                    ),
-                  ],
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    nodeName,
+                                    style: AppTextStyles.labelMedium.copyWith(
+                                      color: AppColors.textPrimary,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                const Icon(
+                                  Icons.keyboard_arrow_down_rounded,
+                                  size: 16,
+                                  color: AppColors.primary,
+                                ),
+                              ],
+                            ),
+                            if (adminName.isNotEmpty) ...[
+                              const SizedBox(height: 1),
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.person_outline_rounded,
+                                    size: 12,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                  const SizedBox(width: 3),
+                                  Flexible(
+                                    child: Text(
+                                      adminName,
+                                      style: AppTextStyles.caption.copyWith(
+                                        color: AppColors.textSecondary,
+                                        fontSize: 11,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

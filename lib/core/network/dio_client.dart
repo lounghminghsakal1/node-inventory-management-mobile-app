@@ -189,8 +189,9 @@ Future<void> _saveCookiesFromResponse(
         rawCookies.add(val);
       } else if (val is List) {
         for (final item in val) {
-          if (item is String && item.isNotEmpty)
+          if (item is String && item.isNotEmpty) {
             rawCookies.add(item.toString());
+          }
         }
       }
     }
@@ -202,8 +203,9 @@ Future<void> _saveCookiesFromResponse(
           rawCookies.add(val);
         } else if (val is List) {
           for (final item in val) {
-            if (item is String && item.isNotEmpty)
+            if (item is String && item.isNotEmpty) {
               rawCookies.add(item.toString());
+            }
           }
         }
       }

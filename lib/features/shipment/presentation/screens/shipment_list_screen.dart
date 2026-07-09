@@ -17,11 +17,13 @@ class ShipmentListScreen extends ConsumerStatefulWidget {
 }
 
 class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabCtrl;
+    with TickerProviderStateMixin {
+  late TabController _typeTabCtrl;
+  late TabController _statusTabCtrl;
   String _search = '';
+  String _shipmentType = 'forward_shipment';
 
-  final _tabs = [
+  static const _forwardStatusTabs = [
     ('All', null),
     ('Created', ShipmentStatus.created),
     ('Allocated', ShipmentStatus.allocated),
@@ -29,20 +31,59 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
     ('Invoiced', ShipmentStatus.invoiced),
     ('Dispatched', ShipmentStatus.dispatched),
     ('Delivered', ShipmentStatus.delivered),
+  ];
+
+  static const _returnStatusTabs = [
+    ('All', null),
     ('Return Initiated', ShipmentStatus.returnInitiated),
     ('Return Completed', ShipmentStatus.returnCompleted),
   ];
 
+  List<(String, ShipmentStatus?)> get _currentStatusTabs =>
+      _shipmentType == 'forward_shipment'
+          ? _forwardStatusTabs
+          : _returnStatusTabs;
+
+  void _onTypeTabChanged() {
+    final newType =
+        _typeTabCtrl.index == 0 ? 'forward_shipment' : 'reverse_shipment';
+    if (_shipmentType != newType) {
+      _shipmentType = newType;
+      _statusTabCtrl.removeListener(_onStatusTabChanged);
+      _statusTabCtrl.dispose();
+      _statusTabCtrl = TabController(
+        length: _currentStatusTabs.length,
+        vsync: this,
+      );
+      _statusTabCtrl.addListener(_onStatusTabChanged);
+      setState(() {});
+      ref.read(shipmentListProvider.notifier).load(
+            page: 1,
+            byShipmentType: newType,
+          );
+    }
+  }
+
+  void _onStatusTabChanged() {
+    setState(() {});
+  }
+
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: _tabs.length, vsync: this);
-    _tabCtrl.addListener(() => setState(() {}));
+    _typeTabCtrl = TabController(length: 2, vsync: this);
+    _statusTabCtrl =
+        TabController(length: _forwardStatusTabs.length, vsync: this);
+    _typeTabCtrl.addListener(_onTypeTabChanged);
+    _statusTabCtrl.addListener(_onStatusTabChanged);
   }
 
   @override
   void dispose() {
-    _tabCtrl.dispose();
+    _typeTabCtrl.removeListener(_onTypeTabChanged);
+    _statusTabCtrl.removeListener(_onStatusTabChanged);
+    _typeTabCtrl.dispose();
+    _statusTabCtrl.dispose();
     super.dispose();
   }
 
@@ -60,9 +101,40 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
             color: AppColors.surface,
             child: Column(
               children: [
+                // Type Tabs (Forward / Return)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                  child: Container(
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: AppColors.card,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.cardBorder),
+                    ),
+                    child: TabBar(
+                      controller: _typeTabCtrl,
+                      indicator: BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      indicatorSize: TabBarIndicatorSize.tab,
+                      labelColor: Colors.white,
+                      unselectedLabelColor: AppColors.textSecondary,
+                      labelStyle: AppTextStyles.labelSmall.copyWith(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                      dividerColor: Colors.transparent,
+                      tabs: const [
+                        Tab(text: 'Forward'),
+                        Tab(text: 'Return'),
+                      ],
+                    ),
+                  ),
+                ),
                 // Search bar
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                   child: TextField(
                     style: AppTextStyles.bodyMedium,
                     cursorColor: AppColors.primary,
@@ -100,9 +172,9 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
                     onChanged: (v) => setState(() => _search = v),
                   ),
                 ),
-                // Tabs
+                // Status Tabs
                 TabBar(
-                  controller: _tabCtrl,
+                  controller: _statusTabCtrl,
                   isScrollable: true,
                   tabAlignment: TabAlignment.start,
                   labelColor: AppColors.primary,
@@ -114,7 +186,7 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
-                  tabs: _tabs.map((t) => Tab(text: t.$1)).toList(),
+                  tabs: _currentStatusTabs.map((t) => Tab(text: t.$1)).toList(),
                 ),
               ],
             ),
@@ -122,8 +194,8 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
           // ── Tab content ──────────────────────────────────────────────────
           Expanded(
             child: TabBarView(
-              controller: _tabCtrl,
-              children: _tabs.map((tab) {
+              controller: _statusTabCtrl,
+              children: _currentStatusTabs.map((tab) {
                 final filtered = allShipments.where((s) {
                   final matchesStatus = tab.$2 == null || s.status == tab.$2;
                   final q = _search.toLowerCase();
@@ -135,6 +207,12 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
                       s.orderNumber.toLowerCase().contains(q);
                   return matchesStatus && matchesSearch;
                 }).toList();
+
+                if (state.isLoading && filtered.isEmpty) {
+                  return const Center(
+                    child: CircularProgressIndicator(color: AppColors.primary),
+                  );
+                }
 
                 if (filtered.isEmpty) {
                   return Center(
@@ -172,7 +250,10 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
                     color: AppColors.primary,
                     backgroundColor: AppColors.card,
                     onRefresh: () async =>
-                        ref.read(shipmentListProvider.notifier).load(page: 1),
+                        ref.read(shipmentListProvider.notifier).load(
+                              page: 1,
+                              byShipmentType: _shipmentType,
+                            ),
                     child: ListView.builder(
                       padding: const EdgeInsets.all(16),
                       itemCount: filtered.length + (state.isMoreLoading ? 1 : 0),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../app/theme/app_colors.dart';
@@ -6,6 +7,7 @@ import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_shell.dart';
 import '../../../../core/widgets/status_badge.dart';
+import '../../../../core/widgets/tracking_type_badge.dart';
 import '../../data/models/shipment.dart';
 import '../../data/models/order.dart';
 import '../../providers/shipment_provider.dart';
@@ -193,6 +195,59 @@ class ShipmentDetailScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
 
+                // ── Invoice & Tracking Info ───────────────────────────────────
+                if (shipment.invoiceCode != null ||
+                    shipment.trackingNumber != null ||
+                    shipment.invoiceS3Url != null ||
+                    shipment.shippedAt != null ||
+                    shipment.deliveredAt != null ||
+                    shipment.returnedAt != null) ...[
+                  _SectionCard(
+                    title: 'Invoice & Tracking Info',
+                    child: Column(
+                      children: [
+                        if (shipment.invoiceCode != null && shipment.invoiceCode!.isNotEmpty)
+                          _infoTile(
+                            Icons.receipt_long_outlined,
+                            'Invoice Code',
+                            shipment.invoiceCode!,
+                          ),
+                        if (shipment.trackingNumber != null && shipment.trackingNumber!.isNotEmpty)
+                          _infoTile(
+                            Icons.qr_code_2_outlined,
+                            'Tracking Number',
+                            shipment.trackingNumber!,
+                          ),
+                        if (shipment.invoiceDate != null)
+                          _infoTile(
+                            Icons.event_outlined,
+                            'Invoice Date',
+                            _formatDate(shipment.invoiceDate!),
+                          ),
+                        if (shipment.shippedAt != null)
+                          _infoTile(
+                            Icons.local_shipping_outlined,
+                            'Shipped At',
+                            _formatDate(shipment.shippedAt!),
+                          ),
+                        if (shipment.deliveredAt != null)
+                          _infoTile(
+                            Icons.check_circle_outline_rounded,
+                            'Delivered At',
+                            _formatDate(shipment.deliveredAt!),
+                          ),
+                        if (shipment.returnedAt != null)
+                          _infoTile(
+                            Icons.keyboard_return_rounded,
+                            'Returned At',
+                            _formatDate(shipment.returnedAt!),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
                 // ── Shipping & Delivery Info (if present) ─────────────────────
                 if ((shipment.shippingAddress != null &&
                         shipment.shippingAddress!.isNotEmpty) ||
@@ -227,6 +282,65 @@ class ShipmentDetailScreen extends ConsumerWidget {
                             shipment.billingAddress!,
                             isMultiline: true,
                           ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                // ── Parent Forward Shipment Info (Reverse Shipments) ──────────
+                if (shipment.parentShipment != null || shipment.parentShipmentNumber != null) ...[
+                  _SectionCard(
+                    title: 'Parent Forward Shipment Info',
+                    child: Column(
+                      children: [
+                        if (shipment.parentShipment?['shipment_number'] != null || shipment.parentShipmentNumber != null)
+                          _infoTile(
+                            Icons.inventory_2_outlined,
+                            'Parent Shipment #',
+                            '#${shipment.parentShipment?['shipment_number'] ?? shipment.parentShipmentNumber}',
+                          ),
+                        if (shipment.parentShipment?['shipment_type'] != null)
+                          _infoTile(
+                            Icons.swap_horiz_rounded,
+                            'Parent Type',
+                            shipment.parentShipment!['shipment_type'].toString().replaceAll('_', ' ').toUpperCase(),
+                          ),
+                        if (shipment.parentShipment?['status'] != null)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 7),
+                            child: Row(
+                              children: [
+                                Icon(Icons.flag_outlined, size: 16, color: AppColors.textMuted),
+                                const SizedBox(width: 10),
+                                Text('Parent Status', style: AppTextStyles.bodySmall),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Align(
+                                    alignment: Alignment.centerRight,
+                                    child: StatusBadge(
+                                      status: shipment.parentShipment!['status'].toString(),
+                                      large: false,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        if (shipment.parentShipment?['delivered_at'] != null)
+                          _infoTile(
+                            Icons.calendar_today_outlined,
+                            'Parent Delivered At',
+                            _formatDate(DateTime.tryParse(shipment.parentShipment!['delivered_at'].toString()) ?? DateTime.now()),
+                          ),
+                        if (shipment.parentShipment?['id'] != null) ...[
+                          const SizedBox(height: 12),
+                          AppButton(
+                            label: 'Open Parent Shipment Details',
+                            icon: Icons.open_in_new_rounded,
+                            onPressed: () => context.push('/shipments/${shipment.parentShipment!['id']}'),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -485,12 +599,12 @@ class _ShipmentTimeline extends StatelessWidget {
     final stages = isReturn
         ? [
             (
-              status != ShipmentStatus.returnCompleted ? 'return_initiated\n(current)' : 'return_initiated\n(completed)',
+              status != ShipmentStatus.returnCompleted ? 'Return Initiated\n(Current)' : 'Return Initiated\n(Completed)',
               ShipmentStatus.returnInitiated,
               Icons.keyboard_return_rounded,
             ),
             (
-              status != ShipmentStatus.returnCompleted ? 'return_completed\n(in future)' : 'return_completed\n(current)',
+              status != ShipmentStatus.returnCompleted ? 'Return Completed\n(Pending)' : 'Return Completed\n(Current)',
               ShipmentStatus.returnCompleted,
               Icons.check_circle_outline_rounded,
             ),
@@ -628,9 +742,12 @@ class _LineItemRow extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(item.product.name, style: AppTextStyles.headingSmall),
-                    Text(
-                      '${item.product.sku} · ${item.product.trackingType.label}',
-                      style: AppTextStyles.caption,
+                    Row(
+                      children: [
+                        Text(item.product.sku, style: AppTextStyles.caption),
+                        const SizedBox(width: 8),
+                        TrackingTypeBadge(trackingType: item.product.trackingType.name),
+                      ],
                     ),
                   ],
                 ),
@@ -655,14 +772,14 @@ class _LineItemRow extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                isUntracked
-                    ? 'Tracking: UNTRACKED'
-                    : 'Allocation: ${item.allocationType.toUpperCase()}',
-                style: AppTextStyles.caption.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-              ),
+              isUntracked
+                  ? const SizedBox.shrink()
+                  : Text(
+                      'Allocation: ${item.allocationType.toUpperCase()}',
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
               if (!isReturn)
                 Row(
                   children: [
@@ -744,15 +861,21 @@ class _LineItemRow extends ConsumerWidget {
                     Text('Good Qty: ${item.goodQty ?? 0}', style: AppTextStyles.bodySmall.copyWith(color: AppColors.success, fontWeight: FontWeight.w700)),
                     if (item.goodBatches.isNotEmpty) ...[
                       const SizedBox(height: 4),
-                      ...item.goodBatches.map((b) => Text('${b.batchCode} (${b.qty})', style: AppTextStyles.caption.copyWith(fontSize: 11))),
+                      Wrap(
+                        children: item.goodBatches.map((b) => _buildAllocationChip('Batch: ${b.batchCode} (${b.qty})', 'batch')).toList(),
+                      ),
                     ],
                     if (item.goodSerials.isNotEmpty) ...[
                       const SizedBox(height: 4),
-                      ...item.goodSerials.map((s) => Text(s, style: AppTextStyles.caption.copyWith(fontSize: 11))),
+                      Wrap(
+                        children: item.goodSerials.map((s) => _buildAllocationChip('Serial: $s', 'serial')).toList(),
+                      ),
                     ],
                     if (item.goodUntracked.isNotEmpty) ...[
                       const SizedBox(height: 4),
-                      ...item.goodUntracked.map((u) => Text('${u.untrackedNumber} (${u.qty})', style: AppTextStyles.caption.copyWith(fontSize: 11))),
+                      Wrap(
+                        children: item.goodUntracked.map((u) => _buildAllocationChip('Untracked: ${u.untrackedNumber} (${u.qty})', 'untracked')).toList(),
+                      ),
                     ],
                   ],
                 ),
@@ -773,15 +896,21 @@ class _LineItemRow extends ConsumerWidget {
                     Text('Bad Qty: ${item.badQty ?? 0}', style: AppTextStyles.bodySmall.copyWith(color: AppColors.error, fontWeight: FontWeight.w700)),
                     if (item.badBatches.isNotEmpty) ...[
                       const SizedBox(height: 4),
-                      ...item.badBatches.map((b) => Text('${b.batchCode} (${b.qty})', style: AppTextStyles.caption.copyWith(fontSize: 11))),
+                      Wrap(
+                        children: item.badBatches.map((b) => _buildAllocationChip('Batch: ${b.batchCode} (${b.qty})', 'batch')).toList(),
+                      ),
                     ],
                     if (item.badSerials.isNotEmpty) ...[
                       const SizedBox(height: 4),
-                      ...item.badSerials.map((s) => Text(s, style: AppTextStyles.caption.copyWith(fontSize: 11))),
+                      Wrap(
+                        children: item.badSerials.map((s) => _buildAllocationChip('Serial: $s', 'serial')).toList(),
+                      ),
                     ],
                     if (item.badUntracked.isNotEmpty) ...[
                       const SizedBox(height: 4),
-                      ...item.badUntracked.map((u) => Text('${u.untrackedNumber} (${u.qty})', style: AppTextStyles.caption.copyWith(fontSize: 11))),
+                      Wrap(
+                        children: item.badUntracked.map((u) => _buildAllocationChip('Untracked: ${u.untrackedNumber} (${u.qty})', 'untracked')).toList(),
+                      ),
                     ],
                   ],
                 ),
@@ -794,6 +923,39 @@ class _LineItemRow extends ConsumerWidget {
     ),
   );
 }
+
+  Widget _buildAllocationChip(String text, String type) {
+    Color bgColor;
+    Color textColor;
+    switch (type.toLowerCase()) {
+      case 'batch':
+        bgColor = const Color(0xFFEDE7F6);
+        textColor = const Color(0xFF5E35B1);
+        break;
+      case 'serial':
+        bgColor = const Color(0xFFE0F2F1);
+        textColor = const Color(0xFF00897B);
+        break;
+      case 'untracked':
+      default:
+        bgColor = const Color(0xFFFFF3E0);
+        textColor = const Color(0xFFFB8C00);
+        break;
+    }
+    return Container(
+      margin: const EdgeInsets.only(top: 4, right: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: textColor.withValues(alpha: 0.3)),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textColor),
+      ),
+    );
+  }
 
   void _showAssignedInventoryDialog(
     BuildContext context,

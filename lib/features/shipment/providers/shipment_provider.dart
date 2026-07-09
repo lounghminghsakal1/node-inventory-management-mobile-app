@@ -13,6 +13,8 @@ class ShipmentListState {
   final int currentPage;
   final int totalPages;
   final int totalCount;
+  final String byShipmentType;
+  final String? byStatus;
 
   const ShipmentListState({
     this.shipments = const [],
@@ -22,6 +24,8 @@ class ShipmentListState {
     this.currentPage = 1,
     this.totalPages = 1,
     this.totalCount = 0,
+    this.byShipmentType = 'forward_shipment',
+    this.byStatus,
   });
 
   ShipmentListState copyWith({
@@ -32,6 +36,8 @@ class ShipmentListState {
     int? currentPage,
     int? totalPages,
     int? totalCount,
+    String? byShipmentType,
+    String? byStatus,
   }) =>
       ShipmentListState(
         shipments: shipments ?? this.shipments,
@@ -41,6 +47,8 @@ class ShipmentListState {
         currentPage: currentPage ?? this.currentPage,
         totalPages: totalPages ?? this.totalPages,
         totalCount: totalCount ?? this.totalCount,
+        byShipmentType: byShipmentType ?? this.byShipmentType,
+        byStatus: byStatus ?? this.byStatus,
       );
 }
 
@@ -49,7 +57,7 @@ class ShipmentListNotifier extends StateNotifier<ShipmentListState> {
 
   ShipmentListNotifier(this._repo)
       : super(const ShipmentListState()) {
-    load();
+    load(byShipmentType: 'forward_shipment');
   }
 
   Future<void> load({
@@ -62,8 +70,9 @@ class ShipmentListNotifier extends StateNotifier<ShipmentListState> {
     String? toDate,
   }) async {
     if (!mounted) return;
+    final targetShipmentType = byShipmentType ?? state.byShipmentType;
     if (page == 1) {
-      state = state.copyWith(isLoading: true, error: null);
+      state = state.copyWith(isLoading: true, error: null, byShipmentType: targetShipmentType, byStatus: byStatus);
     } else {
       if (state.isLoading || state.isMoreLoading || state.currentPage >= state.totalPages) return;
       state = state.copyWith(isMoreLoading: true, error: null);
@@ -71,10 +80,10 @@ class ShipmentListNotifier extends StateNotifier<ShipmentListState> {
     try {
       final res = await _repo.getShipmentsApi(
         page: page,
-        byStatus: byStatus,
+        byStatus: byStatus ?? state.byStatus,
         byOrderNumber: byOrderNumber,
         byCustomerCode: byCustomerCode,
-        byShipmentType: byShipmentType,
+        byShipmentType: targetShipmentType,
         fromDate: fromDate,
         toDate: toDate,
       );
@@ -87,11 +96,12 @@ class ShipmentListNotifier extends StateNotifier<ShipmentListState> {
         currentPage: res.currentPage,
         totalPages: res.totalPages,
         totalCount: res.totalCount,
+        byShipmentType: targetShipmentType,
       );
     } catch (e) {
       if (!mounted) return;
       state = state.copyWith(
-        shipments: _repo.getAll(),
+        shipments: page == 1 ? _repo.getAll() : state.shipments,
         isLoading: false,
         isMoreLoading: false,
       );
@@ -100,7 +110,7 @@ class ShipmentListNotifier extends StateNotifier<ShipmentListState> {
 
   Future<void> loadNextPage() async {
     if (state.isLoading || state.isMoreLoading || state.currentPage >= state.totalPages) return;
-    await load(page: state.currentPage + 1);
+    await load(page: state.currentPage + 1, byShipmentType: state.byShipmentType, byStatus: state.byStatus);
   }
 
   Future<Shipment> createShipment({
@@ -245,10 +255,17 @@ final serialAvailabilityProvider = FutureProvider.family.autoDispose<
       .getSerialAvailability(shipmentId: params.shipmentId, skuId: params.skuId);
 });
 
+final returnRemainingProvider = FutureProvider.family.autoDispose<
+    List<Map<String, dynamic>>, String>((ref, shipmentId) async {
+  return ref
+      .read(shipmentRepositoryProvider)
+      .getReturnRemaining(shipmentId);
+});
+
 final returnAllocationInfoProvider = FutureProvider.family.autoDispose<
     List<Map<String, dynamic>>, String>((ref, shipmentId) async {
   return ref
       .read(shipmentRepositoryProvider)
-      .getReturnAllocationInfo(shipmentId);
+      .getReturnRemaining(shipmentId);
 });
 

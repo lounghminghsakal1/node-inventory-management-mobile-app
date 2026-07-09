@@ -29,7 +29,14 @@ class _PurchaseOrderListScreenState
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: _tabs.length, vsync: this);
-    _tabCtrl.addListener(() => setState(() {}));
+    _tabCtrl.addListener(() {
+      if (_tabCtrl.indexIsChanging) return;
+      ref.read(purchaseOrderListProvider.notifier).load(
+            page: 1,
+            byStatus: _tabs[_tabCtrl.index].$2,
+          );
+      setState(() {});
+    });
   }
 
   @override
@@ -40,7 +47,8 @@ class _PurchaseOrderListScreenState
 
   @override
   Widget build(BuildContext context) {
-    final async = ref.watch(purchaseOrderListProvider);
+    final state = ref.watch(purchaseOrderListProvider);
+    final allPos = state.purchaseOrders;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -103,16 +111,21 @@ class _PurchaseOrderListScreenState
 
           // ── PO List ────────────────────────────────────────────────────────
           Expanded(
-            child: async.when(
-              loading: () =>
-                  const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(
-                child: Text('Failed to load purchase orders\n$e',
-                    textAlign: TextAlign.center,
-                    style: AppTextStyles.bodySmall
-                        .copyWith(color: AppColors.error)),
-              ),
-              data: (allPos) {
+            child: Builder(
+              builder: (context) {
+                if (state.isLoading && allPos.isEmpty) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (state.error != null && allPos.isEmpty) {
+                  return Center(
+                    child: Text('Failed to load purchase orders\n${state.error}',
+                        textAlign: TextAlign.center,
+                        style: AppTextStyles.bodySmall
+                            .copyWith(color: AppColors.error)),
+                  );
+                }
+
                 final statusFilter = _tabs[_tabCtrl.index].$2;
                 final filtered = allPos.where((po) {
                   if (statusFilter != null &&
@@ -148,22 +161,44 @@ class _PurchaseOrderListScreenState
                   );
                 }
 
-                return RefreshIndicator(
-                  onRefresh: () =>
-                      ref.refresh(purchaseOrderListProvider.future),
-                  color: AppColors.primary,
-                  child: ListView.separated(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: filtered.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 12),
-                    itemBuilder: (context, i) {
-                      final po = filtered[i];
-                      return PurchaseOrderCard(
-                        po: po,
-                        onTap: () =>
-                            context.push('/purchase-orders/${po.id}'),
-                      );
-                    },
+                return NotificationListener<ScrollNotification>(
+                  onNotification: (notification) {
+                    if (notification is ScrollEndNotification ||
+                        notification is ScrollUpdateNotification) {
+                      if (notification.metrics.extentAfter < 200) {
+                        ref.read(purchaseOrderListProvider.notifier).loadNextPage();
+                      }
+                    }
+                    return false;
+                  },
+                  child: RefreshIndicator(
+                    onRefresh: () async =>
+                        ref.read(purchaseOrderListProvider.notifier).load(
+                              page: 1,
+                              byStatus: _tabs[_tabCtrl.index].$2,
+                            ),
+                    color: AppColors.primary,
+                    child: ListView.separated(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: filtered.length + (state.isMoreLoading ? 1 : 0),
+                      separatorBuilder: (_, _) => const SizedBox(height: 12),
+                      itemBuilder: (context, i) {
+                        if (i == filtered.length) {
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            child: Center(
+                              child: CircularProgressIndicator(color: AppColors.primary),
+                            ),
+                          );
+                        }
+                        final po = filtered[i];
+                        return PurchaseOrderCard(
+                          po: po,
+                          onTap: () =>
+                              context.push('/purchase-orders/${po.id}'),
+                        );
+                      },
+                    ),
                   ),
                 );
               },

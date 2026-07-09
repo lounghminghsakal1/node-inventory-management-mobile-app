@@ -5,6 +5,7 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_shell.dart';
+import '../../../../core/widgets/tracking_type_badge.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../data/models/shipment.dart';
 import '../../data/models/order.dart';
@@ -244,7 +245,7 @@ class _AllocationScreenState extends ConsumerState<AllocationScreen> {
       ref.invalidate(shipmentListProvider);
       if (mounted) context.pop();
     } catch (e) {
-      print("error:" + e.toString());
+      debugPrint("error: $e");
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -483,14 +484,21 @@ class _AllocationCardState extends ConsumerState<_AllocationCard> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          item.product.name,
-                          style: AppTextStyles.headingSmall,
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                item.product.name,
+                                style: AppTextStyles.headingSmall,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            TrackingTypeBadge(trackingType: item.product.trackingType.name),
+                          ],
                         ),
+                        const SizedBox(height: 4),
                         Text(
-                          item.product.trackingType == TrackingType.untracked
-                              ? 'Untracked · Need: ${item.shippedQty}${widget.availableQty != null ? ' · Avail: ${widget.availableQty}' : ''}'
-                              : '${item.product.trackingType.label} · Need: ${item.shippedQty}${widget.availableQty != null ? ' · Avail: ${widget.availableQty}' : ''}  Got: $_allocatedQty',
+                          'Need: ${item.shippedQty}${widget.availableQty != null ? ' · Avail: ${widget.availableQty}' : ''}${item.product.trackingType != TrackingType.untracked ? ' · Got: $_allocatedQty' : ''}',
                           style: AppTextStyles.caption.copyWith(
                             color: (widget.availableQty != null && widget.availableQty! < item.shippedQty)
                                 ? AppColors.error

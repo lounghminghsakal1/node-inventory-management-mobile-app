@@ -42,9 +42,13 @@ class _NodeSelectionScreenState extends ConsumerState<NodeSelectionScreen>
   Future<void> _confirm() async {
     if (_selected == null) return;
     await ref.read(authProvider.notifier).selectNode(_selected!);
-    // Router redirect handles navigation: authenticated → /home
-    // If canGoBack, just pop instead of relying on redirect
-    if (widget.canGoBack && mounted) context.pop();
+    if (mounted) {
+      if (widget.canGoBack && context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/home');
+      }
+    }
   }
 
   @override

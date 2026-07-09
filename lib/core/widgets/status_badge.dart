@@ -46,9 +46,25 @@ class StatusBadge extends StatelessWidget {
   }
 
   _StatusConfig _getConfig(String status) {
-    switch (status) {
+    final s = status.toLowerCase().trim();
+    switch (s) {
+      // ── GRN Statuses ────────────────────────────────────────────────────────
       case AppConstants.statusCreated:
-        return _StatusConfig(AppColors.statusCreated, 'Created');
+        return _StatusConfig(AppColors.info, 'Created');
+      case 'qc_pending':
+      case 'qc pending':
+        return _StatusConfig(AppColors.warning, 'QC Pending');
+      case 'waiting_for_approval':
+      case 'waiting for approval':
+        return _StatusConfig(AppColors.accent, 'Waiting for Approval');
+      case 'complete':
+      case 'completed':
+        return _StatusConfig(AppColors.success, 'Completed');
+      case 'rejected':
+      case 'reject':
+        return _StatusConfig(AppColors.error, 'Rejected');
+
+      // ── PO / Shipment Statuses ──────────────────────────────────────────────
       case AppConstants.statusAllocated:
         return _StatusConfig(AppColors.statusAllocated, 'Allocated');
       case AppConstants.statusPacked:
@@ -63,8 +79,19 @@ class StatusBadge extends StatelessWidget {
         return _StatusConfig(AppColors.statusReturnInitiated, 'Return Initiated');
       case AppConstants.statusReturnCompleted:
         return _StatusConfig(AppColors.statusReturnCompleted, 'Return Completed');
+
+      // ── General Statuses ────────────────────────────────────────────────────
+      case 'active':
+        return _StatusConfig(AppColors.success, 'Active');
+      case 'inactive':
+        return _StatusConfig(AppColors.textMuted, 'Inactive');
+      case 'cancelled':
+      case 'canceled':
+        return _StatusConfig(AppColors.error, 'Cancelled');
       default:
-        return _StatusConfig(AppColors.textMuted, status);
+        final formattedLabel = status.replaceAll('_', ' ').trim();
+        final label = formattedLabel.isEmpty ? 'Unknown' : formattedLabel[0].toUpperCase() + formattedLabel.substring(1);
+        return _StatusConfig(AppColors.textMuted, label);
     }
   }
 }

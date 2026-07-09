@@ -14,7 +14,7 @@ class ApiEndpoints {
   static const String logout = '/logout';
   static const String refreshToken = '/auth/refresh';
   static const String myNodes = '/my_nodes';
-  static const String splashScreen = '/node_admin_app/v1/splash_screen';
+  static const String splashScreen = '/splash_screen';
 
   // Home / Dashboard
   static const String dashboard = '/dashboard/stats';
@@ -39,8 +39,12 @@ class ApiEndpoints {
   static String shipmentMarkDispatched(String id) => '/shipments/$id/mark_dispatched';
   static String shipmentDeliver(String id) => '/shipments/$id/deliver';
   static String shipmentReturnInitiate(String id) => '/shipments/$id/return/initiate';
-  static String returnAllocationInfo(String id) => '/sales/shipments/$id/return_allocation_info';
-  static String completeReturn(String id) => '/sales/shipments/$id/complete_return';
+  static String returnRemaining(String id) => '/shipments/$id/return_remaining';
+  static String assignReturnItems(String id) => '/shipments/$id/assign_return_items';
+  static String returnComplete(String id) => '/shipments/$id/return_complete';
+  // Backward compatible aliases
+  static String returnAllocationInfo(String id) => '/shipments/$id/return_remaining';
+  static String completeReturn(String id) => '/shipments/$id/return_complete';
   static String lineItemsAvailability(String shipmentId) =>
       '/shipments/$shipmentId/line_items_availability';
   static String batchAvailability(String shipmentId, String skuId) =>
@@ -55,6 +59,15 @@ class ApiEndpoints {
   // Inventory
   static String productStock(String productId, String nodeId) =>
       '/inventory/stock?product=$productId&node=$nodeId';
+  static const String batchInventories = '/batch_inventories';
+  static String batchInventoryDetail(String id) => '/batch_inventories/$id';
+  static String batchInventoryTransactions(String id) => '/batch_inventories/$id/transactions';
+  static const String skuItems = '/sku_items';
+  static String skuItemDetail(String id) => '/sku_items/$id';
+  static const String nodeInventories = '/node_inventories';
+  static String nodeInventoryDetail(String id) => '/node_inventories/$id';
+  static String nodeInventoryTransactions(String id) => '/node_inventories/$id/transactions';
+  static const String nodeInventoryLedger = '/node_inventories/ledger';
 
   // Purchase Orders
   static const String purchaseOrders = '/purchase_orders';

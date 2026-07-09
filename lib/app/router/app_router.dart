@@ -18,7 +18,9 @@ import '../../features/orders/presentation/screens/order_detail_screen.dart';
 import '../../features/purchase_orders/presentation/screens/purchase_order_list_screen.dart';
 import '../../features/purchase_orders/presentation/screens/purchase_order_detail_screen.dart';
 import '../../features/audit/presentation/screens/audit_screen.dart';
-import '../../features/returns/presentation/screens/returns_screen.dart';
+import '../../features/inventory/presentation/screens/inventory_screen.dart';
+import '../../features/inventory/presentation/screens/batch_inventory_detail_screen.dart';
+import '../../features/inventory/presentation/screens/serial_inventory_detail_screen.dart';
 import '../../features/adjustment/presentation/screens/adjustment_screen.dart';
 import '../../core/widgets/app_shell.dart';
 import '../theme/app_colors.dart';
@@ -28,8 +30,46 @@ import '../theme/app_text_styles.dart';
 class _RouterNotifier extends ChangeNotifier {
   final Ref _ref;
   _RouterNotifier(this._ref) {
-    _ref.listen<AuthState>(authProvider, (prev, next) => notifyListeners());
+    _ref.listen<AuthState>(authProvider, (prev, next) {
+      if (prev?.status != next.status) {
+        notifyListeners();
+      }
+    });
   }
+}
+
+// ── Top-level redirect function (supports hot reload updates) ─────────────────
+String? _appRedirect(BuildContext context, GoRouterState state, Ref ref) {
+  final auth = ref.read(authProvider);
+  final loc = state.matchedLocation;
+
+  // Still checking stored session — don't redirect yet
+  if (auth.status == AuthStatus.initial ||
+      auth.status == AuthStatus.checking) {
+    return null;
+  }
+
+  // Not authenticated → send to login
+  if (auth.status == AuthStatus.unauthenticated) {
+    return loc == '/login' ? null : '/login';
+  }
+
+  // Authenticated but node not selected → send to node-select (mandatory)
+  if (auth.status == AuthStatus.nodeRequired) {
+    if (loc == '/node-select') return null;
+    return '/node-select';
+  }
+
+  // Fully authenticated
+  if (auth.status == AuthStatus.authenticated) {
+    // Redirect away from login / mandatory node-select
+    if (loc == '/login') return '/home';
+    if (loc == '/node-select' && state.uri.queryParameters['back'] != 'true') {
+      return '/home';
+    }
+  }
+
+  return null;
 }
 
 // ── Router Provider ───────────────────────────────────────────────────────────
@@ -39,35 +79,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     refreshListenable: notifier,
     initialLocation: '/login',
-    redirect: (context, state) {
-      final auth = ref.read(authProvider);
-      final loc = state.matchedLocation;
-
-      // Still checking stored session — don't redirect yet
-      if (auth.status == AuthStatus.initial ||
-          auth.status == AuthStatus.checking) {
-        return null;
-      }
-
-      // Not authenticated → send to login
-      if (auth.status == AuthStatus.unauthenticated) {
-        return loc == '/login' ? null : '/login';
-      }
-
-      // Authenticated but node not selected → send to node-select (mandatory)
-      if (auth.status == AuthStatus.nodeRequired) {
-        if (loc == '/node-select') return null;
-        return '/node-select';
-      }
-
-      // Fully authenticated
-      if (auth.status == AuthStatus.authenticated) {
-        // Redirect away from login / mandatory node-select
-        if (loc == '/login' || loc == '/node-select') return '/home';
-      }
-
-      return null;
-    },
+    redirect: (context, state) => _appRedirect(context, state, ref),
     routes: [
       // ── Auth ──────────────────────────────────────────────────────────────
       GoRoute(
@@ -122,12 +134,16 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ]),
 
-          // Returns
+          // Inventory (replaces Returns in bottom nav)
           StatefulShellBranch(routes: [
             GoRoute(
+              path: '/inventory',
+              name: 'inventory',
+              builder: (context, _) => const InventoryScreen(),
+            ),
+            GoRoute(
               path: '/returns',
-              name: 'returns',
-              builder: (context, _) => const ReturnsScreen(),
+              redirect: (_, _) => '/inventory',
             ),
           ]),
 
@@ -161,6 +177,20 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/orders',
         name: 'orders-list',
         builder: (context, _) => const OrderListScreen(),
+      ),
+      GoRoute(
+        path: '/inventory/batch/:id',
+        name: 'batch-inventory-detail',
+        builder: (_, state) => BatchInventoryDetailScreen(
+          batchInventoryId: state.pathParameters['id']!,
+        ),
+      ),
+      GoRoute(
+        path: '/inventory/serial/:id',
+        name: 'serial-inventory-detail',
+        builder: (_, state) => SerialInventoryDetailScreen(
+          serialItemId: state.pathParameters['id']!,
+        ),
       ),
 
       // ── Shipment sub-routes (pushed, no bottom nav) ───────────────────────
@@ -245,7 +275,7 @@ class _ScaffoldWithNavBar extends ConsumerWidget {
                   icon: Icons.home_outlined,
                   activeIcon: Icons.home_rounded,
                   label: 'Home',
-                  onTap: () => _onTap(0),
+                  onTap: () => _onTap(context, 0),
                 ),
                 _NavItem(
                   index: 1,
@@ -253,7 +283,7 @@ class _ScaffoldWithNavBar extends ConsumerWidget {
                   icon: Icons.local_shipping_outlined,
                   activeIcon: Icons.local_shipping_rounded,
                   label: 'Shipments',
-                  onTap: () => _onTap(1),
+                  onTap: () => _onTap(context, 1),
                 ),
                 _NavItem(
                   index: 2,
@@ -261,15 +291,15 @@ class _ScaffoldWithNavBar extends ConsumerWidget {
                   icon: Icons.receipt_long_outlined,
                   activeIcon: Icons.receipt_long_rounded,
                   label: 'Purchase Orders',
-                  onTap: () => _onTap(2),
+                  onTap: () => _onTap(context, 2),
                 ),
                 _NavItem(
                   index: 3,
                   current: navigationShell.currentIndex,
-                  icon: Icons.assignment_return_outlined,
-                  activeIcon: Icons.assignment_return_rounded,
-                  label: 'Returns',
-                  onTap: () => _onTap(3),
+                  icon: Icons.inventory_2_outlined,
+                  activeIcon: Icons.inventory_2_rounded,
+                  label: 'Inventory',
+                  onTap: () => _onTap(context, 3),
                 ),
                 _NavItem(
                   index: 4,
@@ -277,7 +307,7 @@ class _ScaffoldWithNavBar extends ConsumerWidget {
                   icon: Icons.fact_check_outlined,
                   activeIcon: Icons.fact_check_rounded,
                   label: 'Audit',
-                  onTap: () => _onTap(4),
+                  onTap: () => _onTap(context, 4),
                 ),
               ],
             ),
@@ -287,11 +317,30 @@ class _ScaffoldWithNavBar extends ConsumerWidget {
     );
   }
 
-  void _onTap(int index) {
-    navigationShell.goBranch(
-      index,
-      initialLocation: index == navigationShell.currentIndex,
-    );
+  void _onTap(BuildContext context, int index) {
+    if (index == navigationShell.currentIndex) {
+      navigationShell.goBranch(index, initialLocation: true);
+      return;
+    }
+    switch (index) {
+      case 0:
+        GoRouter.of(context).go('/home');
+        break;
+      case 1:
+        GoRouter.of(context).go('/shipments');
+        break;
+      case 2:
+        GoRouter.of(context).go('/purchase-orders');
+        break;
+      case 3:
+        GoRouter.of(context).go('/inventory');
+        break;
+      case 4:
+        GoRouter.of(context).go('/audit');
+        break;
+      default:
+        navigationShell.goBranch(index);
+    }
   }
 }
 

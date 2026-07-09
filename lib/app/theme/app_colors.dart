@@ -43,6 +43,30 @@ class AppColors {
   static const Color statusReturnInitiated = Color(0xFFDC2626);
   static const Color statusReturnCompleted = Color(0xFF4F46E5);
 
+  // ── Tracking Type Colors ───────────────────────────────────────────────────
+  static const Color trackingBatchBg = Color(0xFFEDE9FE); // Soft purple/violet
+  static const Color trackingBatchText = Color(0xFF6D28D9); // Dark purple/violet
+
+  static const Color trackingSerialBg = Color(0xFFE0F2FE); // Soft sky blue/cyan
+  static const Color trackingSerialText = Color(0xFF0369A1); // Dark sky blue/cyan
+
+  static const Color trackingUntrackedBg = Color(0xFFF1F5F9); // Soft slate gray
+  static const Color trackingUntrackedText = Color(0xFF475569); // Dark slate gray
+
+  static Color getTrackingBgColor(String? type) {
+    final t = type?.toLowerCase().trim() ?? '';
+    if (t == 'batch' || t.contains('batch')) return trackingBatchBg;
+    if (t == 'serial' || t.contains('serial')) return trackingSerialBg;
+    return trackingUntrackedBg;
+  }
+
+  static Color getTrackingTextColor(String? type) {
+    final t = type?.toLowerCase().trim() ?? '';
+    if (t == 'batch' || t.contains('batch')) return trackingBatchText;
+    if (t == 'serial' || t.contains('serial')) return trackingSerialText;
+    return trackingUntrackedText;
+  }
+
   // ── Gradients ──────────────────────────────────────────────────────────────
   static const LinearGradient primaryGradient = LinearGradient(
     colors: [Color(0xFF1E3A8A), Color(0xFF2563EB)],

@@ -145,57 +145,111 @@ class ShipmentLineItem {
   List<String> get serialNumbers => _serialNumbers ?? const [];
 
   List<BatchAllocation> get goodBatches {
-    final list = (meta['good_batches'] is List) ? (meta['good_batches'] as List) : [];
-    return list.whereType<Map>().map((b) {
-      final bMap = Map<String, dynamic>.from(b);
-      return BatchAllocation(
-        batchCode: bMap['batch_code']?.toString() ?? '',
-        qty: int.tryParse(bMap['quantity']?.toString() ?? '0') ?? 0,
-      );
-    }).toList();
+    final raw = meta['good_batches'] ?? meta['good_batch_codes'];
+    if (raw is Map) {
+      return raw.entries.map((e) => BatchAllocation(
+        batchCode: e.key.toString(),
+        qty: int.tryParse(e.value.toString()) ?? 0,
+      )).toList();
+    } else if (raw is List) {
+      return raw.map((b) {
+        if (b is Map) {
+          final bMap = Map<String, dynamic>.from(b);
+          return BatchAllocation(
+            batchCode: bMap['batch_code']?.toString() ?? bMap['code']?.toString() ?? '',
+            qty: int.tryParse(bMap['quantity']?.toString() ?? bMap['qty']?.toString() ?? '0') ?? 0,
+          );
+        } else {
+          return BatchAllocation(batchCode: b.toString(), qty: goodQty ?? 1);
+        }
+      }).toList();
+    }
+    return [];
   }
 
   List<BatchAllocation> get badBatches {
-    final list = (meta['bad_batches'] is List) ? (meta['bad_batches'] as List) : [];
-    return list.whereType<Map>().map((b) {
-      final bMap = Map<String, dynamic>.from(b);
-      return BatchAllocation(
-        batchCode: bMap['batch_code']?.toString() ?? '',
-        qty: int.tryParse(bMap['quantity']?.toString() ?? '0') ?? 0,
-      );
-    }).toList();
+    final raw = meta['bad_batches'] ?? meta['bad_batch_codes'];
+    if (raw is Map) {
+      return raw.entries.map((e) => BatchAllocation(
+        batchCode: e.key.toString(),
+        qty: int.tryParse(e.value.toString()) ?? 0,
+      )).toList();
+    } else if (raw is List) {
+      return raw.map((b) {
+        if (b is Map) {
+          final bMap = Map<String, dynamic>.from(b);
+          return BatchAllocation(
+            batchCode: bMap['batch_code']?.toString() ?? bMap['code']?.toString() ?? '',
+            qty: int.tryParse(bMap['quantity']?.toString() ?? bMap['qty']?.toString() ?? '0') ?? 0,
+          );
+        } else {
+          return BatchAllocation(batchCode: b.toString(), qty: badQty ?? 1);
+        }
+      }).toList();
+    }
+    return [];
   }
 
   List<String> get goodSerials {
-    final list = (meta['good_serials'] is List) ? (meta['good_serials'] as List) : [];
-    return list.map((s) => s.toString()).toList();
+    final raw = meta['good_serials'] ?? meta['good_serial_numbers'];
+    if (raw is List) {
+      return raw.map((s) => s.toString()).toList();
+    }
+    return [];
   }
 
   List<String> get badSerials {
-    final list = (meta['bad_serials'] is List) ? (meta['bad_serials'] as List) : [];
-    return list.map((s) => s.toString()).toList();
+    final raw = meta['bad_serials'] ?? meta['bad_serial_numbers'];
+    if (raw is List) {
+      return raw.map((s) => s.toString()).toList();
+    }
+    return [];
   }
 
   List<UntrackedAllocation> get goodUntracked {
-    final list = (meta['good_untracked'] is List) ? (meta['good_untracked'] as List) : [];
-    return list.whereType<Map>().map((u) {
-      final uMap = Map<String, dynamic>.from(u);
-      return UntrackedAllocation(
-        untrackedNumber: uMap['untracked_number']?.toString() ?? '',
-        qty: int.tryParse(uMap['quantity']?.toString() ?? '0') ?? 0,
-      );
-    }).toList();
+    final raw = meta['good_untracked'] ?? meta['good_untracked_codes'];
+    if (raw is Map) {
+      return raw.entries.map((e) => UntrackedAllocation(
+        untrackedNumber: e.key.toString(),
+        qty: int.tryParse(e.value.toString()) ?? 0,
+      )).toList();
+    } else if (raw is List) {
+      return raw.map((u) {
+        if (u is Map) {
+          final uMap = Map<String, dynamic>.from(u);
+          return UntrackedAllocation(
+            untrackedNumber: uMap['untracked_number']?.toString() ?? uMap['code']?.toString() ?? '',
+            qty: int.tryParse(uMap['quantity']?.toString() ?? uMap['qty']?.toString() ?? '0') ?? 0,
+          );
+        } else {
+          return UntrackedAllocation(untrackedNumber: u.toString(), qty: goodQty ?? 1);
+        }
+      }).toList();
+    }
+    return [];
   }
 
   List<UntrackedAllocation> get badUntracked {
-    final list = (meta['bad_untracked'] is List) ? (meta['bad_untracked'] as List) : [];
-    return list.whereType<Map>().map((u) {
-      final uMap = Map<String, dynamic>.from(u);
-      return UntrackedAllocation(
-        untrackedNumber: uMap['untracked_number']?.toString() ?? '',
-        qty: int.tryParse(uMap['quantity']?.toString() ?? '0') ?? 0,
-      );
-    }).toList();
+    final raw = meta['bad_untracked'] ?? meta['bad_untracked_codes'];
+    if (raw is Map) {
+      return raw.entries.map((e) => UntrackedAllocation(
+        untrackedNumber: e.key.toString(),
+        qty: int.tryParse(e.value.toString()) ?? 0,
+      )).toList();
+    } else if (raw is List) {
+      return raw.map((u) {
+        if (u is Map) {
+          final uMap = Map<String, dynamic>.from(u);
+          return UntrackedAllocation(
+            untrackedNumber: uMap['untracked_number']?.toString() ?? uMap['code']?.toString() ?? '',
+            qty: int.tryParse(uMap['quantity']?.toString() ?? uMap['qty']?.toString() ?? '0') ?? 0,
+          );
+        } else {
+          return UntrackedAllocation(untrackedNumber: u.toString(), qty: badQty ?? 1);
+        }
+      }).toList();
+    }
+    return [];
   }
 
   const ShipmentLineItem({
@@ -296,6 +350,17 @@ class ShipmentLineItem {
       unit: 'pcs',
     );
 
+    final mergedMeta = Map<String, dynamic>.from(metaMap);
+    if (json['good_serials'] != null) mergedMeta['good_serials'] = json['good_serials'];
+    if (json['bad_serials'] != null) mergedMeta['bad_serials'] = json['bad_serials'];
+    if (json['good_batch_codes'] != null) mergedMeta['good_batch_codes'] = json['good_batch_codes'];
+    if (json['bad_batch_codes'] != null) mergedMeta['bad_batch_codes'] = json['bad_batch_codes'];
+    if (json['good_untracked_codes'] != null) mergedMeta['good_untracked_codes'] = json['good_untracked_codes'];
+    if (json['bad_untracked_codes'] != null) mergedMeta['bad_untracked_codes'] = json['bad_untracked_codes'];
+
+    final goodVal = json['good_quality'] ?? json['good_quantity'] ?? metaMap['good_quality'] ?? metaMap['good_quantity'];
+    final badVal = json['bad_quality'] ?? json['bad_quality_quantity'] ?? json['bad_quantity'] ?? metaMap['bad_quality'] ?? metaMap['bad_quality_quantity'] ?? metaMap['bad_quantity'];
+
     return ShipmentLineItem(
       id: json['id']?.toString() ?? '',
       product: product,
@@ -305,9 +370,9 @@ class ShipmentLineItem {
       serialNumbers: serialNumbers,
       isAllocated: isAlloc,
       allocationType: selectionType,
-      goodQty: json['good_quantity'] != null ? int.tryParse(json['good_quantity'].toString()) : null,
-      badQty: json['bad_quality_quantity'] != null ? int.tryParse(json['bad_quality_quantity'].toString()) : null,
-      meta: metaMap,
+      goodQty: goodVal != null ? int.tryParse(goodVal.toString()) : null,
+      badQty: badVal != null ? int.tryParse(badVal.toString()) : null,
+      meta: mergedMeta,
     );
   }
 
@@ -480,6 +545,14 @@ class Shipment {
   final int? lineItemsCount;
   final String? labourFee;
   final String? driverFee;
+  final String? invoiceS3Url;
+  final String? invoiceCode;
+  final String? trackingNumber;
+  final DateTime? shippedAt;
+  final DateTime? invoiceDate;
+  final DateTime? deliveredAt;
+  final DateTime? returnedAt;
+  final Map<String, dynamic>? parentShipment;
 
   List<ShipmentLineItem> get lineItems => _lineItems ?? const [];
 
@@ -509,6 +582,14 @@ class Shipment {
     this.lineItemsCount,
     this.labourFee,
     this.driverFee,
+    this.invoiceS3Url,
+    this.invoiceCode,
+    this.trackingNumber,
+    this.shippedAt,
+    this.invoiceDate,
+    this.deliveredAt,
+    this.returnedAt,
+    this.parentShipment,
   }) : _lineItems = lineItems;
 
   int get totalItems => lineItemsCount ?? lineItems.length;
@@ -528,6 +609,14 @@ class Shipment {
     int? lineItemsCount,
     String? labourFee,
     String? driverFee,
+    String? invoiceS3Url,
+    String? invoiceCode,
+    String? trackingNumber,
+    DateTime? shippedAt,
+    DateTime? invoiceDate,
+    DateTime? deliveredAt,
+    DateTime? returnedAt,
+    Map<String, dynamic>? parentShipment,
   }) {
     return Shipment(
       id: id,
@@ -555,6 +644,14 @@ class Shipment {
       lineItemsCount: lineItemsCount ?? this.lineItemsCount,
       labourFee: labourFee ?? this.labourFee,
       driverFee: driverFee ?? this.driverFee,
+      invoiceS3Url: invoiceS3Url ?? this.invoiceS3Url,
+      invoiceCode: invoiceCode ?? this.invoiceCode,
+      trackingNumber: trackingNumber ?? this.trackingNumber,
+      shippedAt: shippedAt ?? this.shippedAt,
+      invoiceDate: invoiceDate ?? this.invoiceDate,
+      deliveredAt: deliveredAt ?? this.deliveredAt,
+      returnedAt: returnedAt ?? this.returnedAt,
+      parentShipment: parentShipment ?? this.parentShipment,
     );
   }
 
@@ -576,9 +673,9 @@ class Shipment {
       statusEnum = ShipmentStatus.delivered;
     } else if (statusStr == 'cancelled') {
       statusEnum = ShipmentStatus.cancelled;
-    } else if (statusStr == 'return_initiated') {
+    } else if (statusStr == 'return_initiated' || statusStr == 'return_initiate') {
       statusEnum = ShipmentStatus.returnInitiated;
-    } else if (statusStr == 'return_completed') {
+    } else if (statusStr == 'return_completed' || statusStr == 'return_complete') {
       statusEnum = ShipmentStatus.returnCompleted;
     }
 
@@ -589,8 +686,12 @@ class Shipment {
     final customerIdStr = customerMap['id']?.toString() ?? '1';
     final shipmentTypeStr = json['shipment_type']?.toString();
     String? parentNumber;
+    Map<String, dynamic>? parentMap;
     if (json['parent_shipment'] is Map) {
-      parentNumber = (json['parent_shipment'] as Map)['shipment_number']?.toString();
+      parentMap = Map<String, dynamic>.from(json['parent_shipment'] as Map);
+      parentNumber = parentMap['shipment_number']?.toString();
+    } else if (json['parent_shipment_number'] != null) {
+      parentNumber = json['parent_shipment_number'].toString();
     }
     int? rating;
     if (json['review'] is Map) {
@@ -744,6 +845,14 @@ class Shipment {
       lineItemsCount: lineItemsCountVal,
       labourFee: labourFeeStr,
       driverFee: driverFeeStr,
+      invoiceS3Url: json['invoice_s3_url']?.toString(),
+      invoiceCode: json['invoice_code']?.toString(),
+      trackingNumber: json['tracking_number']?.toString(),
+      shippedAt: DateTime.tryParse(json['shipped_at']?.toString() ?? ''),
+      invoiceDate: DateTime.tryParse(json['invoice_date']?.toString() ?? ''),
+      deliveredAt: DateTime.tryParse(json['delivered_at']?.toString() ?? ''),
+      returnedAt: DateTime.tryParse(json['returned_at']?.toString() ?? ''),
+      parentShipment: parentMap,
     );
   }
 }

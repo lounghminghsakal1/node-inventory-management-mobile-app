@@ -5,6 +5,7 @@ import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_shell.dart';
 import '../../../../core/widgets/status_badge.dart';
+import '../../../../core/widgets/tracking_type_badge.dart';
 import '../../data/models/purchase_order_model.dart';
 import '../../providers/purchase_order_provider.dart';
 import '../../../grn/presentation/screens/create_grn_screen.dart';
@@ -288,18 +289,7 @@ class _PurchaseOrderDetailScreenState
                                     const SizedBox(height: 6),
                                     Row(
                                       children: [
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: AppColors.surface,
-                                            borderRadius: BorderRadius.circular(4),
-                                            border: Border.all(color: AppColors.cardBorder),
-                                          ),
-                                          child: Text(
-                                            'Tracking: ${li.trackingType.toUpperCase()}',
-                                            style: AppTextStyles.caption.copyWith(fontSize: 11, color: AppColors.textSecondary),
-                                          ),
-                                        ),
+                                        TrackingTypeBadge(trackingType: li.trackingType),
                                         const SizedBox(width: 8),
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),

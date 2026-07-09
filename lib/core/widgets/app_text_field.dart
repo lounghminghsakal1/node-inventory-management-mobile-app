@@ -57,6 +57,7 @@ class _AppTextFieldState extends State<AppTextField> {
   Widget build(BuildContext context) {
     return TextFormField(
       controller: widget.controller,
+      selectAllOnFocus: false,
       obscureText: widget.showToggle ? _obscure : widget.obscureText,
       keyboardType: widget.keyboardType,
       textInputAction: widget.textInputAction,

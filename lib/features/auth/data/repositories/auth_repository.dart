@@ -48,7 +48,6 @@ class AuthRepository {
         data: request.toJson(),
       );
 
-      print("jdfdsjj ${response.toString()}");
       if (response.data is Map && response.data['status'] == 'failure') {
         throw ApiException.fromResponseData(response.data, response.statusCode);
       }

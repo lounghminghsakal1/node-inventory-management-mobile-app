@@ -17,7 +17,7 @@ class PurchaseOrderRepository {
   }) async {
     final queryParams = <String, dynamic>{
       if (byVendorName != null && byVendorName.isNotEmpty) 'by_vendor_name': byVendorName,
-      if (byVendorId != null) 'by_vendor_id': byVendorId,
+      'by_vendor_id': ?byVendorId,
       if (byPoNumber != null && byPoNumber.isNotEmpty) 'by_po_number': byPoNumber,
       if (fromDate != null && fromDate.isNotEmpty) 'from_date': fromDate,
       if (toDate != null && toDate.isNotEmpty) 'to_date': toDate,
@@ -27,6 +27,49 @@ class PurchaseOrderRepository {
     final data = res.data['data'] as Map<String, dynamic>? ?? {};
     final list = data['purchase_orders'] as List? ?? [];
     return list.map((e) => PurchaseOrderModel.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<({List<PurchaseOrderModel> purchaseOrders, int currentPage, int totalPages, int totalCount})> getPurchaseOrdersApi({
+    String? byVendorName,
+    int? byVendorId,
+    String? byPoNumber,
+    String? byStatus,
+    String? fromDate,
+    String? toDate,
+    int page = 1,
+  }) async {
+    final queryParams = <String, dynamic>{
+      if (byVendorName != null && byVendorName.isNotEmpty) 'by_vendor_name': byVendorName,
+      'by_vendor_id': ?byVendorId,
+      if (byPoNumber != null && byPoNumber.isNotEmpty) 'by_po_number': byPoNumber,
+      if (byStatus != null && byStatus.isNotEmpty) 'by_status': byStatus,
+      if (fromDate != null && fromDate.isNotEmpty) 'from_date': fromDate,
+      if (toDate != null && toDate.isNotEmpty) 'to_date': toDate,
+      'page': page,
+    };
+    final res = await _dio.get(ApiEndpoints.purchaseOrders, queryParameters: queryParams);
+    final dataMap = res.data is Map<String, dynamic> ? res.data as Map<String, dynamic> : <String, dynamic>{};
+    final data = dataMap['data'] as Map<String, dynamic>? ?? {};
+    final list = (data['purchase_orders'] as List? ?? [])
+        .map((e) => PurchaseOrderModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+
+    final meta = (data['pagination'] as Map<String, dynamic>?) ??
+        (data['meta'] as Map<String, dynamic>?) ??
+        (dataMap['pagination'] as Map<String, dynamic>?) ??
+        (dataMap['meta'] as Map<String, dynamic>?) ??
+        {};
+    final currentPage = (meta['current_page'] as num?)?.toInt() ?? page;
+    final totalPages = (meta['total_pages'] as num?)?.toInt() ??
+        (list.length >= 10 ? page + 1 : page);
+    final totalCount = (meta['total_count'] as num?)?.toInt() ?? list.length;
+
+    return (
+      purchaseOrders: list,
+      currentPage: currentPage,
+      totalPages: totalPages,
+      totalCount: totalCount,
+    );
   }
 
   Future<PurchaseOrderModel> getPurchaseOrderById(int id) async {

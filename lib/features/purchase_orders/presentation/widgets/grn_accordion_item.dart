@@ -6,6 +6,7 @@ import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/status_badge.dart';
+import '../../../../core/widgets/tracking_type_badge.dart';
 import '../../data/models/purchase_order_model.dart';
 import '../../providers/purchase_order_provider.dart';
 
@@ -153,18 +154,31 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.08),
+            color: AppColors.info.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+            border: Border.all(color: AppColors.info.withValues(alpha: 0.3)),
           ),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.info_outline, color: AppColors.primary, size: 20),
+              const Icon(Icons.info_outline, color: AppColors.info, size: 20),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  "GRN Status: CREATED. Enter received quantities directly for items that arrived at the node and attach any batches/serials. Fully received items are grayed out. All price fields are hidden.",
-                  style: AppTextStyles.caption.copyWith(color: AppColors.textPrimary),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text("Current Status: ", style: AppTextStyles.caption.copyWith(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+                        StatusBadge(status: grn.status),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      "Enter received quantities directly for items that arrived at the node and attach any batches/serials. Fully received items are grayed out. All price fields are hidden.",
+                      style: AppTextStyles.caption.copyWith(color: AppColors.textPrimary),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -205,19 +219,27 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: AppColors.cardBorder.withValues(alpha: 0.5)),
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      child: Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 12,
+                        runSpacing: 8,
                         children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(poLi.skuName, style: AppTextStyles.labelMedium.copyWith(color: AppColors.textMuted)),
-                                const SizedBox(height: 4),
-                                Text("SKU: ${poLi.skuCode} • Type: ${poLi.trackingType.toUpperCase()}",
-                                    style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
-                              ],
-                            ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(poLi.skuName, style: AppTextStyles.labelMedium.copyWith(color: AppColors.textMuted)),
+                              const SizedBox(height: 4),
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 4,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  Text("SKU: ${poLi.skuCode}", style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
+                                  TrackingTypeBadge(trackingType: poLi.trackingType),
+                                ],
+                              ),
+                            ],
                           ),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -233,8 +255,8 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                   }
 
                   return Container(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    padding: const EdgeInsets.all(16),
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: AppColors.card,
                       borderRadius: BorderRadius.circular(12),
@@ -243,19 +265,29 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        Wrap(
+                          alignment: WrapAlignment.spaceBetween,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 12,
+                          runSpacing: 8,
                           children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(poLi.skuName, style: AppTextStyles.headingMedium.copyWith(fontSize: 16)),
-                                  const SizedBox(height: 4),
-                                  Text("SKU: ${poLi.skuCode} • Type: ${poLi.trackingType.toUpperCase()} • ${poLi.selectionType}",
-                                      style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
-                                ],
-                              ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(poLi.skuName, style: AppTextStyles.headingMedium.copyWith(fontSize: 16)),
+                                const SizedBox(height: 4),
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 4,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    Text("SKU: ${poLi.skuCode}", style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
+                                    TrackingTypeBadge(trackingType: poLi.trackingType),
+                                    if (poLi.selectionType.isNotEmpty)
+                                      Text("• ${poLi.selectionType}", style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
+                                  ],
+                                ),
+                              ],
                             ),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -279,87 +311,102 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                             return Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      flex: 2,
-                                      child: AppTextField(
-                                        label: "Received Qty (Max: ${poLi.remainingQuantity})",
-                                        controller: controller,
-                                        keyboardType: TextInputType.number,
-                                        onChanged: (val) {
-                                          final newQty = int.tryParse(val) ?? 0;
-                                          if (poLi.trackingType == 'batch') {
-                                            final currentBatchSum = batches.fold<int>(0, (s, b) => s + b.quantity);
-                                            if (newQty != currentBatchSum) {
-                                              batches.clear();
-                                            }
-                                          } else if (poLi.trackingType == 'serial') {
-                                            if (newQty != serials.length) {
-                                              serials.clear();
-                                            }
+                                LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    final isNarrow = constraints.maxWidth < 460;
+                                    final textFieldWidget = AppTextField(
+                                      label: "Received Qty (Max: ${poLi.remainingQuantity})",
+                                      controller: controller,
+                                      keyboardType: TextInputType.number,
+                                      onChanged: (val) {
+                                        final newQty = int.tryParse(val) ?? 0;
+                                        if (poLi.trackingType == 'batch') {
+                                          final currentBatchSum = batches.fold<int>(0, (s, b) => s + b.quantity);
+                                          if (newQty != currentBatchSum) {
+                                            batches.clear();
                                           }
-                                          setState(() {});
-                                        },
-                                      ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      flex: 3,
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                        decoration: BoxDecoration(
-                                          color: AppColors.background,
-                                          borderRadius: BorderRadius.circular(10),
-                                          border: Border.all(color: AppColors.cardBorder),
-                                        ),
-                                        child: Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            if (poLi.trackingType == 'batch')
-                                              Expanded(
-                                                child: ElevatedButton.icon(
-                                                  style: ElevatedButton.styleFrom(
-                                                    backgroundColor: isBatchesAdded ? AppColors.success : AppColors.primary,
-                                                    foregroundColor: Colors.white,
-                                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                                  ),
-                                                  icon: Icon(isBatchesAdded ? Icons.check_circle_outline : Icons.layers_outlined, size: 18),
-                                                  label: Text(
-                                                    isBatchesAdded ? "Batches Added (${batches.length})" : "Add Batches (${batches.length})",
-                                                    overflow: TextOverflow.ellipsis,
-                                                  ),
-                                                  onPressed: () => _openBatchModalForSku(poLi),
+                                        } else if (poLi.trackingType == 'serial') {
+                                          if (newQty != serials.length) {
+                                            serials.clear();
+                                          }
+                                        }
+                                        setState(() {});
+                                      },
+                                    );
+
+                                    final actionContainer = Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),                                
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          if (poLi.trackingType == 'batch')
+                                            Expanded(
+                                              child: ElevatedButton.icon(
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: isBatchesAdded ? AppColors.success : AppColors.getTrackingTextColor('batch'),
+                                                  foregroundColor: Colors.white,
+                                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                                 ),
-                                              )
-                                            else if (poLi.trackingType == 'serial')
-                                              Expanded(
-                                                child: ElevatedButton.icon(
-                                                  style: ElevatedButton.styleFrom(
-                                                    backgroundColor: isSerialsAdded ? AppColors.success : AppColors.primary,
-                                                    foregroundColor: Colors.white,
-                                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                                  ),
-                                                  icon: Icon(isSerialsAdded ? Icons.check_circle_outline : Icons.qr_code_scanner_outlined, size: 18),
-                                                  label: Text(
-                                                    isSerialsAdded ? "Serials Added (${serials.length})" : "Add Serials (${serials.length})",
-                                                    overflow: TextOverflow.ellipsis,
-                                                  ),
-                                                  onPressed: () => _openSerialModalForSku(poLi),
+                                                icon: Icon(isBatchesAdded ? Icons.check_circle_outline : Icons.layers_outlined, size: 18),
+                                                label: Text(
+                                                  isBatchesAdded ? "Batches Added (${batches.length})" : "Add Batches (${batches.length})",
+                                                  overflow: TextOverflow.ellipsis,
                                                 ),
-                                              )
-                                            else
-                                              Center(
-                                                child: Text("Untracked Item",
-                                                    style: AppTextStyles.caption.copyWith(color: AppColors.success, fontWeight: FontWeight.w600)),
+                                                onPressed: () => _openBatchModalForSku(poLi),
                                               ),
-                                          ],
-                                        ),
+                                            )
+                                          else if (poLi.trackingType == 'serial')
+                                            Expanded(
+                                              child: ElevatedButton.icon(
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: isSerialsAdded ? AppColors.success : AppColors.getTrackingTextColor('serial'),
+                                                  foregroundColor: Colors.white,
+                                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                                ),
+                                                icon: Icon(isSerialsAdded ? Icons.check_circle_outline : Icons.qr_code_scanner_outlined, size: 18),
+                                                label: Text(
+                                                  isSerialsAdded ? "Serials Added (${serials.length})" : "Add Serials (${serials.length})",
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                                onPressed: () => _openSerialModalForSku(poLi),
+                                              ),
+                                            )
+                                          else
+                                            const Expanded(
+                                              child: Center(
+                                                child: TrackingTypeBadge(trackingType: 'untracked'),
+                                              ),
+                                            ),
+                                        ],
                                       ),
-                                    ),
-                                  ],
+                                    );
+
+                                    if (isNarrow) {
+                                      return Column(
+                                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                                        children: [
+                                          textFieldWidget,
+                                          const SizedBox(height: 12),
+                                          actionContainer,
+                                        ],
+                                      );
+                                    }
+                                    return Row(
+                                      children: [
+                                        Expanded(
+                                          flex: 2,
+                                          child: textFieldWidget,
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          flex: 3,
+                                          child: actionContainer,
+                                        ),
+                                      ],
+                                    );
+                                  },
                                 ),
                                 if (isQtyExceeded) ...[
                                   const SizedBox(height: 6),
@@ -436,8 +483,15 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                       ],
                     ),
                     const SizedBox(height: 4),
-                    Text("SKU: ${li.skuCode} • Type: ${li.trackingType.toUpperCase()}",
-                        style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text("SKU: ${li.skuCode}", style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
+                        TrackingTypeBadge(trackingType: li.trackingType),
+                      ],
+                    ),
                     if (li.trackingType == 'batch' || li.trackingType == 'serial') ...[
                       const SizedBox(height: 8),
                       InkWell(
@@ -446,21 +500,21 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.08),
+                            color: AppColors.getTrackingBgColor(li.trackingType),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                            border: Border.all(color: AppColors.getTrackingTextColor(li.trackingType).withValues(alpha: 0.3)),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.visibility_outlined, size: 16, color: AppColors.primary),
+                              Icon(Icons.visibility_outlined, size: 16, color: AppColors.getTrackingTextColor(li.trackingType)),
                               const SizedBox(width: 6),
                               Text(
                                 li.trackingType == 'batch'
                                     ? "View Batches (${li.receivedBatches.length})"
                                     : "View Serials (${li.receivedSerials.length})",
                                 style: AppTextStyles.labelSmall.copyWith(
-                                  color: AppColors.primary,
+                                  color: AppColors.getTrackingTextColor(li.trackingType),
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -470,21 +524,25 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                       ),
                     ],
                     // const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
+                    Wrap(
+                      alignment: WrapAlignment.end,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      runSpacing: 4,
                       children: [
-                        if (_loadingAction == 'update_${li.id}')
+                        if (_loadingAction == 'update_${li.id}' || _loadingAction == 'delete_${li.id}')
                           const SizedBox(
                             width: 18,
                             height: 18,
                             child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
                           )
-                        else
+                        else ...[
                           TextButton.icon(
                             icon: const Icon(Icons.edit_outlined, size: 18),
                             label: const Text("Edit"),
                             onPressed: _loadingAction != null ? null : () => _showInwardedItemDetailsModal(li, isEditing: true),
                           ),
+                        ],
                       ],
                     ),
                   ],
@@ -660,12 +718,15 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
       await ref.read(grnControllerProvider.notifier).updateGrnLineItems(widget.grn.id, widget.grn.purchaseOrderId, updatedList);
       if (!mounted) return;
       setState(() {
-        for (final c in _skuQtyControllers.values) c.clear();
+        for (final c in _skuQtyControllers.values) {
+          c.clear();
+        }
         _skuBatches.clear();
         _skuSerials.clear();
       });
       ref.invalidate(grnDetailProvider(widget.grn.id));
       await ref.read(grnDetailProvider(widget.grn.id).future);
+      if (!mounted) return;
       ref.invalidate(poSkuItemsProvider(widget.grn.purchaseOrderId));
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Line items added to GRN successfully"), backgroundColor: AppColors.success),
@@ -696,6 +757,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
         grn: widget.grn,
         initialEditing: isEditing,
         onSave: (updatedItem) => _handleInwardedItemUpdate(updatedItem),
+        onDelete: () => _confirmRemoveInwardedItem(li),
       ),
     );
   }
@@ -715,6 +777,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
       if (!mounted) return;
       ref.invalidate(grnDetailProvider(widget.grn.id));
       await ref.read(grnDetailProvider(widget.grn.id).future);
+      if (!mounted) return;
       ref.invalidate(poSkuItemsProvider(widget.grn.purchaseOrderId));
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Line item updated successfully"), backgroundColor: AppColors.success),
@@ -730,6 +793,63 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
       }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Failed to update item: $errMsg"), backgroundColor: AppColors.error),
+      );
+    } finally {
+      if (mounted) setState(() => _loadingAction = null);
+    }
+  }
+
+  Future<void> _confirmRemoveInwardedItem(GrnLineItemModel li) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Remove Item from GRN"),
+        content: Text("Are you sure you want to remove '${li.skuName}' from this GRN? Its received quantity will return to the available PO balance."),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("Remove"),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await _handleInwardedItemDelete(li);
+    }
+  }
+
+  Future<void> _handleInwardedItemDelete(GrnLineItemModel liToDelete) async {
+    setState(() => _loadingAction = 'delete_${liToDelete.id}');
+    final currentLineItems = ref.read(grnDetailProvider(widget.grn.id)).value?.lineItems ?? widget.grn.lineItems;
+    final updatedList = currentLineItems.where((item) => item.productSkuId != liToDelete.productSkuId && item.id != liToDelete.id).toList();
+
+    try {
+      await ref.read(grnControllerProvider.notifier).updateGrnLineItems(widget.grn.id, widget.grn.purchaseOrderId, updatedList);
+      if (!mounted) return;
+      ref.invalidate(grnDetailProvider(widget.grn.id));
+      await ref.read(grnDetailProvider(widget.grn.id).future);
+      if (!mounted) return;
+      ref.invalidate(poSkuItemsProvider(widget.grn.purchaseOrderId));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Line item removed successfully"), backgroundColor: AppColors.success),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      String errMsg = e.toString().replaceAll('Exception: ', '');
+      if (e is DioException && e.response?.data != null) {
+        final data = e.response!.data;
+        if (data is Map && (data['message'] != null || data['error'] != null)) {
+          errMsg = (data['message'] ?? data['error']).toString();
+        }
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to remove item: $errMsg"), backgroundColor: AppColors.error),
       );
     } finally {
       if (mounted) setState(() => _loadingAction = null);
@@ -777,13 +897,26 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
             border: Border.all(color: AppColors.warning),
           ),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Icon(Icons.assignment_late_outlined, color: AppColors.warning, size: 20),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  "GRN Status: QC PENDING. Perform QC inspections by clicking the action button on each product row. Rejection reasons are mandatory when any bad quantity is recorded.",
-                  style: AppTextStyles.caption.copyWith(color: AppColors.textPrimary),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text("Current Status: ", style: AppTextStyles.caption.copyWith(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+                        StatusBadge(status: grn.status),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      "Perform QC inspections by clicking the action button on each product row. Rejection reasons are mandatory when any bad quantity is recorded.",
+                      style: AppTextStyles.caption.copyWith(color: AppColors.textPrimary),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -849,8 +982,12 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                               children: [
                                 Text("SKU: ${activeItem.skuCode}",
                                 style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
-                                Text("Type: ${activeItem.trackingType.toUpperCase()}",
-                                style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
+                                Row(
+                                  children: [
+                                    Text("Type: ", style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
+                                    TrackingTypeBadge(trackingType: activeItem.trackingType),
+                                  ],
+                                ),
                               ],
                             ),
                             
@@ -859,7 +996,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                       ),
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: isModified ? AppColors.success : AppColors.primary,
+                          backgroundColor: isModified ? AppColors.success : AppColors.getTrackingTextColor(activeItem.trackingType),
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -904,7 +1041,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
         SizedBox(
           width: double.infinity,
           child: AppButton(
-            label: "Submit QC",
+            label: "Submit QC and Complete GRN",
             icon: Icons.done_all,
             isOutlined: true,
             isLoading: _loadingAction == 'submit_qc',
@@ -1019,13 +1156,26 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
             border: Border.all(color: AppColors.success),
           ),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Icon(Icons.verified_outlined, color: AppColors.success, size: 20),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  "GRN Status: ${grn.status.toUpperCase()}. Quality inspection complete and line items accepted into inventory.",
-                  style: AppTextStyles.caption.copyWith(color: AppColors.textPrimary),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text("Current Status: ", style: AppTextStyles.caption.copyWith(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+                        StatusBadge(status: grn.status),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      "Quality inspection complete and line items accepted into inventory.",
+                      style: AppTextStyles.caption.copyWith(color: AppColors.textPrimary),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -1063,15 +1213,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppColors.card,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(li.trackingType.toUpperCase(),
-                            style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.bold)),
-                      ),
+                      TrackingTypeBadge(trackingType: li.trackingType),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -1238,7 +1380,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: AppColors.surface,
                       borderRadius: BorderRadius.circular(10),
@@ -1249,9 +1391,14 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                       children: [
                         Text(li.skuName, style: AppTextStyles.labelMedium),
                         const SizedBox(height: 4),
-                        Text(
-                          "SKU: ${li.skuCode} • Type: ${li.trackingType.toUpperCase()} • Total: $count",
-                          style: AppTextStyles.caption.copyWith(color: AppColors.textMuted),
+                        Row(
+                          children: [
+                            Text("SKU: ${li.skuCode}", style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
+                            const SizedBox(width: 6),
+                            TrackingTypeBadge(trackingType: li.trackingType),
+                            const SizedBox(width: 6),
+                            Text("• Total: $count", style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
+                          ],
                         ),
                       ],
                     ),
@@ -1396,12 +1543,14 @@ class _InwardedItemDetailsModal extends ConsumerStatefulWidget {
   final GrnModel grn;
   final bool initialEditing;
   final Function(GrnLineItemModel) onSave;
+  final VoidCallback? onDelete;
 
   const _InwardedItemDetailsModal({
     required this.item,
     required this.grn,
     required this.initialEditing,
     required this.onSave,
+    this.onDelete,
   });
 
   @override
@@ -1617,7 +1766,7 @@ class _InwardedItemDetailsModalState extends ConsumerState<_InwardedItemDetailsM
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppColors.success.withOpacity(0.1),
+              color: AppColors.success.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
@@ -1652,7 +1801,7 @@ class _InwardedItemDetailsModalState extends ConsumerState<_InwardedItemDetailsM
               Text("Batches Configured (${_batches.length}):", style: AppTextStyles.labelMedium.copyWith(fontWeight: FontWeight.bold)),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary.withOpacity(0.1),
+                  backgroundColor: AppColors.primary.withValues(alpha: 0.1),
                   foregroundColor: AppColors.primary,
                   elevation: 0,
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -1698,7 +1847,7 @@ class _InwardedItemDetailsModalState extends ConsumerState<_InwardedItemDetailsM
               Text("Serials Entered (${_serials.length}):", style: AppTextStyles.labelMedium.copyWith(fontWeight: FontWeight.bold)),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary.withOpacity(0.1),
+                  backgroundColor: AppColors.primary.withValues(alpha: 0.1),
                   foregroundColor: AppColors.primary,
                   elevation: 0,
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -1779,15 +1928,20 @@ class _InwardedItemDetailsModalState extends ConsumerState<_InwardedItemDetailsM
               ],
             ),
             const SizedBox(height: 8),
-            Text("SKU: ${widget.item.skuCode} • Type: ${widget.item.trackingType.toUpperCase()}",
-                style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
+            Row(
+              children: [
+                Text("SKU: ${widget.item.skuCode}", style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
+                const SizedBox(width: 6),
+                TrackingTypeBadge(trackingType: widget.item.trackingType),
+              ],
+            ),
             const Divider(height: 24, color: AppColors.cardBorder),
             if (_errorMessage != null) ...[
               Container(
                 padding: const EdgeInsets.all(12),
                 margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
-                  color: AppColors.error.withOpacity(0.1),
+                  color: AppColors.error.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: AppColors.error),
                 ),
@@ -1807,50 +1961,67 @@ class _InwardedItemDetailsModalState extends ConsumerState<_InwardedItemDetailsM
             ),
             const Divider(height: 32, color: AppColors.cardBorder),
             Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                if (!_isEditing) ...[
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text("Close"),
-                  ),
-                  const SizedBox(width: 12),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                    ),
-                    onPressed: () => setState(() => _isEditing = true),
-                    icon: const Icon(Icons.edit_outlined, size: 18),
-                    label: const Text("Edit"),
-                  ),
-                ] else ...[
-                  TextButton(
+                if (widget.onDelete != null)
+                  TextButton.icon(
+                    style: TextButton.styleFrom(foregroundColor: AppColors.error),
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                    label: const Text("Remove"),
                     onPressed: () {
-                      if (widget.initialEditing) {
-                        Navigator.pop(context);
-                      } else {
-                        setState(() {
-                          _isEditing = false;
-                          _errorMessage = null;
-                          _qtyController.text = widget.item.receivedQuantity.toString();
-                          _batches = List.from(widget.item.receivedBatches);
-                          _serials = List.from(widget.item.receivedSerials);
-                        });
-                      }
+                      Navigator.pop(context);
+                      widget.onDelete!();
                     },
-                    child: const Text("Cancel"),
-                  ),
-                  const SizedBox(width: 12),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                    ),
-                    onPressed: _validateAndSave,
-                    child: const Text("Save & Update"),
-                  ),
-                ],
+                  )
+                else
+                  const SizedBox.shrink(),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (!_isEditing) ...[
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text("Close"),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                        ),
+                        onPressed: () => setState(() => _isEditing = true),
+                        icon: const Icon(Icons.edit_outlined, size: 18),
+                        label: const Text("Edit"),
+                      ),
+                    ] else ...[
+                      TextButton(
+                        onPressed: () {
+                          if (widget.initialEditing) {
+                            Navigator.pop(context);
+                          } else {
+                            setState(() {
+                              _isEditing = false;
+                              _errorMessage = null;
+                              _qtyController.text = widget.item.receivedQuantity.toString();
+                              _batches = List.from(widget.item.receivedBatches);
+                              _serials = List.from(widget.item.receivedSerials);
+                            });
+                          }
+                        },
+                        child: const Text("Cancel"),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                        ),
+                        onPressed: _validateAndSave,
+                        child: const Text("Save & Update"),
+                      ),
+                    ],
+                  ],
+                ),
               ],
             ),
           ],
@@ -1909,7 +2080,13 @@ class _BatchInputModalState extends State<_BatchInputModal> {
     final isValid = currentSum == widget.targetQty && _batches.every((b) => b.batchCode.trim().isNotEmpty);
 
     return AlertDialog(
-      title: Text("Add Batches (Target Qty: ${widget.targetQty})", style: AppTextStyles.headingMedium),
+      title: Row(
+        children: [
+          Expanded(child: Text("Add Batches (Target Qty: ${widget.targetQty})", style: AppTextStyles.headingMedium)),
+          const SizedBox(width: 8),
+          const TrackingTypeBadge(trackingType: 'batch'),
+        ],
+      ),
       content: SizedBox(
         width: 650,
         child: SingleChildScrollView(
@@ -2119,7 +2296,13 @@ class _SerialInputModalState extends ConsumerState<_SerialInputModal> {
     final isValid = _serials.length == widget.targetQty;
 
     return AlertDialog(
-      title: Text("Add Serials (Target: ${widget.targetQty})", style: AppTextStyles.headingMedium),
+      title: Row(
+        children: [
+          Expanded(child: Text("Add Serials (Target: ${widget.targetQty})", style: AppTextStyles.headingMedium)),
+          const SizedBox(width: 8),
+          const TrackingTypeBadge(trackingType: 'serial'),
+        ],
+      ),
       content: SizedBox(
         width: 550,
         child: SingleChildScrollView(
@@ -2273,8 +2456,12 @@ class _QcBatchModalState extends State<_QcBatchModal> {
 
   @override
   void dispose() {
-    for (final c in _goodControllers) c.dispose();
-    for (final c in _badControllers) c.dispose();
+    for (final c in _goodControllers) {
+      c.dispose();
+    }
+    for (final c in _badControllers) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -2291,7 +2478,13 @@ class _QcBatchModalState extends State<_QcBatchModal> {
     });
 
     return AlertDialog(
-      title: Text("QC Check: Confirm Batches (${widget.item.skuName})", style: AppTextStyles.headingMedium),
+      title: Row(
+        children: [
+          Expanded(child: Text("QC Check: Confirm Batches (${widget.item.skuName})", style: AppTextStyles.headingMedium)),
+          const SizedBox(width: 8),
+          const TrackingTypeBadge(trackingType: 'batch'),
+        ],
+      ),
       content: SizedBox(
         width: 550,
         child: SingleChildScrollView(
@@ -2437,7 +2630,13 @@ class _QcSerialModalState extends State<_QcSerialModal> {
     final totBad = serials.length - totGood;
 
     return AlertDialog(
-      title: Text("QC Check: Confirm Serial (${widget.item.skuName})", style: AppTextStyles.headingMedium),
+      title: Row(
+        children: [
+          Expanded(child: Text("QC Check: Confirm Serial (${widget.item.skuName})", style: AppTextStyles.headingMedium)),
+          const SizedBox(width: 8),
+          const TrackingTypeBadge(trackingType: 'serial'),
+        ],
+      ),
       content: SizedBox(
         width: 500,
         child: SingleChildScrollView(
@@ -2540,7 +2739,13 @@ class _QcUntrackedModalState extends State<_QcUntrackedModal> {
     final rej = isValid ? rec - acceptedVal : 0;
 
     return AlertDialog(
-      title: Text("QC Check: Confirm Qty (${widget.item.skuName})", style: AppTextStyles.headingMedium),
+      title: Row(
+        children: [
+          Expanded(child: Text("QC Check: Confirm Qty (${widget.item.skuName})", style: AppTextStyles.headingMedium)),
+          const SizedBox(width: 8),
+          const TrackingTypeBadge(trackingType: 'untracked'),
+        ],
+      ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

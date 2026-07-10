@@ -404,6 +404,26 @@ class ShipmentLineItem {
 }
 
 // ── Driver Details ────────────────────────────────────────────────────────────
+class ShipmentMedia {
+  final String title;
+  final String url;
+  final String? description;
+
+  const ShipmentMedia({
+    required this.title,
+    required this.url,
+    this.description,
+  });
+
+  factory ShipmentMedia.fromJson(Map<String, dynamic> json) {
+    return ShipmentMedia(
+      title: json['title']?.toString() ?? '',
+      url: json['image_url']?.toString() ?? '',
+      description: json['description']?.toString(),
+    );
+  }
+}
+
 class DriverDetails {
   final String name;
   final String phone;
@@ -413,6 +433,7 @@ class DriverDetails {
   final String? trackingId;
   final String? dispatchedBy;
   final Map<String, dynamic>? additionalDetails;
+  final List<ShipmentMedia>? images;
 
   const DriverDetails({
     required this.name,
@@ -423,19 +444,23 @@ class DriverDetails {
     this.trackingId,
     this.dispatchedBy,
     this.additionalDetails,
+    this.images,
   });
 }
 
-// ── Delivery Details ──────────────────────────────────────────────────────────
 class DeliveryDetails {
   final String? receivedBy;
   final String? deliveryOtp;
   final String? deliveryNote;
+  final List<ShipmentMedia> images;
+  final Map<String, dynamic> additionalDetails;
 
   const DeliveryDetails({
     this.receivedBy,
     this.deliveryOtp,
     this.deliveryNote,
+    this.images = const [],
+    this.additionalDetails = const {},
   });
 }
 
@@ -756,11 +781,20 @@ class Shipment {
         }
       });
 
+      List<ShipmentMedia>? parsedImages;
+      if (dispatchMap['images'] is List) {
+        parsedImages = (dispatchMap['images'] as List)
+            .whereType<Map>()
+            .map((m) => ShipmentMedia.fromJson(Map<String, dynamic>.from(m)))
+            .toList();
+      }
+
       if (name.isNotEmpty ||
           phone.isNotEmpty ||
           vehicle.isNotEmpty ||
           distance != null ||
-          additional.isNotEmpty) {
+          additional.isNotEmpty ||
+          (parsedImages != null && parsedImages.isNotEmpty)) {
         parsedDriver = DriverDetails(
           name: name,
           phone: phone,
@@ -770,6 +804,7 @@ class Shipment {
           trackingId: dispatchMap['tracking_id']?.toString(),
           dispatchedBy: dispatchMap['dispatched_by']?.toString(),
           additionalDetails: additional.isEmpty ? null : additional,
+          images: parsedImages,
         );
       }
     }
@@ -802,10 +837,33 @@ class Shipment {
 
     if (delivSource != null) {
       final dMap = Map<String, dynamic>.from(delivSource);
+      final additionalDeliv = <String, dynamic>{};
+      dMap.forEach((k, v) {
+        if (![
+          'received_by',
+          'delivery_otp',
+          'delivery_note',
+          'images',
+        ].contains(k) && v != null && v.toString().trim().isNotEmpty && v is! Map && v is! List) {
+          final cleanKey = k.replaceAll('_', ' ').split(' ').map((w) => w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1)}' : '').join(' ');
+          additionalDeliv[cleanKey] = v;
+        }
+      });
+
+      List<ShipmentMedia> parsedDelivImages = [];
+      if (dMap['images'] is List) {
+        parsedDelivImages = (dMap['images'] as List)
+            .whereType<Map>()
+            .map((m) => ShipmentMedia.fromJson(Map<String, dynamic>.from(m)))
+            .toList();
+      }
+
       parsedDelivery = DeliveryDetails(
         receivedBy: dMap['received_by']?.toString(),
         deliveryOtp: dMap['delivery_otp']?.toString(),
         deliveryNote: dMap['delivery_note']?.toString(),
+        images: parsedDelivImages,
+        additionalDetails: additionalDeliv,
       );
     }
 

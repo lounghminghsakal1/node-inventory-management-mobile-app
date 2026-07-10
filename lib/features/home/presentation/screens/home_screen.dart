@@ -262,7 +262,7 @@ class HomeScreen extends ConsumerWidget {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
-          onTap: () => context.go('/audit'),
+          onTap: () => context.go('/audit/${audit.id}'),
           child: Padding(
             padding: const EdgeInsets.all(14),
             child: Row(

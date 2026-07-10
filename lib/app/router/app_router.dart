@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:node_management_app/features/audit/presentation/screens/stock_audit_detail_screen.dart';
 import '../../features/auth/providers/auth_provider.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/node_selection/presentation/screens/node_selection_screen.dart';
@@ -44,8 +45,7 @@ String? _appRedirect(BuildContext context, GoRouterState state, Ref ref) {
   final loc = state.matchedLocation;
 
   // Still checking stored session — don't redirect yet
-  if (auth.status == AuthStatus.initial ||
-      auth.status == AuthStatus.checking) {
+  if (auth.status == AuthStatus.initial || auth.status == AuthStatus.checking) {
     return null;
   }
 
@@ -104,60 +104,73 @@ final routerProvider = Provider<GoRouter>((ref) {
             _ScaffoldWithNavBar(navigationShell: navigationShell),
         branches: [
           // Home
-          StatefulShellBranch(routes: [
-            GoRoute(
-              path: '/home',
-              name: 'home',
-              builder: (context, _) => const HomeScreen(),
-            ),
-          ]),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/home',
+                name: 'home',
+                builder: (context, _) => const HomeScreen(),
+              ),
+            ],
+          ),
 
           // Shipments (replaces Orders in bottom nav)
-          StatefulShellBranch(routes: [
-            GoRoute(
-              path: '/shipments',
-              name: 'shipments',
-              builder: (context, _) => const ShipmentListScreen(),
-            ),
-          ]),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/shipments',
+                name: 'shipments',
+                builder: (context, _) => const ShipmentListScreen(),
+              ),
+            ],
+          ),
 
           // Purchase Orders (replaces GRN in bottom nav)
-          StatefulShellBranch(routes: [
-            GoRoute(
-              path: '/purchase-orders',
-              name: 'purchase-orders',
-              builder: (context, _) => const PurchaseOrderListScreen(),
-            ),
-            GoRoute(
-              path: '/grn',
-              redirect: (_, _) => '/purchase-orders',
-            ),
-          ]),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/purchase-orders',
+                name: 'purchase-orders',
+                builder: (context, _) => const PurchaseOrderListScreen(),
+              ),
+              GoRoute(path: '/grn', redirect: (_, _) => '/purchase-orders'),
+            ],
+          ),
 
           // Inventory (replaces Returns in bottom nav)
-          StatefulShellBranch(routes: [
-            GoRoute(
-              path: '/inventory',
-              name: 'inventory',
-              builder: (context, _) => const InventoryScreen(),
-            ),
-            GoRoute(
-              path: '/returns',
-              redirect: (_, _) => '/inventory',
-            ),
-          ]),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/inventory',
+                name: 'inventory',
+                builder: (context, _) => const InventoryScreen(),
+              ),
+              GoRoute(path: '/returns', redirect: (_, _) => '/inventory'),
+            ],
+          ),
 
           // Audit
-          StatefulShellBranch(routes: [
-            GoRoute(
-              path: '/audit',
-              name: 'audit',
-              builder: (context, _) => const AuditScreen(),
-            ),
-          ]),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/audit',
+                name: 'audit',
+                builder: (context, _) => const AuditScreen(),
+              ),
+            ],
+          ),
         ],
       ),
 
+      GoRoute(
+        path: '/audit/:id',
+        name: 'audit-detail',
+        builder: (context, state) {
+          return StockAuditDetailScreen(
+            auditId: state.pathParameters['id']!
+          );
+        },
+      ),
       // ── Order sub-routes ──────────────────────────────────────────────────
       GoRoute(
         path: '/orders/:id',
@@ -206,23 +219,20 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/shipments/:id',
         name: 'shipment-detail',
-        builder: (_, state) => ShipmentDetailScreen(
-          shipmentId: state.pathParameters['id']!,
-        ),
+        builder: (_, state) =>
+            ShipmentDetailScreen(shipmentId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/shipments/:id/allocate',
         name: 'shipment-allocate',
-        builder: (_, state) => AllocationScreen(
-          shipmentId: state.pathParameters['id']!,
-        ),
+        builder: (_, state) =>
+            AllocationScreen(shipmentId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/shipments/:id/dispatch',
         name: 'shipment-dispatch',
-        builder: (_, state) => DispatchScreen(
-          shipmentId: state.pathParameters['id']!,
-        ),
+        builder: (_, state) =>
+            DispatchScreen(shipmentId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/shipments/:id/good_bad_allocation',
@@ -252,17 +262,14 @@ class _ScaffoldWithNavBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: NodeOpsAppBar(
-        extraActions: navigationShell.currentIndex == 1
-            ? const [
-                _ShipmentsAppBarAction(),
-              ]
-            : const [],
       ),
       body: navigationShell,
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           color: AppColors.surface,
-          border: Border(top: BorderSide(color: AppColors.cardBorder, width: 1)),
+          border: Border(
+            top: BorderSide(color: AppColors.cardBorder, width: 1),
+          ),
         ),
         child: SafeArea(
           child: SizedBox(
@@ -376,7 +383,10 @@ class _NavItem extends StatelessWidget {
             children: [
               AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 2,
+                ),
                 decoration: isActive
                     ? BoxDecoration(
                         color: AppColors.primary.withValues(alpha: 0.15),
@@ -419,7 +429,11 @@ class _ShipmentsAppBarAction extends ConsumerWidget {
     if (state.shipments.isEmpty) return const SizedBox.shrink();
 
     return PopupMenuButton<String>(
-      icon: const Icon(Icons.more_vert_rounded, color: AppColors.textSecondary, size: 20),
+      icon: const Icon(
+        Icons.more_vert_rounded,
+        color: AppColors.textSecondary,
+        size: 20,
+      ),
       padding: EdgeInsets.zero,
       color: AppColors.card,
       shape: RoundedRectangleBorder(
@@ -436,11 +450,17 @@ class _ShipmentsAppBarAction extends ConsumerWidget {
           value: 'create',
           child: Row(
             children: [
-              const Icon(Icons.add_shopping_cart_rounded, size: 18, color: AppColors.primary),
+              const Icon(
+                Icons.add_shopping_cart_rounded,
+                size: 18,
+                color: AppColors.primary,
+              ),
               const SizedBox(width: 8),
               Text(
                 'Create shipment through order',
-                style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.textPrimary,
+                ),
               ),
             ],
           ),

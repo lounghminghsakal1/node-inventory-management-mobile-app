@@ -1,4 +1,4 @@
-import 'package:dio/dio.dart' show Dio, DioException;
+import 'package:dio/dio.dart' show Dio, DioException, FormData, MultipartFile;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/network/api_endpoints.dart';
 import '../../../../core/network/dio_client.dart';
@@ -476,6 +476,39 @@ class ShipmentRepository {
       if (response.data is Map && response.data['status'] == 'failure') {
         throw ApiException.fromResponseData(response.data, response.statusCode);
       }
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException(e.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
+  Future<String> uploadMedia({
+    required String shipmentId,
+    required String actionType,
+    required String filePath,
+    required String fileName,
+  }) async {
+    try {
+      final formData = FormData.fromMap({
+        'action_type': actionType,
+        'file': await MultipartFile.fromFile(filePath, filename: fileName),
+      });
+      final response = await _dio.post(
+        ApiEndpoints.shipmentUploadMedia(shipmentId),
+        data: formData,
+      );
+      if (response.data is Map && response.data['status'] == 'failure') {
+        throw ApiException.fromResponseData(response.data, response.statusCode);
+      }
+      if (response.data is Map<String, dynamic>) {
+        final dataMap = response.data['data'];
+        if (dataMap is Map<String, dynamic> && dataMap.containsKey('s3_url')) {
+          return dataMap['s3_url'] as String;
+        }
+      }
+      throw const ApiException('Invalid response format from server');
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     } catch (e) {

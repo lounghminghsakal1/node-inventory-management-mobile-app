@@ -42,6 +42,7 @@ class ApiEndpoints {
   static String returnRemaining(String id) => '/shipments/$id/return_remaining';
   static String assignReturnItems(String id) => '/shipments/$id/assign_return_items';
   static String returnComplete(String id) => '/shipments/$id/return_complete';
+  static String shipmentUploadMedia(String id) => '/shipments/$id/upload_media';
   // Backward compatible aliases
   static String returnAllocationInfo(String id) => '/shipments/$id/return_remaining';
   static String completeReturn(String id) => '/shipments/$id/return_complete';
@@ -91,8 +92,14 @@ class ApiEndpoints {
       '/goods_received_notes/$grnId/qc_line_items';
 
 
-  // Audit
-  static const String audit = '/audit';
+  // Stock Audits
+  static String stockAuditDetail(String id) => '/stock_audits/$id';
+  static String initiateStockAudit(String id) => '/stock_audits/$id/initiate';
+  static String stockAuditLineItems(String id) => '/stock_audits/$id/line_items';
+  static String stockAuditSkuBatches(String auditId, String skuId) => '/stock_audits/$auditId/skus/$skuId/sku_batches';
+  static String stockAuditSkuSerials(String auditId, String skuId) => '/stock_audits/$auditId/skus/$skuId/sku_serials';
+  static String stockAuditCountSku(String auditId, String skuId) => '/stock_audits/$auditId/skus/$skuId/count_sku';
+  static String sendStockAuditForReview(String id) => '/stock_audits/$id/send_for_review';
 
   // Returns
   static const String returns = '/returns';

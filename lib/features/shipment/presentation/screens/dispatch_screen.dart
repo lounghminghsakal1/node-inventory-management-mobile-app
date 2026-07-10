@@ -6,6 +6,7 @@ import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_shell.dart';
 import '../../../../core/widgets/app_text_field.dart';
+import 'package:file_picker/file_picker.dart';
 import '../../data/repositories/shipment_repository.dart';
 import '../../providers/shipment_provider.dart';
 
@@ -15,6 +16,19 @@ class _KeyValuePair {
   void dispose() {
     keyCtrl.dispose();
     valCtrl.dispose();
+  }
+}
+
+class _MediaItem {
+  final String url;
+  final TextEditingController titleCtrl = TextEditingController();
+  final TextEditingController descCtrl = TextEditingController();
+
+  _MediaItem(this.url);
+
+  void dispose() {
+    titleCtrl.dispose();
+    descCtrl.dispose();
   }
 }
 
@@ -34,6 +48,8 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
   final _distanceCtrl = TextEditingController();
   final List<_KeyValuePair> _additionalRows = [];
   bool _isLoading = false;
+  final List<_MediaItem> _uploadedMedia = [];
+  bool _isUploadingMedia = false;
 
   @override
   void dispose() {
@@ -43,6 +59,9 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
     _distanceCtrl.dispose();
     for (final row in _additionalRows) {
       row.dispose();
+    }
+    for (final media in _uploadedMedia) {
+      media.dispose();
     }
     super.dispose();
   }
@@ -245,6 +264,86 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
                     ),
                     const SizedBox(height: 28),
 
+                    // Media Upload Section
+                    Text(
+                      'Dispatch Media (Required)',
+                      style: AppTextStyles.headingMedium,
+                    ),
+                    const SizedBox(height: 14),
+                    ..._uploadedMedia.asMap().entries.map((entry) {
+                      final idx = entry.key;
+                      final media = entry.value;
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.background,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppColors.cardBorder),
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.check_circle, color: AppColors.success),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    'Media ${idx + 1} uploaded successfully!',
+                                    style: AppTextStyles.labelMedium,
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline, color: AppColors.error),
+                                  onPressed: () {
+                                    setState(() {
+                                      media.dispose();
+                                      _uploadedMedia.removeAt(idx);
+                                    });
+                                  },
+                                )
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            AppTextField(
+                              label: 'Media Title',
+                              hint: 'e.g. Truck loaded image',
+                              controller: media.titleCtrl,
+                              validator: (v) => v == null || v.isEmpty ? 'Title is required' : null,
+                            ),
+                            const SizedBox(height: 10),
+                            AppTextField(
+                              label: 'Media Description (Optional)',
+                              hint: 'e.g. Back view of the truck',
+                              controller: media.descCtrl,
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                    if (_isUploadingMedia)
+                      const Center(child: CircularProgressIndicator())
+                    else
+                      OutlinedButton.icon(
+                        onPressed: _pickAndUploadFile,
+                        icon: const Icon(Icons.upload_file, color: AppColors.primary),
+                        label: Text(
+                          _uploadedMedia.isEmpty ? 'Upload Media (Image/PDF)' : 'Upload Another Media',
+                          style: const TextStyle(color: AppColors.primary),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: AppColors.primary),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 28),
+
                     // Info box
                     Container(
                       padding: const EdgeInsets.all(14),
@@ -293,8 +392,51 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
     );
   }
 
+  Future<void> _pickAndUploadFile() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'webp', 'pdf'],
+      );
+      if (result != null && result.files.single.path != null) {
+        setState(() => _isUploadingMedia = true);
+        final filePath = result.files.single.path!;
+        final fileName = result.files.single.name;
+        final url = await ref.read(shipmentRepositoryProvider).uploadMedia(
+          shipmentId: widget.shipmentId,
+          actionType: 'dispatch',
+          filePath: filePath,
+          fileName: fileName,
+        );
+        setState(() {
+          _uploadedMedia.add(_MediaItem(url));
+          _isUploadingMedia = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isUploadingMedia = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Media upload failed: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _dispatch() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_uploadedMedia.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please upload at least one media to proceed with dispatch.'),
+          backgroundColor: AppColors.warning,
+        ),
+      );
+      return;
+    }
 
     setState(() => _isLoading = true);
     try {
@@ -303,6 +445,11 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
         "driver_number": _phoneCtrl.text.trim(),
         "vehicle_number": _vehicleCtrl.text.trim(),
         "distance": _distanceCtrl.text.trim(),
+        "images": _uploadedMedia.map((m) => {
+          "title": m.titleCtrl.text.trim(),
+          if (m.descCtrl.text.trim().isNotEmpty) "description": m.descCtrl.text.trim(),
+          "image_url": m.url,
+        }).toList(),
       };
       for (final row in _additionalRows) {
         final k = row.keyCtrl.text.trim();

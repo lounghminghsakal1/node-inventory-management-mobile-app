@@ -78,6 +78,7 @@ class ApiEndpoints {
   static const String goodsReceivedNotes = '/goods_received_notes';
   static String grnDetail(String id) => '/goods_received_notes/$id';
   static const String createGrn = '/goods_received_notes/create_grn';
+  static const String uploadGrnDocument = '/goods_received_notes/upload_document';
   static String poReceivingSummary(String poId, [String? grnId]) =>
       '/goods_received_notes/po_receiving_summary?po_id=$poId${grnId != null ? '&grn_id=$grnId' : ''}';
   static String verifySerial(String serialNumber, String skuId) =>

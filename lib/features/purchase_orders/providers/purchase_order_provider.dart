@@ -98,6 +98,7 @@ class PurchaseOrderListNotifier extends StateNotifier<PurchaseOrderListState> {
         byStatus: byStatus,
         fromDate: fromDate,
         toDate: toDate,
+        purchaseOrders: [],
       );
     } else {
       if (state.isLoading || state.isMoreLoading || state.currentPage >= state.totalPages) return;
@@ -182,12 +183,22 @@ class GrnController extends StateNotifier<AsyncValue<void>> {
   final Ref ref;
   GrnController(this.ref) : super(const AsyncValue.data(null));
 
+  Future<String?> uploadGrnDocument(String filePath, String fileName) async {
+    try {
+      final repo = ref.read(purchaseOrderRepoProvider);
+      return await repo.uploadGrnDocument(filePath, fileName);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      return null;
+    }
+  }
+
   Future<GrnModel?> createGrn({
     required int poId,
     required String vendorInvoiceDate,
     required String vendorInvoiceNo,
     required String receivedDate,
-    String? vendorInvoiceS3Url,
+    List<String>? vendorInvoiceS3Urls,
   }) async {
     state = const AsyncValue.loading();
     try {
@@ -197,7 +208,7 @@ class GrnController extends StateNotifier<AsyncValue<void>> {
         vendorInvoiceDate: vendorInvoiceDate,
         vendorInvoiceNo: vendorInvoiceNo,
         receivedDate: receivedDate,
-        vendorInvoiceS3Url: vendorInvoiceS3Url,
+        vendorInvoiceS3Urls: vendorInvoiceS3Urls,
       );
       ref.invalidate(grnListForPoProvider(poId));
       ref.invalidate(purchaseOrderByIdProvider(poId));

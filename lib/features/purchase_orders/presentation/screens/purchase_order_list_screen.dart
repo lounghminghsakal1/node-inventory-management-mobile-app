@@ -113,7 +113,7 @@ class _PurchaseOrderListScreenState
           Expanded(
             child: Builder(
               builder: (context) {
-                if (state.isLoading && allPos.isEmpty) {
+                if (state.isLoading && !state.isMoreLoading) {
                   return const Center(child: CircularProgressIndicator());
                 }
 

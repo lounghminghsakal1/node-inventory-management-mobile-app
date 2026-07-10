@@ -732,6 +732,8 @@ class _GoodBadAllocationScreenState extends ConsumerState<GoodBadAllocationScree
         title: 'Return Allocation',
       ),
       body: infoAsync.when(
+        skipLoadingOnReload: false,
+        skipLoadingOnRefresh: false,
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(
           child: Padding(

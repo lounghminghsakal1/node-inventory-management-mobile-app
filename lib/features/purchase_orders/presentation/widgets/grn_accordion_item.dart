@@ -38,7 +38,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
   // QC state (for 'qc_pending' status)
   final Map<int, GrnLineItemModel> _qcModifiedItems = {};
   String? _loadingAction;
-  GrnLineItemModel? _editingGrnLineItem;
+  bool _showAddLineItemsBlock = false;
 
   @override
   void dispose() {
@@ -54,7 +54,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
     if (oldWidget.grn.id != widget.grn.id || oldWidget.grn.status != widget.grn.status) {
       _qcModifiedItems.clear();
       _inwardBlocks = [null];
-      _editingGrnLineItem = null;
+      _showAddLineItemsBlock = false;
     }
   }
 
@@ -210,77 +210,17 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
               children: [
                 Builder(
                   builder: (context) {
-
                     final unfulfilledSkus = skuItems.where((item) {
-                      if (_editingGrnLineItem != null && item.productSkuId == _editingGrnLineItem!.productSkuId) return true;
                       return !item.fullyFulfilled && item.remainingQuantity > 0;
-                    }).map((poLi) {
-                      if (_editingGrnLineItem != null && poLi.productSkuId == _editingGrnLineItem!.productSkuId) {
-                        return poLi.copyWith(
-                          yetToReceive: poLi.remainingQuantity + _editingGrnLineItem!.receivedQuantity,
-                          fullyFulfilled: false,
-                        );
-                      }
-                      return poLi;
                     }).toList();
+
+                    final shouldHideInputBlockByDefault = widget.grn.status.toLowerCase() == 'created' &&
+                        widget.grn.lineItems.isNotEmpty &&
+                        !_showAddLineItemsBlock;
 
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (_editingGrnLineItem != null)
-                          Container(
-                            margin: const EdgeInsets.only(bottom: 16),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.edit_outlined, color: AppColors.primary, size: 20),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        "Editing Line Item: ${_editingGrnLineItem!.skuName}",
-                                        style: AppTextStyles.labelMedium.copyWith(color: AppColors.primary, fontWeight: FontWeight.bold),
-                                      ),
-                                      Text(
-                                        "Original Quantity: ${_editingGrnLineItem!.receivedQuantity} units. Make changes below and resubmit.",
-                                        style: AppTextStyles.caption.copyWith(color: AppColors.textPrimary),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                TextButton.icon(
-                                  icon: const Icon(Icons.close, size: 16),
-                                  label: const Text("Cancel"),
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: AppColors.error,
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                    minimumSize: Size.zero,
-                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                  ),
-                                  onPressed: () {
-                                    setState(() {
-                                      _editingGrnLineItem = null;
-                                      for (final c in _skuQtyControllers.values) {
-                                        c.clear();
-                                      }
-                                      _skuBatches.clear();
-                                      _skuSerials.clear();
-                                      _inwardBlocks = [null];
-                                    });
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-
-                        // 2. Unfulfilled SKUs dynamic inwarding blocks
                         if (unfulfilledSkus.isEmpty)
                           Container(
                             margin: const EdgeInsets.only(bottom: 16),
@@ -301,6 +241,24 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                                   ),
                                 ),
                               ],
+                            ),
+                          )
+                        else if (shouldHideInputBlockByDefault)
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 16),
+                            width: double.infinity,
+                            child: AppButton(
+                              label: "Add Line Items",
+                              icon: Icons.add_circle_outline,
+                              height: 48,
+                              onPressed: () {
+                                setState(() {
+                                  _showAddLineItemsBlock = true;
+                                  if (_inwardBlocks.isEmpty) {
+                                    _inwardBlocks = [null];
+                                  }
+                                });
+                              },
                             ),
                           )
                         else ...[
@@ -330,66 +288,55 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                                     : _skuSerials.putIfAbsent(poLi.productSkuId, () => []);
 
                                 return Container(
-                                  margin: const EdgeInsets.only(bottom: 14),
-                                  padding: const EdgeInsets.all(14),
+                                  margin: const EdgeInsets.only(bottom: 16),
+                                  padding: const EdgeInsets.all(16),
                                   decoration: BoxDecoration(
                                     color: AppColors.card,
                                     borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: AppColors.cardBorder),
+                                    border: Border.all(
+                                      color: selectedSkuId != null ? AppColors.primary.withValues(alpha: 0.3) : AppColors.cardBorder,
+                                    ),
                                   ),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      // Dropdown + Remove button
                                       Row(
                                         children: [
                                           Expanded(
-                                            child: InputDecorator(
+                                            child: DropdownButtonFormField<int>(
+                                              initialValue: selectedSkuId,
+                                              isExpanded: true,
+                                              icon: const Icon(Icons.arrow_drop_down, color: AppColors.textSecondary),
                                               decoration: InputDecoration(
                                                 labelText: "Select SKU to Inward",
-                                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                                                border: OutlineInputBorder(
-                                                  borderRadius: BorderRadius.circular(10),
-                                                  borderSide: const BorderSide(color: AppColors.cardBorder),
-                                                ),
-                                                enabledBorder: OutlineInputBorder(
-                                                  borderRadius: BorderRadius.circular(10),
-                                                  borderSide: const BorderSide(color: AppColors.cardBorder),
-                                                ),
                                                 focusedBorder: OutlineInputBorder(
                                                   borderRadius: BorderRadius.circular(10),
                                                   borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
                                                 ),
+                                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                                                 filled: true,
                                                 fillColor: AppColors.surface,
                                               ),
-                                              child: DropdownButtonHideUnderline(
-                                                child: DropdownButton<int?>(
-                                                  value: selectedSkuId,
-                                                  isExpanded: true,
-                                                  icon: const Icon(Icons.arrow_drop_down, color: AppColors.textSecondary),
-                                                  items: availableSkusForBlock.map((sku) {
-                                                    return DropdownMenuItem<int?>(
-                                                      value: sku.productSkuId,
-                                                      child: Text(
-                                                        "${sku.skuName} (${sku.skuCode})",
-                                                        style: AppTextStyles.bodyMedium,
-                                                        overflow: TextOverflow.ellipsis,
-                                                      ),
-                                                    );
-                                                  }).toList(),
-                                                  onChanged: (newVal) {
-                                                    setState(() {
-                                                      if (selectedSkuId != null && selectedSkuId != newVal) {
-                                                        _skuQtyControllers.remove(selectedSkuId)?.dispose();
-                                                        _skuBatches.remove(selectedSkuId);
-                                                        _skuSerials.remove(selectedSkuId);
-                                                      }
-                                                      _inwardBlocks[i] = newVal;
-                                                    });
-                                                  },
-                                                ),
-                                              ),
+                                              items: availableSkusForBlock.map((sku) {
+                                                return DropdownMenuItem<int>(
+                                                  value: sku.productSkuId,
+                                                  child: Text(
+                                                    "${sku.skuName} (${sku.skuCode})",
+                                                    style: AppTextStyles.bodyMedium,
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                );
+                                              }).toList(),
+                                              onChanged: (newVal) {
+                                                setState(() {
+                                                  if (selectedSkuId != null && selectedSkuId != newVal) {
+                                                    _skuQtyControllers.remove(selectedSkuId)?.dispose();
+                                                    _skuBatches.remove(selectedSkuId);
+                                                    _skuSerials.remove(selectedSkuId);
+                                                  }
+                                                  _inwardBlocks[i] = newVal;
+                                                });
+                                              },
                                             ),
                                           ),
                                           if (_inwardBlocks.length > 1) ...[
@@ -600,8 +547,8 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                               return SizedBox(
                                 width: double.infinity,
                                 child: AppButton(
-                                  label: _editingGrnLineItem != null ? "Update & Resubmit Line Item" : "Add Line Items to GRN",
-                                  icon: _editingGrnLineItem != null ? Icons.update : Icons.add_circle_outline,
+                                  label: "Add Line Items to GRN",
+                                  icon: Icons.add_circle_outline,
                                   height: 48,
                                   isLoading: _loadingAction == 'add',
                                   onPressed: (!hasAnySelection || hasExceededQty || _loadingAction != null) ? null : () => _addItemsToGrn(skuItems),
@@ -717,7 +664,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                               TextButton.icon(
                                 icon: const Icon(Icons.edit_outlined, size: 18),
                                 label: const Text("Edit"),
-                                onPressed: _loadingAction != null ? null : () => _startEditingInwardedItem(li),
+                                onPressed: _loadingAction != null ? null : () => _showInwardedItemDetailsModal(li, isEditing: true),
                               ),
                               const SizedBox(width: 4),
                               IconButton(
@@ -802,28 +749,13 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
     );
   }
 
-  void _startEditingInwardedItem(GrnLineItemModel li) {
-    setState(() {
-      _editingGrnLineItem = li;
-      _inwardBlocks = [li.productSkuId];
-      final controller = _skuQtyControllers.putIfAbsent(li.productSkuId, () => TextEditingController());
-      controller.text = li.receivedQuantity.toString();
-      _skuBatches[li.productSkuId] = List.from(li.receivedBatches);
-      _skuSerials[li.productSkuId] = List.from(li.receivedSerials);
-    });
-  }
+  // Edit is now handled entirely inside the _InwardedItemDetailsModal popup.
 
   Future<void> _addItemsToGrn(List<PoSkuItemModel> allSkuItems) async {
     List<GrnLineItemModel> payloadItems = [];
 
-    for (var poLi in allSkuItems) {
+    for (final poLi in allSkuItems) {
       if (!_inwardBlocks.contains(poLi.productSkuId)) continue;
-      if (_editingGrnLineItem != null && poLi.productSkuId == _editingGrnLineItem!.productSkuId) {
-        poLi = poLi.copyWith(
-          yetToReceive: poLi.remainingQuantity + _editingGrnLineItem!.receivedQuantity,
-          fullyFulfilled: false,
-        );
-      }
       if (poLi.remainingQuantity <= 0 || poLi.fullyFulfilled) continue;
       final controller = _skuQtyControllers[poLi.productSkuId];
       final qtyVal = int.tryParse(controller?.text ?? '') ?? 0;
@@ -871,11 +803,8 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
         }
       }
 
-      final existingItem = (_editingGrnLineItem != null && _editingGrnLineItem!.productSkuId == poLi.productSkuId)
-          ? _editingGrnLineItem
-          : null;
       payloadItems.add(GrnLineItemModel(
-        id: existingItem?.id ?? (DateTime.now().millisecondsSinceEpoch % 100000 + poLi.productSkuId),
+        id: DateTime.now().millisecondsSinceEpoch % 100000 + poLi.productSkuId,
         productSkuId: poLi.productSkuId,
         skuName: poLi.skuName,
         skuCode: poLi.skuCode,
@@ -924,7 +853,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
       await ref.read(grnControllerProvider.notifier).updateGrnLineItems(widget.grn.id, widget.grn.purchaseOrderId, updatedList);
       if (!mounted) return;
       setState(() {
-        _editingGrnLineItem = null;
+        _showAddLineItemsBlock = false;
         for (final c in _skuQtyControllers.values) {
           c.clear();
         }
@@ -937,8 +866,8 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
       if (!mounted) return;
       ref.invalidate(poSkuItemsProvider(widget.grn.purchaseOrderId));
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_editingGrnLineItem != null ? "Line item updated successfully" : "Line items added to GRN successfully"),
+        const SnackBar(
+          content: Text("Line items added to GRN successfully"),
           backgroundColor: AppColors.success,
         ),
       );
@@ -969,7 +898,6 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
         initialEditing: isEditing,
         onSave: (updatedItem) => _handleInwardedItemUpdate(updatedItem),
         onDelete: () => _confirmRemoveInwardedItem(li),
-        onEdit: () => _startEditingInwardedItem(li),
       ),
     );
   }
@@ -1605,7 +1533,9 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            Text("SKU: ${li.skuCode}", style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
+                            Flexible(
+                              child: Text("SKU: ${li.skuCode}", style: AppTextStyles.caption.copyWith(color: AppColors.textMuted), overflow: TextOverflow.ellipsis),
+                            ),
                             const SizedBox(width: 6),
                             TrackingTypeBadge(trackingType: li.trackingType),
                             const SizedBox(width: 6),
@@ -1718,7 +1648,10 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text("Recorded Quantity:", style: AppTextStyles.bodyMedium),
+                          Flexible(
+                            child: Text("Recorded Quantity:", style: AppTextStyles.bodyMedium, overflow: TextOverflow.ellipsis),
+                          ),
+                          const SizedBox(width: 8),
                           Text(
                             "$count units",
                             style: AppTextStyles.labelLarge.copyWith(
@@ -1756,7 +1689,6 @@ class _InwardedItemDetailsModal extends ConsumerStatefulWidget {
   final bool initialEditing;
   final Function(GrnLineItemModel) onSave;
   final VoidCallback? onDelete;
-  final VoidCallback? onEdit;
 
   const _InwardedItemDetailsModal({
     required this.item,
@@ -1764,7 +1696,6 @@ class _InwardedItemDetailsModal extends ConsumerStatefulWidget {
     required this.initialEditing,
     required this.onSave,
     this.onDelete,
-    this.onEdit,
   });
 
   @override
@@ -1866,7 +1797,7 @@ class _InwardedItemDetailsModalState extends ConsumerState<_InwardedItemDetailsM
       }
       final totalBatchQty = _batches.fold<int>(0, (sum, b) => sum + b.quantity);
       if (totalBatchQty != qty) {
-        setState(() => _errorMessage = "Total batch quantity ($totalBatchQty) must equal Received Quantity ($qty). Please configure batches.");
+        setState(() => _errorMessage = "Total batch quantity ($totalBatchQty) must equal Received Quantity ($qty). Please change batches.");
         return;
       }
       for (final b in _batches) {
@@ -1877,7 +1808,7 @@ class _InwardedItemDetailsModalState extends ConsumerState<_InwardedItemDetailsM
       }
     } else if (widget.item.trackingType == 'serial') {
       if (_serials.length != qty) {
-        setState(() => _errorMessage = "Number of serials (${_serials.length}) must equal Received Quantity ($qty). Please configure serials.");
+        setState(() => _errorMessage = "Number of serials (${_serials.length}) must equal Received Quantity ($qty). Please change serials.");
         return;
       }
       for (final s in _serials) {
@@ -2014,8 +1945,12 @@ class _InwardedItemDetailsModalState extends ConsumerState<_InwardedItemDetailsM
         if (widget.item.trackingType == 'batch') ...[
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text("Batches Configured (${_batches.length}):", style: AppTextStyles.labelMedium.copyWith(fontWeight: FontWeight.bold)),
+              Flexible(
+                child: Text("Batches Configured (${_batches.length}):", style: AppTextStyles.labelMedium.copyWith(fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
+              ),
+              const SizedBox(width: 8),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary.withValues(alpha: 0.1),
@@ -2025,7 +1960,7 @@ class _InwardedItemDetailsModalState extends ConsumerState<_InwardedItemDetailsM
                 ),
                 onPressed: _openBatchEditModal,
                 icon: const Icon(Icons.layers_outlined, size: 16),
-                label: Text(_batches.isEmpty ? "Add Batches" : "Configure Batches"),
+                label: Text(_batches.isEmpty ? "Add Batches" : "Change Batches"),
               ),
             ],
           ),
@@ -2060,8 +1995,12 @@ class _InwardedItemDetailsModalState extends ConsumerState<_InwardedItemDetailsM
         ] else if (widget.item.trackingType == 'serial') ...[
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text("Serials Entered (${_serials.length}):", style: AppTextStyles.labelMedium.copyWith(fontWeight: FontWeight.bold)),
+              Flexible(
+                child: Text("Serials Entered (${_serials.length}):", style: AppTextStyles.labelMedium.copyWith(fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
+              ),
+              const SizedBox(width: 8),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary.withValues(alpha: 0.1),
@@ -2071,7 +2010,7 @@ class _InwardedItemDetailsModalState extends ConsumerState<_InwardedItemDetailsM
                 ),
                 onPressed: _openSerialEditModal,
                 icon: const Icon(Icons.qr_code_outlined, size: 16),
-                label: Text(_serials.isEmpty ? "Add Serials" : "Configure Serials"),
+                label: Text(_serials.isEmpty ? "Add Serials" : "Change Serials"),
               ),
             ],
           ),
@@ -2200,12 +2139,7 @@ class _InwardedItemDetailsModalState extends ConsumerState<_InwardedItemDetailsM
                           foregroundColor: Colors.white,
                         ),
                         onPressed: () {
-                          if (widget.onEdit != null) {
-                            Navigator.pop(context);
-                            widget.onEdit!();
-                          } else {
-                            setState(() => _isEditing = true);
-                          }
+                          setState(() => _isEditing = true);
                         },
                         icon: const Icon(Icons.edit_outlined, size: 18),
                         label: const Text("Edit"),
@@ -2368,7 +2302,7 @@ class _BatchInputModalState extends State<_BatchInputModal> {
                             child: InkWell(
                               onTap: () => _selectDate(context, idx, true),
                               child: InputDecorator(
-                                decoration: const InputDecoration(labelText: "Manufactured Date", contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
+                                decoration: const InputDecoration(labelText: "Manufactured Date *", contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [

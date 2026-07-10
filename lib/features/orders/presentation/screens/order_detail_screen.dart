@@ -83,6 +83,8 @@ class OrderDetailScreen extends ConsumerWidget {
         orElse: () => null,
       ),
       body: asyncDetail.when(
+        skipLoadingOnReload: false,
+        skipLoadingOnRefresh: false,
         loading: () => const Center(
           child: CircularProgressIndicator(color: AppColors.primary),
         ),

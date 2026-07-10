@@ -38,7 +38,6 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
   ];
 
   static const _returnStatusTabs = [
-    ('All', null),
     ('Return Initiated', [ShipmentStatus.returnInitiated]),
     ('Return Completed', [ShipmentStatus.returnCompleted]),
   ];
@@ -223,7 +222,7 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
                   return matchesStatus && matchesSearch;
                 }).toList();
 
-                if (state.isLoading && filtered.isEmpty) {
+                if (state.isLoading && !state.isMoreLoading) {
                   return const Center(
                     child: CircularProgressIndicator(color: AppColors.primary),
                   );

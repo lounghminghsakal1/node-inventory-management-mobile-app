@@ -238,6 +238,8 @@ class _CreateShipmentScreenState extends ConsumerState<CreateShipmentScreen> {
         ),
         Expanded(
           child: shippableAsync.when(
+            skipLoadingOnReload: false,
+            skipLoadingOnRefresh: false,
             loading: () => const Center(
               child: CircularProgressIndicator(color: AppColors.primary),
             ),

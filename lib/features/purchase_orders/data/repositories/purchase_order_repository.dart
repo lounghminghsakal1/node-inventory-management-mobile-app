@@ -91,12 +91,25 @@ class PurchaseOrderRepository {
     return GrnModel.fromJson(data);
   }
 
+  Future<String> uploadGrnDocument(String filePath, String fileName) async {
+    final formData = FormData.fromMap({
+      'vendor_invoice_file': await MultipartFile.fromFile(filePath, filename: fileName),
+    });
+    final res = await _dio.post(
+      ApiEndpoints.uploadGrnDocument,
+      data: formData,
+      options: Options(headers: {'Content-Type': 'multipart/form-data'}),
+    );
+    final data = res.data['data'] as Map<String, dynamic>;
+    return data['s3_url'] as String;
+  }
+
   Future<GrnModel> createGrn({
     required int poId,
     required String vendorInvoiceDate,
     required String vendorInvoiceNo,
     required String receivedDate,
-    String? vendorInvoiceS3Url,
+    List<String>? vendorInvoiceS3Urls,
     String remarks = '',
   }) async {
     final body = {
@@ -105,7 +118,8 @@ class PurchaseOrderRepository {
       'vendor_invoice': vendorInvoiceNo,
       'vendor_invoice_date': vendorInvoiceDate,
       if (remarks.isNotEmpty) 'remarks': remarks,
-      if (vendorInvoiceS3Url != null && vendorInvoiceS3Url.isNotEmpty) 'vendor_invoice_s3_url': vendorInvoiceS3Url,
+      if (vendorInvoiceS3Urls != null && vendorInvoiceS3Urls.isNotEmpty)
+        'grn_invoice_s3_link': vendorInvoiceS3Urls,
     };
     final res = await _dio.post(ApiEndpoints.createGrn, data: body);
     final data = res.data['data'] as Map<String, dynamic>;

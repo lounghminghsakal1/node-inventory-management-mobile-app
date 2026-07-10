@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/app_constants.dart';
@@ -13,6 +13,28 @@ class AuthLogoutSignal extends ChangeNotifier {
 }
 
 final authLogoutSignal = AuthLogoutSignal();
+
+final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
+    GlobalKey<ScaffoldMessengerState>();
+
+void _showGlobalErrorSnackBar(String message) {
+  if (message.isEmpty) return;
+  Future.microtask(() {
+    final messenger = rootScaffoldMessengerKey.currentState;
+    if (messenger == null) return;
+    messenger.removeCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: const TextStyle(color: Colors.white, fontSize: 14),
+        ),
+        backgroundColor: const Color(0xFFDC2626), // AppColors.error
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  });
+}
 
 final dioProvider = Provider<Dio>((ref) {
   final storage = ref.read(secureStorageProvider);
@@ -97,19 +119,23 @@ Dio _buildDio(FlutterSecureStorage storage) {
       },
       onResponse: (response, handler) async {
         await _saveCookiesFromResponse(storage, response);
-        if (response.data is Map && response.data['status'] == 'failure') {
-          final errorMsg =
-              ApiException.extractErrorMessage(response.data) ??
-              'Something went wrong';
-          return handler.reject(
-            DioException(
-              requestOptions: response.requestOptions,
-              response: response,
-              type: DioExceptionType.badResponse,
-              error: errorMsg,
-              message: errorMsg,
-            ),
-          );
+        if (response.data is Map) {
+          final status = response.data['status']?.toString().toLowerCase();
+          if (status == 'failure' || status == 'error') {
+            final errorMsg =
+                ApiException.extractErrorMessage(response.data) ??
+                'Something went wrong';
+            _showGlobalErrorSnackBar(errorMsg);
+            return handler.reject(
+              DioException(
+                requestOptions: response.requestOptions,
+                response: response,
+                type: DioExceptionType.badResponse,
+                error: errorMsg,
+                message: errorMsg,
+              ),
+            );
+          }
         }
         return handler.next(response);
       },
@@ -137,6 +163,19 @@ Dio _buildDio(FlutterSecureStorage storage) {
             ApiException.extractErrorMessage(error.response?.data) ??
             error.message ??
             'Something went wrong';
+
+        if (error.response?.data is Map) {
+          final status = error.response!.data['status']?.toString().toLowerCase();
+          if (status == 'failure' || status == 'error') {
+            _showGlobalErrorSnackBar(extractedMsg);
+          } else if (error.response?.data['message'] != null ||
+              error.response?.data['error'] != null ||
+              error.response?.data['errors'] != null) {
+            _showGlobalErrorSnackBar(extractedMsg);
+          }
+        } else if (error.type == DioExceptionType.badResponse) {
+          _showGlobalErrorSnackBar(extractedMsg);
+        }
 
         final modifiedError = error.copyWith(
           error: extractedMsg,

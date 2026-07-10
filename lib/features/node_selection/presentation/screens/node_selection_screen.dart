@@ -89,6 +89,8 @@ class _NodeSelectionScreenState extends ConsumerState<NodeSelectionScreen>
                 // ── Node list ────────────────────────────────────────────
                 Expanded(
                   child: nodesAsync.when(
+                    skipLoadingOnReload: false,
+                    skipLoadingOnRefresh: false,
                     loading: () => _buildLoading(),
                     error: (e, _) => _buildError(e),
                     data: (nodes) {

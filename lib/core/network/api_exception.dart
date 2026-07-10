@@ -30,10 +30,13 @@ class ApiException implements Exception {
   /// returning the 1st element of the errors array if available.
   static String? extractErrorMessage(dynamic data) {
     if (data is Map) {
-      if (data['status'] == 'failure' ||
-          data['status'] == 'error' ||
+      final status = data['status']?.toString().toLowerCase();
+      if (status == 'failure' ||
+          status == 'error' ||
           data['errors'] != null ||
-          data['error'] != null) {
+          data['error'] != null ||
+          data['message'] != null ||
+          data['msg'] != null) {
         final errors = data['errors'] ?? data['error'];
         if (errors is List && errors.isNotEmpty) {
           return errors.first.toString();
@@ -41,10 +44,22 @@ class ApiException implements Exception {
         if (errors is String && errors.isNotEmpty) {
           return errors;
         }
-        if (data['message'] is String && (data['message'] as String).isNotEmpty) {
-          return data['message'] as String;
+        if (data['message'] != null) {
+          if (data['message'] is String && (data['message'] as String).isNotEmpty) {
+            return data['message'] as String;
+          }
+          if (data['message'] is List && (data['message'] as List).isNotEmpty) {
+            return (data['message'] as List).first.toString();
+          }
+          return data['message'].toString();
         }
-        if (data['status'] == 'failure') {
+        if (data['msg'] != null && data['msg'].toString().isNotEmpty) {
+          return data['msg'].toString();
+        }
+        if (data['detail'] != null && data['detail'].toString().isNotEmpty) {
+          return data['detail'].toString();
+        }
+        if (status == 'failure' || status == 'error') {
           return 'Something went wrong';
         }
       }

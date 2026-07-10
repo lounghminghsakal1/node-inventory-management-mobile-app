@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'theme/app_theme.dart';
 import 'router/app_router.dart';
+import '../core/network/dio_client.dart';
 
 class NodeOpsApp extends ConsumerWidget {
   const NodeOpsApp({super.key});
@@ -13,6 +14,7 @@ class NodeOpsApp extends ConsumerWidget {
     return MaterialApp.router(
       title: 'NodeOps',
       debugShowCheckedModeBanner: false,
+      scaffoldMessengerKey: rootScaffoldMessengerKey,
       theme: AppTheme.light,
       darkTheme: AppTheme.light,
       themeMode: ThemeMode.light,

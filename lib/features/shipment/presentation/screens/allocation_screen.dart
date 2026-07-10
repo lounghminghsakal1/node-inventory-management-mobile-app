@@ -859,6 +859,8 @@ class _BatchAllocationModalState extends ConsumerState<BatchAllocationModal> {
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: asyncData.when(
+          skipLoadingOnReload: false,
+          skipLoadingOnRefresh: false,
           loading: () => const SizedBox(
             height: 180,
             child: Center(
@@ -1283,6 +1285,8 @@ class _SerialAllocationModalState extends ConsumerState<SerialAllocationModal> {
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: asyncData.when(
+          skipLoadingOnReload: false,
+          skipLoadingOnRefresh: false,
           loading: () => const SizedBox(
             height: 180,
             child: Center(

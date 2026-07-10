@@ -23,6 +23,8 @@ class ShipmentDetailScreen extends ConsumerWidget {
     final asyncShipment = ref.watch(shipmentByIdProvider(shipmentId));
 
     return asyncShipment.when(
+      skipLoadingOnReload: false,
+      skipLoadingOnRefresh: false,
       loading: () => Scaffold(
         backgroundColor: AppColors.background,
         appBar: const NodeOpsAppBar(

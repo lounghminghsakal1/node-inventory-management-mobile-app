@@ -103,6 +103,8 @@ class _OrderListScreenState extends ConsumerState<OrderListScreen>
           // ── Content ────────────────────────────────────────────────────────
           Expanded(
             child: async.when(
+              skipLoadingOnReload: false,
+              skipLoadingOnRefresh: false,
               loading: () => const Center(
                 child: CircularProgressIndicator(color: AppColors.primary),
               ),

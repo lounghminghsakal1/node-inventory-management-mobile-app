@@ -36,7 +36,6 @@ class _PurchaseOrderDetailScreenState
         data: (po) {
           final isAllGrnCompleted = po.goodsReceivedNotes.isEmpty ? true :
               po.goodsReceivedNotes.every((grn) => grn.status == 'complete');
-          print(isAllGrnCompleted);
           if (!isAllGrnCompleted) {
             return null;
           } else {
@@ -69,6 +68,8 @@ class _PurchaseOrderDetailScreenState
         orElse: () => null,
       ),
       body: asyncPo.when(
+        skipLoadingOnReload: false,
+        skipLoadingOnRefresh: false,
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
           child: Text(
@@ -414,6 +415,8 @@ class _PurchaseOrderDetailScreenState
     final asyncGrns = ref.watch(grnListForPoProvider(widget.poId));
 
     return asyncGrns.when(
+      skipLoadingOnReload: false,
+      skipLoadingOnRefresh: false,
       loading: () => const Padding(
         padding: EdgeInsets.symmetric(vertical: 32),
         child: Center(child: CircularProgressIndicator()),

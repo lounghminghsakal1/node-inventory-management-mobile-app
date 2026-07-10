@@ -1,9 +1,9 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/widgets/app_button.dart';
-import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/app_shell.dart';
 import '../../../purchase_orders/providers/purchase_order_provider.dart';
 
@@ -24,30 +24,36 @@ class CreateGrnScreen extends ConsumerStatefulWidget {
 class _CreateGrnScreenState extends ConsumerState<CreateGrnScreen> {
   final _formKey = GlobalKey<FormState>();
   final _invoiceNoController = TextEditingController();
-  
+  final _remarksController = TextEditingController();
+
   String? _invoiceDate;
   String? _receivedDate;
+
+  // Upload state
+  bool _isUploading = false;
   String? _uploadedFileName;
-  String? _uploadedFileUrl;
+  String? _uploadedFileS3Url;
+  String? _uploadError;
 
   @override
   void initState() {
     super.initState();
     final now = DateTime.now();
-    _receivedDate = "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+    _receivedDate =
+        "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
   }
 
   @override
   void dispose() {
     _invoiceNoController.dispose();
+    _remarksController.dispose();
     super.dispose();
   }
 
   Future<void> _selectDate(BuildContext context, bool isInvoiceDate) async {
-    final initial = DateTime.now();
     final picked = await showDatePicker(
       context: context,
-      initialDate: initial,
+      initialDate: DateTime.now(),
       firstDate: DateTime(2020),
       lastDate: DateTime(2030),
       builder: (context, child) {
@@ -65,7 +71,8 @@ class _CreateGrnScreenState extends ConsumerState<CreateGrnScreen> {
     );
 
     if (picked != null) {
-      final formatted = "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
+      final formatted =
+          "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
       setState(() {
         if (isInvoiceDate) {
           _invoiceDate = formatted;
@@ -76,17 +83,67 @@ class _CreateGrnScreenState extends ConsumerState<CreateGrnScreen> {
     }
   }
 
-  void _simulateFileUpload() {
+  Future<void> _pickAndUploadFile() async {
     setState(() {
-      _uploadedFileName = "vendor_invoice_${widget.poId}_${DateTime.now().millisecondsSinceEpoch}.pdf";
-      _uploadedFileUrl = "https://s3.aws.com/flaer-invoices/$_uploadedFileName";
+      _uploadError = null;
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text("File '$_uploadedFileName' uploaded successfully!"),
-        backgroundColor: AppColors.success,
-      ),
+
+    // Open file picker allowing PDF, JPG, PNG, WEBP
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'webp'],
+      withData: false, // use path for mobile perf
     );
+
+    if (result == null || result.files.isEmpty) return; // user cancelled
+
+    final file = result.files.first;
+    final filePath = file.path;
+    if (filePath == null) {
+      setState(() => _uploadError = "Could not read the selected file.");
+      return;
+    }
+
+    setState(() {
+      _isUploading = true;
+      _uploadedFileName = file.name;
+      _uploadedFileS3Url = null;
+    });
+
+    final s3Url = await ref
+        .read(grnControllerProvider.notifier)
+        .uploadGrnDocument(filePath, file.name);
+
+    if (!mounted) return;
+
+    if (s3Url != null) {
+      setState(() {
+        _isUploading = false;
+        _uploadedFileS3Url = s3Url;
+        _uploadError = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("'${file.name}' uploaded successfully!"),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    } else {
+      setState(() {
+        _isUploading = false;
+        _uploadedFileName = null;
+        _uploadedFileS3Url = null;
+        _uploadError = "Upload failed. Please try again.";
+      });
+    }
+  }
+
+  void _clearUpload() {
+    setState(() {
+      _uploadedFileName = null;
+      _uploadedFileS3Url = null;
+      _uploadError = null;
+    });
   }
 
   Future<void> _handleCreateGrn() async {
@@ -100,14 +157,24 @@ class _CreateGrnScreenState extends ConsumerState<CreateGrnScreen> {
       );
       return;
     }
+    if (_isUploading) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Please wait for the file to finish uploading"),
+          backgroundColor: AppColors.warning,
+        ),
+      );
+      return;
+    }
 
     final grn = await ref.read(grnControllerProvider.notifier).createGrn(
-      poId: widget.poId,
-      vendorInvoiceDate: _invoiceDate!,
-      vendorInvoiceNo: _invoiceNoController.text.trim(),
-      receivedDate: _receivedDate!,
-      vendorInvoiceS3Url: _uploadedFileUrl,
-    );
+          poId: widget.poId,
+          vendorInvoiceDate: _invoiceDate!,
+          vendorInvoiceNo: _invoiceNoController.text.trim(),
+          receivedDate: _receivedDate!,
+          vendorInvoiceS3Urls:
+              _uploadedFileS3Url != null ? [_uploadedFileS3Url!] : null,
+        );
 
     if (grn != null && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -140,18 +207,25 @@ class _CreateGrnScreenState extends ConsumerState<CreateGrnScreen> {
             children: [
               Text(
                 "Vendor Invoice Details",
-                style: AppTextStyles.headingMedium.copyWith(color: AppColors.textPrimary),
+                style:
+                    AppTextStyles.headingMedium.copyWith(color: AppColors.textPrimary),
               ),
               const SizedBox(height: 8),
               Text(
                 "Enter the invoice details provided by the vendor upon delivery.",
-                style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted),
+                style:
+                    AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted),
               ),
               const SizedBox(height: 24),
-              AppTextField(
-                label: "Vendor Invoice Number *",
-                hint: "e.g., INV-2026-8891",
+              TextFormField(
                 controller: _invoiceNoController,
+                decoration: InputDecoration(
+                  labelText: "Vendor Invoice Number *",
+                  hintText: "e.g., INV-2026-8891",
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  filled: true,
+                  fillColor: AppColors.surface,
+                ),
                 validator: (val) {
                   if (val == null || val.trim().isEmpty) {
                     return "Invoice Number is required";
@@ -173,19 +247,36 @@ class _CreateGrnScreenState extends ConsumerState<CreateGrnScreen> {
                 isSelected: _receivedDate != null,
                 onTap: () => _selectDate(context, false),
               ),
+              const SizedBox(height: 20),
+              TextFormField(
+                controller: _remarksController,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  labelText: "Remarks (optional)",
+                  hintText: "e.g., Goods received in good condition",
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  filled: true,
+                  fillColor: AppColors.surface,
+                ),
+              ),
               const SizedBox(height: 24),
               Text(
                 "Vendor Invoice Image / Document",
                 style: AppTextStyles.labelLarge.copyWith(color: AppColors.textPrimary),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
+              Text(
+                "Attach the physical invoice for record keeping (PDF, PNG, JPG, WEBP).",
+                style: AppTextStyles.caption.copyWith(color: AppColors.textMuted),
+              ),
+              const SizedBox(height: 10),
               _buildUploadBox(),
               const SizedBox(height: 40),
               AppButton(
                 label: "Create GRN",
                 icon: Icons.add_circle_outline,
-                isLoading: isLoading,
-                onPressed: _handleCreateGrn,
+                isLoading: isLoading || _isUploading,
+                onPressed: (isLoading || _isUploading) ? null : _handleCreateGrn,
               ),
             ],
           ),
@@ -224,10 +315,13 @@ class _CreateGrnScreenState extends ConsumerState<CreateGrnScreen> {
                 Text(
                   value,
                   style: isSelected
-                      ? AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary)
-                      : AppTextStyles.bodyMedium.copyWith(color: AppColors.textMuted),
+                      ? AppTextStyles.bodyMedium
+                          .copyWith(color: AppColors.textPrimary)
+                      : AppTextStyles.bodyMedium
+                          .copyWith(color: AppColors.textMuted),
                 ),
-                const Icon(Icons.calendar_today_outlined, size: 20, color: AppColors.primary),
+                const Icon(Icons.calendar_today_outlined,
+                    size: 20, color: AppColors.primary),
               ],
             ),
           ),
@@ -237,17 +331,68 @@ class _CreateGrnScreenState extends ConsumerState<CreateGrnScreen> {
   }
 
   Widget _buildUploadBox() {
-    if (_uploadedFileName != null) {
+    // Uploading spinner state
+    if (_isUploading) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            const SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(strokeWidth: 2.5, color: AppColors.primary),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _uploadedFileName ?? "Uploading...",
+                    style: AppTextStyles.labelMedium
+                        .copyWith(color: AppColors.textPrimary),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    "Uploading to server...",
+                    style:
+                        AppTextStyles.caption.copyWith(color: AppColors.primary),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Uploaded success state
+    if (_uploadedFileS3Url != null && _uploadedFileName != null) {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppColors.success.withValues(alpha: 0.1),
+          color: AppColors.success.withValues(alpha: 0.08),
           border: Border.all(color: AppColors.success),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
           children: [
-            const Icon(Icons.check_circle_outline, color: AppColors.success),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.success.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.check_circle_outline,
+                  color: AppColors.success, size: 20),
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -255,38 +400,79 @@ class _CreateGrnScreenState extends ConsumerState<CreateGrnScreen> {
                 children: [
                   Text(
                     _uploadedFileName!,
-                    style: AppTextStyles.labelMedium.copyWith(color: AppColors.textPrimary),
+                    style: AppTextStyles.labelMedium
+                        .copyWith(color: AppColors.textPrimary),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
+                  const SizedBox(height: 2),
                   Text(
-                    "Uploaded successfully",
-                    style: AppTextStyles.caption.copyWith(color: AppColors.success),
+                    "Uploaded & ready to attach",
+                    style: AppTextStyles.caption
+                        .copyWith(color: AppColors.success),
                   ),
                 ],
               ),
             ),
+            const SizedBox(width: 8),
             IconButton(
               icon: const Icon(Icons.close, color: AppColors.textMuted, size: 20),
-              onPressed: () => setState(() {
-                _uploadedFileName = null;
-                _uploadedFileUrl = null;
-              }),
+              tooltip: "Remove file",
+              onPressed: _clearUpload,
             ),
           ],
         ),
       );
     }
 
+    // Error state
+    if (_uploadError != null) {
+      return Column(
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.error.withValues(alpha: 0.08),
+              border: Border.all(color: AppColors.error.withValues(alpha: 0.5)),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.error_outline, color: AppColors.error, size: 20),
+                const SizedBox(width: 10),
+                Flexible(
+                  child: Text(
+                    _uploadError!,
+                    style: AppTextStyles.caption
+                        .copyWith(color: AppColors.error),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          _buildPickerTile(),
+        ],
+      );
+    }
+
+    // Default empty state
+    return _buildPickerTile();
+  }
+
+  Widget _buildPickerTile() {
     return InkWell(
-      onTap: _simulateFileUpload,
+      onTap: _pickAndUploadFile,
       borderRadius: BorderRadius.circular(12),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
+        padding:
+            const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
         decoration: BoxDecoration(
           color: AppColors.card,
-          border: Border.all(color: AppColors.cardBorder, style: BorderStyle.solid),
+          border: Border.all(
+              color: AppColors.cardBorder, style: BorderStyle.solid),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
@@ -297,17 +483,20 @@ class _CreateGrnScreenState extends ConsumerState<CreateGrnScreen> {
                 color: AppColors.primary.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.cloud_upload_outlined, color: AppColors.primary, size: 28),
+              child: const Icon(Icons.cloud_upload_outlined,
+                  color: AppColors.primary, size: 28),
             ),
             const SizedBox(height: 12),
             Text(
               "Click to upload Invoice Document",
-              style: AppTextStyles.labelMedium.copyWith(color: AppColors.textPrimary),
+              style: AppTextStyles.labelMedium
+                  .copyWith(color: AppColors.textPrimary),
             ),
             const SizedBox(height: 4),
             Text(
-              "Supports PDF, PNG, JPG (Max 10MB)",
-              style: AppTextStyles.caption.copyWith(color: AppColors.textMuted),
+              "Supports PDF, PNG, JPG, WEBP",
+              style:
+                  AppTextStyles.caption.copyWith(color: AppColors.textMuted),
             ),
           ],
         ),

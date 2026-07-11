@@ -19,6 +19,43 @@ class StockAuditRepository {
 
   // ── APIs ─────────────────────────────────────────────────────────────────────
 
+  Future<({List<StockAuditDetail> audits, int currentPage, int totalPages, int totalCount})>
+      getStockAudits({int page = 1, String? auditType, String? status}) async {
+    try {
+      final queryParameters = <String, dynamic>{'page': page};
+      if (auditType != null && auditType.isNotEmpty) {
+        queryParameters['by_audit_type'] = auditType;
+      }
+      if (status != null && status.isNotEmpty) {
+        queryParameters['by_status'] = status;
+      }
+
+      final resp = await _dio.get(
+        ApiEndpoints.stockAudits,
+        queryParameters: queryParameters,
+      );
+      final data = _dataOf(resp.data as Map<String, dynamic>);
+      final dataMap = Map<String, dynamic>.from(data as Map);
+      final rawAudits = (dataMap['stock_audits'] as List?) ?? [];
+      final audits = rawAudits
+          .whereType<Map>()
+          .map((m) => StockAuditDetail.fromJson(Map<String, dynamic>.from(m)))
+          .toList();
+      final meta = dataMap['meta'] as Map? ?? {};
+      return (
+        audits: audits,
+        currentPage: (meta['current_page'] as num?)?.toInt() ?? page,
+        totalPages: (meta['total_pages'] as num?)?.toInt() ?? 1,
+        totalCount: (meta['total_count'] as num?)?.toInt() ?? audits.length,
+      );
+    } on DioException catch (e) {
+      final msg = (e.response?.data is Map)
+          ? (e.response!.data['message'] ?? e.message)
+          : e.message;
+      throw Exception(msg);
+    }
+  }
+
   Future<StockAuditDetail> getStockAuditDetail(String id) async {
     try {
       final resp = await _dio.get(ApiEndpoints.stockAuditDetail(id));

@@ -93,6 +93,7 @@ class ApiEndpoints {
 
 
   // Stock Audits
+  static const String stockAudits = '/stock_audits';
   static String stockAuditDetail(String id) => '/stock_audits/$id';
   static String initiateStockAudit(String id) => '/stock_audits/$id/initiate';
   static String stockAuditLineItems(String id) => '/stock_audits/$id/line_items';

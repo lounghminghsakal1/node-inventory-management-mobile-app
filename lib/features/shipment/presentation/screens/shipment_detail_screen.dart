@@ -906,11 +906,11 @@ class _LineItemRow extends ConsumerWidget {
                 Row(
                   children: [
                     Icon(
-                      isUntracked || item.isAllocated
+                      isUntracked || (item.isAllocated && !(shipment.status == ShipmentStatus.created && !shipment.fullyAllocated))
                           ? Icons.check_circle_rounded
                           : Icons.radio_button_unchecked_rounded,
                       size: 14,
-                      color: isUntracked || item.isAllocated
+                      color: isUntracked || (item.isAllocated && !(shipment.status == ShipmentStatus.created && !shipment.fullyAllocated))
                           ? AppColors.success
                           : AppColors.textMuted,
                     ),
@@ -918,9 +918,9 @@ class _LineItemRow extends ConsumerWidget {
                     Text(
                       isUntracked
                           ? 'No allocation needed'
-                          : (item.isAllocated ? 'Allocated' : 'Pending'),
+                          : ((shipment.status == ShipmentStatus.created && !shipment.fullyAllocated) ? 'Pending' : (item.isAllocated ? 'Allocated' : 'Pending')),
                       style: AppTextStyles.caption.copyWith(
-                        color: isUntracked || item.isAllocated
+                        color: isUntracked || (item.isAllocated && !(shipment.status == ShipmentStatus.created && !shipment.fullyAllocated))
                             ? AppColors.success
                             : AppColors.textMuted,
                       ),

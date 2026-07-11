@@ -9,6 +9,111 @@ final stockAuditRepositoryProvider = Provider<StockAuditRepository>((ref) {
   return StockAuditRepository(ref.read(dioProvider));
 });
 
+// ── Listing State + Notifier ──────────────────────────────────────────────────
+
+class StockAuditsState {
+  final List<StockAuditDetail> audits;
+  final bool isLoading;
+  final bool isMoreLoading;
+  final String? error;
+  final int currentPage;
+  final int totalPages;
+  final int totalCount;
+  final String? filterAuditType;
+  final String? filterStatus;
+
+  const StockAuditsState({
+    this.audits = const [],
+    this.isLoading = false,
+    this.isMoreLoading = false,
+    this.error,
+    this.currentPage = 1,
+    this.totalPages = 1,
+    this.totalCount = 0,
+    this.filterAuditType,
+    this.filterStatus = 'initiated_auditing',
+  });
+
+  StockAuditsState copyWith({
+    List<StockAuditDetail>? audits,
+    bool? isLoading,
+    bool? isMoreLoading,
+    String? error,
+    int? currentPage,
+    int? totalPages,
+    int? totalCount,
+    String? filterAuditType,
+    String? filterStatus,
+  }) =>
+      StockAuditsState(
+        audits: audits ?? this.audits,
+        isLoading: isLoading ?? this.isLoading,
+        isMoreLoading: isMoreLoading ?? this.isMoreLoading,
+        error: error,
+        currentPage: currentPage ?? this.currentPage,
+        totalPages: totalPages ?? this.totalPages,
+        totalCount: totalCount ?? this.totalCount,
+        filterAuditType: filterAuditType ?? this.filterAuditType,
+        filterStatus: filterStatus ?? this.filterStatus,
+      );
+}
+
+class StockAuditsNotifier extends StateNotifier<StockAuditsState> {
+  final StockAuditRepository _repo;
+
+  StockAuditsNotifier(this._repo) : super(const StockAuditsState()) {
+    load();
+  }
+
+  Future<void> load({int page = 1}) async {
+    if (!mounted) return;
+    if (page == 1) {
+      state = state.copyWith(isLoading: true, error: null, audits: []);
+    } else {
+      if (state.isLoading || state.isMoreLoading || state.currentPage >= state.totalPages) return;
+      state = state.copyWith(isMoreLoading: true, error: null);
+    }
+    try {
+      final res = await _repo.getStockAudits(
+        page: page,
+        auditType: state.filterAuditType,
+        status: state.filterStatus,
+      );
+      if (!mounted) return;
+      final updated = page == 1 ? res.audits : [...state.audits, ...res.audits];
+      state = state.copyWith(
+        audits: updated,
+        isLoading: false,
+        isMoreLoading: false,
+        currentPage: res.currentPage,
+        totalPages: res.totalPages,
+        totalCount: res.totalCount,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      state = state.copyWith(isLoading: false, isMoreLoading: false, error: e.toString());
+    }
+  }
+
+  Future<void> loadNextPage() async {
+    if (state.isLoading || state.isMoreLoading || state.currentPage >= state.totalPages) return;
+    await load(page: state.currentPage + 1);
+  }
+
+  void setFilters({String? auditType, String? status}) {
+    state = state.copyWith(
+      filterAuditType: auditType,
+      filterStatus: status,
+      currentPage: 1, // Reset to page 1 on filter change
+    );
+    load();
+  }
+}
+
+final stockAuditsProvider = StateNotifierProvider.autoDispose<StockAuditsNotifier, StockAuditsState>((ref) {
+  return StockAuditsNotifier(ref.read(stockAuditRepositoryProvider));
+});
+
 // ── Detail Provider ───────────────────────────────────────────────────────────
 
 final stockAuditDetailProvider =

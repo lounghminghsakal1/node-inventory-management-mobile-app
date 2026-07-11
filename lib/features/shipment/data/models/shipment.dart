@@ -279,9 +279,9 @@ class ShipmentLineItem {
     if (trackingTypeStr == 'serial') tt = TrackingType.serial;
 
     final metaMap = json['meta'] as Map<String, dynamic>? ?? {};
-    final selectionType = json['selection_type']?.toString().toLowerCase() ??
-        metaMap['selection_type']?.toString().toLowerCase() ??
-        skuMap['selection_type']?.toString().toLowerCase() ??
+    final selectionType = json['selection_type']?.toString().trim().toLowerCase() ??
+        metaMap['selection_type']?.toString().trim().toLowerCase() ??
+        skuMap['selection_type']?.toString().trim().toLowerCase() ??
         'fifo';
 
     List<BatchAllocation> batchAllocations = [];
@@ -334,9 +334,7 @@ class ShipmentLineItem {
     final isAlloc = shipmentAllocated ||
         batchAllocations.isNotEmpty ||
         untrackedAllocations.isNotEmpty ||
-        serialNumbers.isNotEmpty ||
-        json['selection_type'] != null ||
-        metaMap['selection_type'] != null;
+        serialNumbers.isNotEmpty;
 
     final product = Product(
       id: json['product_sku_id']?.toString() ?? skuMap['id']?.toString() ?? '',

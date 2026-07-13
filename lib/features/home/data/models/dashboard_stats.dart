@@ -25,7 +25,7 @@ class DashboardStats {
   );
 }
 
-// ── Splash / Dashboard API models ────────────────────────────────────────────
+// â”€â”€ Splash / Dashboard API models â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class StockAudit {
   final int id;
@@ -58,6 +58,7 @@ class SplashData {
   final int pendingForwardShipmentsCount;
   final int returnInitiatedShipmentsCount;
   final List<StockAudit> stockAudits;
+  final Map<String, Map<String, bool>> permissions;
 
   const SplashData({
     required this.nodeAdminId,
@@ -69,7 +70,12 @@ class SplashData {
     this.pendingForwardShipmentsCount = 0,
     this.returnInitiatedShipmentsCount = 0,
     this.stockAudits = const [],
+    this.permissions = const {},
   });
+
+  bool hasPermission(String feature, String action) {
+    return permissions[feature]?[action] ?? false;
+  }
 
   factory SplashData.fromJson(Map<String, dynamic> json) {
     final admin = json['node_admin'] as Map<String, dynamic>? ?? {};
@@ -78,6 +84,18 @@ class SplashData {
             ?.map((e) => StockAudit.fromJson(e as Map<String, dynamic>))
             .toList() ??
         [];
+        
+    final Map<String, Map<String, bool>> parsedPermissions = {};
+    if (json['permissions'] is Map) {
+      final perms = json['permissions'] as Map;
+      for (final key in perms.keys) {
+        if (perms[key] is Map) {
+          final actions = perms[key] as Map;
+          parsedPermissions[key.toString()] = actions.map((k, v) => MapEntry(k.toString(), v == true));
+        }
+      }
+    }
+        
     return SplashData(
       nodeAdminId: admin['id'] ?? 0,
       nodeAdminName: admin['name'] ?? '',
@@ -90,6 +108,7 @@ class SplashData {
       returnInitiatedShipmentsCount:
           json['return_initiated_shipments_count'] ?? 0,
       stockAudits: audits,
+      permissions: parsedPermissions,
     );
   }
 
@@ -103,7 +122,7 @@ class SplashData {
       );
 }
 
-// ── Activity feed (static / placeholder) ─────────────────────────────────────
+// â”€â”€ Activity feed (static / placeholder) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class ActivityItem {
   final String id;
@@ -127,21 +146,21 @@ const List<ActivityItem> dummyActivity = [
   ActivityItem(
     id: '1',
     title: 'SH-2024-089 Dispatched',
-    subtitle: 'Delivered to Acme Corp — 3 items',
+    subtitle: 'Delivered to Acme Corp â€” 3 items',
     timeAgo: '12 min ago',
     type: ActivityType.shipment,
   ),
   ActivityItem(
     id: '2',
     title: 'GRN-2024-045 Completed',
-    subtitle: 'PO-1023 inwarded — 150 units',
+    subtitle: 'PO-1023 inwarded â€” 150 units',
     timeAgo: '1 hr ago',
     type: ActivityType.grn,
   ),
   ActivityItem(
     id: '3',
     title: 'Return SH-2024-071 Initiated',
-    subtitle: 'TechMart — 2 good, 1 damaged',
+    subtitle: 'TechMart â€” 2 good, 1 damaged',
     timeAgo: '3 hrs ago',
     type: ActivityType.return_,
   ),
@@ -155,7 +174,7 @@ const List<ActivityItem> dummyActivity = [
   ActivityItem(
     id: '5',
     title: 'SH-2024-086 Created',
-    subtitle: 'RetailHub — 4 items, allocation pending',
+    subtitle: 'RetailHub â€” 4 items, allocation pending',
     timeAgo: '6 hrs ago',
     type: ActivityType.shipment,
   ),

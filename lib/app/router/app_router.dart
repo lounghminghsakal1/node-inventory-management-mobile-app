@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:node_management_app/features/audit/presentation/screens/stock_audit_detail_screen.dart';
@@ -12,6 +12,7 @@ import '../../features/shipment/presentation/screens/shipment_detail_screen.dart
 import '../../features/shipment/presentation/screens/allocation_screen.dart';
 import '../../features/shipment/presentation/screens/dispatch_screen.dart';
 import '../../features/shipment/presentation/screens/good_bad_allocation_screen.dart';
+import '../../features/home/providers/home_provider.dart';
 import '../../features/shipment/data/models/shipment.dart';
 import '../../features/shipment/providers/shipment_provider.dart';
 import '../../features/orders/presentation/screens/order_list_screen.dart';
@@ -27,7 +28,7 @@ import '../../core/widgets/app_shell.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 
-// ── Router Notifier (bridges Riverpod → GoRouter refresh) ────────────────────
+// â”€â”€ Router Notifier (bridges Riverpod â†’ GoRouter refresh) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class _RouterNotifier extends ChangeNotifier {
   final Ref _ref;
   _RouterNotifier(this._ref) {
@@ -39,22 +40,22 @@ class _RouterNotifier extends ChangeNotifier {
   }
 }
 
-// ── Top-level redirect function (supports hot reload updates) ─────────────────
+// â”€â”€ Top-level redirect function (supports hot reload updates) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 String? _appRedirect(BuildContext context, GoRouterState state, Ref ref) {
   final auth = ref.read(authProvider);
   final loc = state.matchedLocation;
 
-  // Still checking stored session — don't redirect yet
+  // Still checking stored session â€” don't redirect yet
   if (auth.status == AuthStatus.initial || auth.status == AuthStatus.checking) {
     return null;
   }
 
-  // Not authenticated → send to login
+  // Not authenticated â†’ send to login
   if (auth.status == AuthStatus.unauthenticated) {
     return loc == '/login' ? null : '/login';
   }
 
-  // Authenticated but node not selected → send to node-select (mandatory)
+  // Authenticated but node not selected â†’ send to node-select (mandatory)
   if (auth.status == AuthStatus.nodeRequired) {
     if (loc == '/node-select') return null;
     return '/node-select';
@@ -72,7 +73,7 @@ String? _appRedirect(BuildContext context, GoRouterState state, Ref ref) {
   return null;
 }
 
-// ── Router Provider ───────────────────────────────────────────────────────────
+// â”€â”€ Router Provider â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 final routerProvider = Provider<GoRouter>((ref) {
   final notifier = _RouterNotifier(ref);
 
@@ -81,14 +82,14 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: '/login',
     redirect: (context, state) => _appRedirect(context, state, ref),
     routes: [
-      // ── Auth ──────────────────────────────────────────────────────────────
+      // â”€â”€ Auth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       GoRoute(
         path: '/login',
         name: 'login',
         builder: (context, _) => const LoginScreen(),
       ),
 
-      // ── Node Selection (mandatory after login, or optional via AppBar) ───
+      // â”€â”€ Node Selection (mandatory after login, or optional via AppBar) â”€â”€â”€
       GoRoute(
         path: '/node-select',
         name: 'node-select',
@@ -98,7 +99,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
 
-      // ── Shell with bottom nav ─────────────────────────────────────────────
+      // â”€â”€ Shell with bottom nav â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             _ScaffoldWithNavBar(navigationShell: navigationShell),
@@ -171,7 +172,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           );
         },
       ),
-      // ── Order sub-routes ──────────────────────────────────────────────────
+      // â”€â”€ Order sub-routes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       GoRoute(
         path: '/orders/:id',
         name: 'order-detail',
@@ -206,7 +207,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
 
-      // ── Shipment sub-routes (pushed, no bottom nav) ───────────────────────
+      // â”€â”€ Shipment sub-routes (pushed, no bottom nav) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       GoRoute(
         path: '/shipments/create',
         name: 'shipment-create',
@@ -243,7 +244,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
 
-      // ── Additional feature routes ─────────────────────────────────────────
+      // â”€â”€ Additional feature routes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       GoRoute(
         path: '/adjustment',
         name: 'adjustment',
@@ -253,15 +254,28 @@ final routerProvider = Provider<GoRouter>((ref) {
   );
 });
 
-// ── Bottom Nav Shell ──────────────────────────────────────────────────────────
+// â”€â”€ Bottom Nav Shell â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class _ScaffoldWithNavBar extends ConsumerWidget {
   final StatefulNavigationShell navigationShell;
   const _ScaffoldWithNavBar({required this.navigationShell});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final splash = ref.watch(splashDataProvider).valueOrNull;
+    final showShipments = splash?.hasPermission('Shipment', 'read') ?? false;
+    final showShipmentCreate = splash?.hasPermission('Shipment', 'create') ?? false;
+    final showPOs = splash?.hasPermission('PurchaseOrder', 'read') ?? false;
+    final showAudit = splash?.hasPermission('StockAudit', 'read') ?? false;
+    final showInventory = (splash?.hasPermission('NodeInventory', 'read') ?? false) ||
+        (splash?.hasPermission('BatchInventory', 'read') ?? false) ||
+        (splash?.hasPermission('SkuItem', 'read') ?? false);
+
     return Scaffold(
       appBar: NodeOpsAppBar(
+        extraActions: [
+          if (navigationShell.currentIndex == 1 && showShipmentCreate)
+            const _ShipmentsAppBarAction(),
+        ],
       ),
       body: navigationShell,
       bottomNavigationBar: Container(
@@ -284,38 +298,42 @@ class _ScaffoldWithNavBar extends ConsumerWidget {
                   label: 'Home',
                   onTap: () => _onTap(context, 0),
                 ),
-                _NavItem(
-                  index: 1,
-                  current: navigationShell.currentIndex,
-                  icon: Icons.local_shipping_outlined,
-                  activeIcon: Icons.local_shipping_rounded,
-                  label: 'Shipments',
-                  onTap: () => _onTap(context, 1),
-                ),
-                _NavItem(
-                  index: 2,
-                  current: navigationShell.currentIndex,
-                  icon: Icons.receipt_long_outlined,
-                  activeIcon: Icons.receipt_long_rounded,
-                  label: 'Purchase Orders',
-                  onTap: () => _onTap(context, 2),
-                ),
-                _NavItem(
-                  index: 3,
-                  current: navigationShell.currentIndex,
-                  icon: Icons.inventory_2_outlined,
-                  activeIcon: Icons.inventory_2_rounded,
-                  label: 'Inventory',
-                  onTap: () => _onTap(context, 3),
-                ),
-                _NavItem(
-                  index: 4,
-                  current: navigationShell.currentIndex,
-                  icon: Icons.fact_check_outlined,
-                  activeIcon: Icons.fact_check_rounded,
-                  label: 'Audit',
-                  onTap: () => _onTap(context, 4),
-                ),
+                if (showShipments)
+                  _NavItem(
+                    index: 1,
+                    current: navigationShell.currentIndex,
+                    icon: Icons.local_shipping_outlined,
+                    activeIcon: Icons.local_shipping_rounded,
+                    label: 'Shipments',
+                    onTap: () => _onTap(context, 1),
+                  ),
+                if (showPOs)
+                  _NavItem(
+                    index: 2,
+                    current: navigationShell.currentIndex,
+                    icon: Icons.receipt_long_outlined,
+                    activeIcon: Icons.receipt_long_rounded,
+                    label: 'Purchase Orders',
+                    onTap: () => _onTap(context, 2),
+                  ),
+                if (showInventory)
+                  _NavItem(
+                    index: 3,
+                    current: navigationShell.currentIndex,
+                    icon: Icons.inventory_2_outlined,
+                    activeIcon: Icons.inventory_2_rounded,
+                    label: 'Inventory',
+                    onTap: () => _onTap(context, 3),
+                  ),
+                if (showAudit)
+                  _NavItem(
+                    index: 4,
+                    current: navigationShell.currentIndex,
+                    icon: Icons.fact_check_outlined,
+                    activeIcon: Icons.fact_check_rounded,
+                    label: 'Audit',
+                    onTap: () => _onTap(context, 4),
+                  ),
               ],
             ),
           ),

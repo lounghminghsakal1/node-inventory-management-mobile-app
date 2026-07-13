@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../home/providers/home_provider.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/widgets/app_button.dart';
@@ -28,12 +29,15 @@ class _PurchaseOrderDetailScreenState
   @override
   Widget build(BuildContext context) {
     final asyncPo = ref.watch(purchaseOrderByIdProvider(widget.poId));
+    final splash = ref.watch(splashDataProvider).valueOrNull;
+    final canCreateGrn = splash?.hasPermission('GoodsReceivedNote', 'create') ?? false;
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: const NodeOpsAppBar(showBack: true, title: 'PO Details'),
       bottomNavigationBar: asyncPo.maybeWhen(
         data: (po) {
+          if (!canCreateGrn) return null;
           final isAllGrnCompleted = po.goodsReceivedNotes.isEmpty ? true :
               po.goodsReceivedNotes.every((grn) => grn.status == 'complete');
           if (!isAllGrnCompleted) {
@@ -84,19 +88,19 @@ class _PurchaseOrderDetailScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── PO Summary Card ─────────────────────────────────────────
+                // â”€â”€ PO Summary Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                 _buildPoSummaryCard(po),
                 const SizedBox(height: 24),
 
-                // ── Vendor Details Card ─────────────────────────────────────
+                // â”€â”€ Vendor Details Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                 _buildVendorCard(po.vendor),
                 const SizedBox(height: 24),
 
-                // ── PO Line Items Section ───────────────────────────────────
+                // â”€â”€ PO Line Items Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                 _buildLineItemsSection(po.lineItems),
                 const SizedBox(height: 24),
 
-                // ── Goods Received Notes Section ────────────────────────────
+                // â”€â”€ Goods Received Notes Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                 Text(
                   'Goods Received Notes (GRNs)',
                   style: AppTextStyles.headingMedium,

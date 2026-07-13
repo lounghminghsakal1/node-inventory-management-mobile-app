@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../app/theme/app_colors.dart';
@@ -192,11 +192,11 @@ class ShipmentDetailScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── Progress Timeline ──────────────────────────────────────────
+                // â”€â”€ Progress Timeline â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                 _ShipmentTimeline(shipment: shipment),
                 const SizedBox(height: 24),
 
-                // ── Primary Focus: Line Items ──────────────────────────────────
+                // â”€â”€ Primary Focus: Line Items â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
@@ -265,9 +265,9 @@ class ShipmentDetailScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 20),
 
-                // ── Order Info Card ───────────────────────────────────────────
+                // "?"? Order & Invoice Info Card "?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?
                 _SectionCard(
-                  title: 'Order Info',
+                  title: 'Order & Invoice Info',
                   child: Column(
                     children: [
                       _infoTile(
@@ -285,60 +285,42 @@ class ShipmentDetailScreen extends ConsumerWidget {
                         'Created',
                         _formatDate(shipment.createdAt),
                       ),
+                      if (shipment.invoiceCode != null &&
+                          shipment.invoiceCode!.isNotEmpty)
+                        _infoTile(
+                          Icons.receipt_long_outlined,
+                          'Invoice Code',
+                          shipment.invoiceCode!,
+                        ),
+                      if (shipment.invoiceDate != null)
+                        _infoTile(
+                          Icons.event_outlined,
+                          'Invoice Date',
+                          _formatDate(shipment.invoiceDate!),
+                        ),
+                      if (shipment.shippedAt != null)
+                        _infoTile(
+                          Icons.local_shipping_outlined,
+                          'Shipped At',
+                          _formatDate(shipment.shippedAt!),
+                        ),
+                      if (shipment.deliveredAt != null)
+                        _infoTile(
+                          Icons.check_circle_outline_rounded,
+                          'Delivered At',
+                          _formatDate(shipment.deliveredAt!),
+                        ),
+                      if (shipment.returnedAt != null)
+                        _infoTile(
+                          Icons.keyboard_return_rounded,
+                          'Returned At',
+                          _formatDate(shipment.returnedAt!),
+                        ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 16),
-
-                // ── Invoice & Tracking Info ───────────────────────────────────
-                if (shipment.invoiceCode != null ||
-                    shipment.trackingNumber != null ||
-                    shipment.invoiceS3Url != null ||
-                    shipment.shippedAt != null ||
-                    shipment.deliveredAt != null ||
-                    shipment.returnedAt != null) ...[
-                  _SectionCard(
-                    title: 'Invoice & Tracking Info',
-                    child: Column(
-                      children: [
-                        if (shipment.invoiceCode != null &&
-                            shipment.invoiceCode!.isNotEmpty)
-                          _infoTile(
-                            Icons.receipt_long_outlined,
-                            'Invoice Code',
-                            shipment.invoiceCode!,
-                          ),
-                        if (shipment.invoiceDate != null)
-                          _infoTile(
-                            Icons.event_outlined,
-                            'Invoice Date',
-                            _formatDate(shipment.invoiceDate!),
-                          ),
-                        if (shipment.shippedAt != null)
-                          _infoTile(
-                            Icons.local_shipping_outlined,
-                            'Shipped At',
-                            _formatDate(shipment.shippedAt!),
-                          ),
-                        if (shipment.deliveredAt != null)
-                          _infoTile(
-                            Icons.check_circle_outline_rounded,
-                            'Delivered At',
-                            _formatDate(shipment.deliveredAt!),
-                          ),
-                        if (shipment.returnedAt != null)
-                          _infoTile(
-                            Icons.keyboard_return_rounded,
-                            'Returned At',
-                            _formatDate(shipment.returnedAt!),
-                          ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-
-                // ── Shipping & Delivery Info (if present) ─────────────────────
+                // â”€â”€ Shipping & Delivery Info (if present) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                 if ((shipment.shippingAddress != null &&
                         shipment.shippingAddress!.isNotEmpty) ||
                     (shipment.billingAddress != null &&
@@ -378,7 +360,7 @@ class ShipmentDetailScreen extends ConsumerWidget {
                   const SizedBox(height: 16),
                 ],
 
-                // ── Parent Forward Shipment Info (Reverse Shipments) ──────────
+                // â”€â”€ Parent Forward Shipment Info (Reverse Shipments) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                 if (shipment.parentShipment != null ||
                     shipment.parentShipmentNumber != null) ...[
                   _SectionCard(
@@ -460,7 +442,7 @@ class ShipmentDetailScreen extends ConsumerWidget {
                   const SizedBox(height: 16),
                 ],
 
-                // ── Driver (if dispatched) ────────────────────────────────────
+                // â”€â”€ Driver (if dispatched) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                 if (shipment.driverDetails != null) ...[
                   const SizedBox(height: 16),
                   _SectionCard(
@@ -553,7 +535,7 @@ class ShipmentDetailScreen extends ConsumerWidget {
                   ),
                 ],
 
-                // ── Delivery Details (if delivered) ───────────────────────────
+                // â”€â”€ Delivery Details (if delivered) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                 if (shipment.deliveryDetails != null) ...[
                   const SizedBox(height: 16),
                   _SectionCard(
@@ -620,7 +602,7 @@ class ShipmentDetailScreen extends ConsumerWidget {
                   ),
                 ],
 
-                // ── Fee Details (if present) ──────────────────────────────────
+                // â”€â”€ Fee Details (if present) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                 if ((shipment.labourFee != null &&
                         shipment.labourFee!.isNotEmpty &&
                         shipment.labourFee != '0' &&
@@ -641,7 +623,7 @@ class ShipmentDetailScreen extends ConsumerWidget {
                           _infoTile(
                             Icons.payments_outlined,
                             'Labour Fee',
-                            '₹${shipment.labourFee}',
+                            'â‚¹${shipment.labourFee}',
                           ),
                         if (shipment.driverFee != null &&
                             shipment.driverFee!.isNotEmpty &&
@@ -650,7 +632,7 @@ class ShipmentDetailScreen extends ConsumerWidget {
                           _infoTile(
                             Icons.payments_outlined,
                             'Driver Fee',
-                            '₹${shipment.driverFee}',
+                            'â‚¹${shipment.driverFee}',
                           ),
                       ],
                     ),
@@ -659,7 +641,7 @@ class ShipmentDetailScreen extends ConsumerWidget {
 
                 const SizedBox(height: 24),
 
-                // ── Action Buttons ────────────────────────────────────────────
+                // â”€â”€ Action Buttons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                 _ActionButtons(shipment: shipment),
                 const SizedBox(height: 16),
               ],
@@ -878,7 +860,7 @@ class ShipmentDetailScreen extends ConsumerWidget {
   }
 }
 
-// ── Progress Timeline ─────────────────────────────────────────────────────────
+// â”€â”€ Progress Timeline â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class _ShipmentTimeline extends StatelessWidget {
   final Shipment shipment;
   const _ShipmentTimeline({required this.shipment});
@@ -1007,7 +989,7 @@ class _ShipmentTimeline extends StatelessWidget {
   }
 }
 
-// ── Line Item Row ─────────────────────────────────────────────────────────────
+// â”€â”€ Line Item Row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class _LineItemRow extends ConsumerWidget {
   final ShipmentLineItem item;
   final Shipment shipment;
@@ -1436,7 +1418,7 @@ class _LineItemRow extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
-                      'Untracked item — no allocation required.',
+                      'Untracked item â€” no allocation required.',
                       style: AppTextStyles.caption.copyWith(
                         color: AppColors.secondary,
                       ),
@@ -1748,7 +1730,7 @@ class _LineItemRow extends ConsumerWidget {
   }
 }
 
-// ── Action Buttons ────────────────────────────────────────────────────────────
+// â”€â”€ Action Buttons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class _ActionButtons extends ConsumerWidget {
   final Shipment shipment;
   const _ActionButtons({required this.shipment});
@@ -2367,7 +2349,7 @@ class _DeliverShipmentModalState extends ConsumerState<_DeliverShipmentModal> {
   }
 }
 
-// ── Edit Shipment Modal ───────────────────────────────────────────────────────
+// â”€â”€ Edit Shipment Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class _EditShipmentModal extends ConsumerStatefulWidget {
   final Shipment shipment;
   const _EditShipmentModal({required this.shipment});
@@ -2537,7 +2519,7 @@ class _EditShipmentModalState extends ConsumerState<_EditShipmentModal> {
   }
 }
 
-// ── Section Card ──────────────────────────────────────────────────────────────
+// â”€â”€ Section Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class _SectionCard extends StatelessWidget {
   final String title;
   final Widget child;

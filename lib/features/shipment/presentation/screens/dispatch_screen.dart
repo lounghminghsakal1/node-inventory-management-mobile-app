@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../app/theme/app_colors.dart';
@@ -6,7 +7,7 @@ import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_shell.dart';
 import '../../../../core/widgets/app_text_field.dart';
-import 'package:file_picker/file_picker.dart';
+import '../../../../core/utils/media_picker_service.dart';
 import '../../data/repositories/shipment_repository.dart';
 import '../../providers/shipment_provider.dart';
 
@@ -152,6 +153,10 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
                       prefixIcon: Icons.phone_outlined,
                       keyboardType: TextInputType.phone,
                       textInputAction: TextInputAction.next,
+                      inputFormatters: [
+                        LengthLimitingTextInputFormatter(10),
+                        FilteringTextInputFormatter.digitsOnly,
+                      ],
                       validator: (v) {
                         if (v == null || v.isEmpty) return 'Phone is required';
                         if (v.length < 10) return 'Enter a valid phone number';
@@ -166,6 +171,11 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
                       controller: _vehicleCtrl,
                       prefixIcon: Icons.directions_car_outlined,
                       textInputAction: TextInputAction.next,
+                      inputFormatters: [
+                        TextInputFormatter.withFunction((oldValue, newValue) {
+                          return newValue.copyWith(text: newValue.text.toUpperCase());
+                        }),
+                      ],
                       validator: (v) => v == null || v.isEmpty
                           ? 'Vehicle number is required'
                           : null,
@@ -394,14 +404,11 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
 
   Future<void> _pickAndUploadFile() async {
     try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['jpg', 'jpeg', 'png', 'webp', 'pdf'],
-      );
-      if (result != null && result.files.single.path != null) {
+      final result = await MediaPickerService.showMediaPicker(context);
+      if (result != null) {
         setState(() => _isUploadingMedia = true);
-        final filePath = result.files.single.path!;
-        final fileName = result.files.single.name;
+        final filePath = result.path;
+        final fileName = result.name;
         final url = await ref.read(shipmentRepositoryProvider).uploadMedia(
           shipmentId: widget.shipmentId,
           actionType: 'dispatch',

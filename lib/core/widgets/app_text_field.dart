@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_text_styles.dart';
 
@@ -19,6 +20,7 @@ class AppTextField extends StatefulWidget {
   final VoidCallback? onTap;
   final int? maxLines;
   final FocusNode? focusNode;
+  final List<TextInputFormatter>? inputFormatters;
 
   const AppTextField({
     super.key,
@@ -38,6 +40,7 @@ class AppTextField extends StatefulWidget {
     this.onTap,
     this.maxLines = 1,
     this.focusNode,
+    this.inputFormatters,
   });
 
   @override
@@ -68,6 +71,7 @@ class _AppTextFieldState extends State<AppTextField> {
       onTap: widget.onTap,
       maxLines: widget.maxLines,
       focusNode: widget.focusNode,
+      inputFormatters: widget.inputFormatters,
       style: AppTextStyles.bodyMedium,
       cursorColor: AppColors.primary,
       decoration: InputDecoration(

@@ -1,0 +1,617 @@
+﻿class _SerialCountModalState extends ConsumerState<_SerialCountModal>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  Set<String>? _good;
+  Set<String>? _damaged;
+  Set<String>? _missing;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+  }
+
+  void _initSets(List<AuditSerial> serials) {
+    if (_good != null) return;
+
+    final damagedList =
+        widget.item.meta?['damaged_serials'] as List<dynamic>? ?? [];
+    final missingList =
+        widget.item.meta?['missing_serials'] as List<dynamic>? ?? [];
+
+    _damaged = damagedList.map((e) => e.toString()).toSet();
+    _missing = missingList.map((e) => e.toString()).toSet();
+
+    if (widget.item.isCounted) {
+      _good = serials
+          .map((s) => s.serialNumber)
+          .where((sn) => !_damaged!.contains(sn) && !_missing!.contains(sn))
+          .toSet();
+    } else {
+      _good = {};
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _confirm() async {
+    if (_good == null) return;
+
+    setState(() => _isSaving = true);
+    try {
+      final updated = await ref
+          .read(stockAuditRepositoryProvider)
+          .countSku(widget.auditId, widget.item.skuId, {
+            'counted_qty': _good!.length,
+            'damaged_qty': _damaged!.length,
+            'missing_qty': _missing!.length,
+            'damaged_serials': _damaged!.toList(),
+            'missing_serials': _missing!.toList(),
+          });
+      if (mounted) Navigator.pop(context, updated);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final serialsAsync = ref.watch(
+      auditSkuSerialsProvider((
+        auditId: widget.auditId,
+        skuId: widget.item.skuId,
+      )),
+    );
+
+    return Dialog(
+      backgroundColor: AppColors.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.85,
+        ),
+        child: Column(
+          children: [
+            // Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 8, 0),
+              child: Row(
+                children: [
+                  const Icon(Icons.checklist_rounded, color: AppColors.primary),
+                  const SizedBox(width: 10),
+                  Text('Select Serials', style: AppTextStyles.headingMedium),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 20),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            Expanded(
+              child: serialsAsync.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Center(child: Text('Error: $e')),
+                data: (serials) {
+                  if (serials.isEmpty) {
+                    return Center(
+                      child: Text(
+                        'No serials found',
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                    );
+                  }
+                  _initSets(serials);
+                  return Column(
+                    children: [
+                      // Summary chips
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Row(
+                          children: [
+                            _SerialStatChip(
+                              label: 'Good',
+                              count: _good!.length,
+                              color: AppColors.success,
+                            ),
+                            const SizedBox(width: 8),
+                            _SerialStatChip(
+                              label: 'Damaged',
+                              count: _damaged!.length,
+                              color: AppColors.warning,
+                            ),
+                            const SizedBox(width: 8),
+                            _SerialStatChip(
+                              label: 'Missing',
+                              count: _missing!.length,
+                              color: AppColors.error,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      // Tabs
+                      TabBar(
+                        controller: _tabController,
+                        labelColor: AppColors.primary,
+                        unselectedLabelColor: AppColors.textMuted,
+                        indicatorColor: AppColors.primary,
+                        tabs: [
+                          Tab(text: 'Good (${_good!.length})'),
+                          Tab(text: 'Damaged (${_damaged!.length})'),
+                          Tab(text: 'Missing (${_missing!.length})'),
+                        ],
+                      ),
+                      const Divider(height: 1),
+                      // Tab content
+                      Expanded(
+                        child: TabBarView(
+                          controller: _tabController,
+                          children: [
+                            // Good Tab
+                            ListView.builder(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              itemCount: serials.length,
+                              itemBuilder: (_, i) {
+                                final s = serials[i];
+                                final isGood = _good!.contains(s.serialNumber);
+                                final blocked =
+                                    _damaged!.contains(s.serialNumber) ||
+                                    _missing!.contains(s.serialNumber);
+                                return CheckboxListTile(
+                                  value: isGood,
+                                  activeColor: AppColors.success,
+                                  enabled: widget.canEdit && !blocked,
+                                  title: Text(
+                                    s.serialNumber,
+                                    style: AppTextStyles.bodySmall.copyWith(
+                                      color: isGood
+                                          ? AppColors.success
+                                          : blocked
+                                          ? AppColors.textMuted
+                                          : null,
+                                      fontWeight: isGood
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                    ),
+                                  ),
+                                  subtitle: blocked
+                                      ? Text(
+                                          _damaged!.contains(s.serialNumber)
+                                              ? 'Selected as Damaged'
+                                              : 'Selected as Missing',
+                                          style: AppTextStyles.caption.copyWith(
+                                            color: AppColors.textMuted,
+                                          ),
+                                        )
+                                      : null,
+                                  onChanged: blocked
+                                      ? null
+                                      : (val) {
+                                          setState(() {
+                                            if (val == true)
+                                              _good!.add(s.serialNumber);
+                                            else
+                                              _good!.remove(s.serialNumber);
+                                          });
+                                        },
+                                );
+                              },
+                            ),
+                            // Damaged Tab
+                            ListView.builder(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              itemCount: serials.length,
+                              itemBuilder: (_, i) {
+                                final s = serials[i];
+                                final isDamaged = _damaged!.contains(
+                                  s.serialNumber,
+                                );
+                                final blocked =
+                                    _good!.contains(s.serialNumber) ||
+                                    _missing!.contains(s.serialNumber);
+                                return CheckboxListTile(
+                                  value: isDamaged,
+                                  activeColor: AppColors.warning,
+                                  enabled: widget.canEdit && !blocked,
+                                  title: Text(
+                                    s.serialNumber,
+                                    style: AppTextStyles.bodySmall.copyWith(
+                                      color: _good!.contains(s.serialNumber)
+                                          ? AppColors.success
+                                          : isDamaged
+                                          ? AppColors.warning
+                                          : blocked
+                                          ? AppColors.textMuted
+                                          : null,
+                                      fontWeight:
+                                          (_good!.contains(s.serialNumber) ||
+                                              isDamaged)
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                    ),
+                                  ),
+                                  subtitle: blocked
+                                      ? Text(
+                                          _good!.contains(s.serialNumber)
+                                              ? 'Selected as Good'
+                                              : 'Selected as Missing',
+                                          style: AppTextStyles.caption.copyWith(
+                                            color: AppColors.textMuted,
+                                          ),
+                                        )
+                                      : null,
+                                  onChanged: blocked
+                                      ? null
+                                      : (val) {
+                                          setState(() {
+                                            if (val == true)
+                                              _damaged!.add(s.serialNumber);
+                                            else
+                                              _damaged!.remove(s.serialNumber);
+                                          });
+                                        },
+                                );
+                              },
+                            ),
+                            // Missing Tab
+                            ListView.builder(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              itemCount: serials.length,
+                              itemBuilder: (_, i) {
+                                final s = serials[i];
+                                final isMissing = _missing!.contains(
+                                  s.serialNumber,
+                                );
+                                final blocked =
+                                    _good!.contains(s.serialNumber) ||
+                                    _damaged!.contains(s.serialNumber);
+                                return CheckboxListTile(
+                                  value: isMissing,
+                                  activeColor: AppColors.error,
+                                  enabled: widget.canEdit && !blocked,
+                                  title: Text(
+                                    s.serialNumber,
+                                    style: AppTextStyles.bodySmall.copyWith(
+                                      color: _good!.contains(s.serialNumber)
+                                          ? AppColors.success
+                                          : _damaged!.contains(s.serialNumber)
+                                          ? AppColors.warning
+                                          : isMissing
+                                          ? AppColors.error
+                                          : blocked
+                                          ? AppColors.textMuted
+                                          : null,
+                                      fontWeight:
+                                          (_good!.contains(s.serialNumber) ||
+                                              _damaged!.contains(
+                                                s.serialNumber,
+                                              ) ||
+                                              isMissing)
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                    ),
+                                  ),
+                                  subtitle: blocked
+                                      ? Text(
+                                          _good!.contains(s.serialNumber)
+                                              ? 'Selected as Good'
+                                              : 'Selected as Damaged',
+                                          style: AppTextStyles.caption.copyWith(
+                                            color: AppColors.textMuted,
+                                          ),
+                                        )
+                                      : null,
+                                  onChanged: blocked
+                                      ? null
+                                      : (val) {
+                                          setState(() {
+                                            if (val == true)
+                                              _missing!.add(s.serialNumber);
+                                            else
+                                              _missing!.remove(s.serialNumber);
+                                          });
+                                        },
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Footer
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+                        decoration: const BoxDecoration(
+                          border: Border(
+                            top: BorderSide(color: AppColors.cardBorder),
+                          ),
+                        ),
+                        child: widget.auditStatus == StockAuditStatus.initiatedAuditing
+                            ? Row(
+                                children: [
+                                  Expanded(
+                                    child: OutlinedButton(
+                                      onPressed: _isSaving
+                                          ? null
+                                          : () => Navigator.pop(context),
+                                      style: OutlinedButton.styleFrom(
+                                        side: const BorderSide(
+                                          color: AppColors.cardBorder,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                      ),
+                                      child: const Text('Cancel'),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: ElevatedButton(
+                                      onPressed: _isSaving ? null : _confirm,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppColors.primary,
+                                        foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                      ),
+                                      child: _isSaving
+                                          ? const SizedBox(
+                                              width: 16,
+                                              height: 16,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: Colors.white,
+                                              ),
+                                            )
+                                          : const Text('Confirm & Save'),
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : Row(
+                                children: [
+                                  Expanded(
+                                    child: OutlinedButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      style: OutlinedButton.styleFrom(
+                                        side: const BorderSide(
+                                          color: AppColors.cardBorder,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                      ),
+                                      child: const Text('Close'),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SerialStatChip extends StatelessWidget {
+  final String label;
+  final int count;
+  final Color color;
+  const _SerialStatChip({
+    required this.label,
+    required this.count,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Text(
+        '$label: $count',
+        style: AppTextStyles.caption.copyWith(
+          color: color,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+}
+
+// ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Shared: Read-only qty display ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+
+class _ReadOnlyQtyRow extends StatelessWidget {
+  final int goodQty;
+  final int damagedQty;
+  final int missingQty;
+  const _ReadOnlyQtyRow({
+    required this.goodQty,
+    required this.damagedQty,
+    required this.missingQty,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _QtyChip(label: 'Good', value: goodQty, color: AppColors.success),
+        const SizedBox(width: 8),
+        _QtyChip(label: 'Damaged', value: damagedQty, color: AppColors.warning),
+        const SizedBox(width: 8),
+        _QtyChip(label: 'Missing', value: missingQty, color: AppColors.error),
+      ],
+    );
+  }
+}
+
+// ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Shared Helpers ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+
+class _CountField extends StatelessWidget {
+  final String label;
+  final TextEditingController ctrl;
+  final Color? color;
+  final void Function(String)? onChanged;
+  final bool readOnly;
+
+  const _CountField({
+    required this.label,
+    required this.ctrl,
+    this.color,
+    this.onChanged,
+    this.readOnly = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: AppTextStyles.caption.copyWith(
+            color: color ?? AppColors.textSecondary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 6),
+        TextFormField(
+          controller: ctrl,
+          onChanged: onChanged,
+          readOnly: readOnly,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          style: AppTextStyles.bodyMedium,
+          decoration: InputDecoration(
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: 10,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(
+                color: color?.withValues(alpha: 0.4) ?? AppColors.cardBorder,
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(
+                color: color?.withValues(alpha: 0.4) ?? AppColors.cardBorder,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(
+                color: color ?? AppColors.primary,
+                width: 1.5,
+              ),
+            ),
+            filled: true,
+            fillColor: color?.withValues(alpha: 0.04) ?? AppColors.background,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color? valueColor;
+  const _InfoRow({required this.label, required this.value, this.valueColor});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 110,
+            child: Text(
+              label,
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          Text(
+            value,
+            style: AppTextStyles.bodySmall.copyWith(
+              fontWeight: FontWeight.bold,
+              color: valueColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TrackingBadge extends StatelessWidget {
+  final String trackingType;
+  const _TrackingBadge({required this.trackingType});
+
+  @override
+  Widget build(BuildContext context) {
+    Color color;
+    switch (trackingType) {
+      case 'batch':
+        color = AppColors.secondary;
+        break;
+      case 'serial':
+        color = AppColors.accentGreen;
+        break;
+      default:
+        color = AppColors.textMuted;
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Text(
+        trackingType.toUpperCase(),
+        style: TextStyle(
+          fontSize: 8,
+          fontWeight: FontWeight.bold,
+          color: color,
+        ),
+      ),
+    );
+  }
+}

@@ -1,26 +1,89 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../widgets/node_inventory_list_view.dart';
 import '../widgets/batch_inventory_list_view.dart';
 import '../widgets/serial_inventory_list_view.dart';
-import '../widgets/node_inventory_ledger_view.dart';
+import '../../../home/providers/home_provider.dart';
 
-class InventoryScreen extends StatefulWidget {
+class InventoryScreen extends ConsumerStatefulWidget {
   const InventoryScreen({super.key});
 
   @override
-  State<InventoryScreen> createState() => _InventoryScreenState();
+  ConsumerState<InventoryScreen> createState() => _InventoryScreenState();
 }
 
-class _InventoryScreenState extends State<InventoryScreen> {
+class _InventoryScreenState extends ConsumerState<InventoryScreen> {
   @override
   Widget build(BuildContext context) {
+    final splash = ref.watch(splashDataProvider).valueOrNull;
+    final showNode = splash?.hasPermission('NodeInventory', 'read') ?? false;
+    final showBatch = splash?.hasPermission('BatchInventory', 'read') ?? false;
+    final showSerial = splash?.hasPermission('SkuItem', 'read') ?? false;
+
+    final tabs = <Widget>[];
+    final views = <Widget>[];
+
+    if (showNode) {
+      tabs.add(
+        const Tab(
+          height: 34,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.inventory_2_outlined, size: 15),
+              SizedBox(width: 4),
+              Flexible(child: Text("Overview", maxLines: 1, overflow: TextOverflow.ellipsis)),
+            ],
+          ),
+        ),
+      );
+      views.add(const NodeInventoryListView());
+    }
+
+    if (showBatch) {
+      tabs.add(
+        const Tab(
+          height: 34,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.layers_outlined, size: 15),
+              SizedBox(width: 4),
+              Flexible(child: Text("Batches", maxLines: 1, overflow: TextOverflow.ellipsis)),
+            ],
+          ),
+        ),
+      );
+      views.add(const BatchInventoryListView());
+    }
+
+    if (showSerial) {
+      tabs.add(
+        const Tab(
+          height: 34,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.qr_code_2_outlined, size: 15),
+              SizedBox(width: 4),
+              Flexible(child: Text("Serials", maxLines: 1, overflow: TextOverflow.ellipsis)),
+            ],
+          ),
+        ),
+      );
+      views.add(const SerialInventoryListView());
+    }
+
+    if (tabs.isEmpty) {
+      return const Center(child: Text('No Inventory Permissions'));
+    }
+
     return DefaultTabController(
-      length: 3,
+      length: tabs.length,
       child: Column(
         children: [
-          // ── Top Tab Bar ─────────────────────────────────────────────────────
           Container(
             margin: const EdgeInsets.fromLTRB(14, 12, 14, 8),
             padding: const EdgeInsets.all(4),
@@ -50,53 +113,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
               unselectedLabelColor: AppColors.textMuted,
               labelStyle: AppTextStyles.labelSmall.copyWith(fontWeight: FontWeight.bold, fontSize: 12),
               unselectedLabelStyle: AppTextStyles.labelSmall.copyWith(fontSize: 12),
-              tabs: const [
-                Tab(
-                  height: 34,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.inventory_2_outlined, size: 15),
-                      SizedBox(width: 4),
-                      Flexible(child: Text("Overview", maxLines: 1, overflow: TextOverflow.ellipsis)),
-                    ],
-                  ),
-                ),
-                Tab(
-                  height: 34,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.layers_outlined, size: 15),
-                      SizedBox(width: 4),
-                      Flexible(child: Text("Batches", maxLines: 1, overflow: TextOverflow.ellipsis)),
-                    ],
-                  ),
-                ),
-                Tab(
-                  height: 34,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.qr_code_2_outlined, size: 15),
-                      SizedBox(width: 4),
-                      Flexible(child: Text("Serials", maxLines: 1, overflow: TextOverflow.ellipsis)),
-                    ],
-                  ),
-                ),
-              ],
+              tabs: tabs,
             ),
           ),
-
-          // ── Tab Bar View ────────────────────────────────────────────────────
-          const Expanded(
+          Expanded(
             child: TabBarView(
-              physics: BouncingScrollPhysics(),
-              children: [
-                NodeInventoryListView(),
-                BatchInventoryListView(),
-                SerialInventoryListView(),
-              ],
+              physics: const BouncingScrollPhysics(),
+              children: views,
             ),
           ),
         ],

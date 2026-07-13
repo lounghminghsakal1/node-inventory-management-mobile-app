@@ -1,4 +1,4 @@
-import 'package:file_picker/file_picker.dart';
+import '../../../../core/utils/media_picker_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/theme/app_colors.dart';
@@ -88,31 +88,23 @@ class _CreateGrnScreenState extends ConsumerState<CreateGrnScreen> {
       _uploadError = null;
     });
 
-    // Open file picker allowing PDF, JPG, PNG, WEBP
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'webp'],
-      withData: false, // use path for mobile perf
-    );
+    // Open media picker
+    final result = await MediaPickerService.showMediaPicker(context);
 
-    if (result == null || result.files.isEmpty) return; // user cancelled
+    if (result == null) return; // user cancelled
 
-    final file = result.files.first;
-    final filePath = file.path;
-    if (filePath == null) {
-      setState(() => _uploadError = "Could not read the selected file.");
-      return;
-    }
+    final filePath = result.path;
+    final fileName = result.name;
 
     setState(() {
       _isUploading = true;
-      _uploadedFileName = file.name;
+      _uploadedFileName = fileName;
       _uploadedFileS3Url = null;
     });
 
     final s3Url = await ref
         .read(grnControllerProvider.notifier)
-        .uploadGrnDocument(filePath, file.name);
+        .uploadGrnDocument(filePath, fileName);
 
     if (!mounted) return;
 
@@ -124,7 +116,7 @@ class _CreateGrnScreenState extends ConsumerState<CreateGrnScreen> {
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text("'${file.name}' uploaded successfully!"),
+          content: Text("'$fileName' uploaded successfully!"),
           backgroundColor: AppColors.success,
         ),
       );

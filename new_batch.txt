@@ -1,0 +1,306 @@
+﻿class _BatchEntry {
+  final AuditBatch batch;
+  final TextEditingController goodCtrl;
+  final TextEditingController damagedCtrl;
+
+  _BatchEntry(this.batch)
+    : goodCtrl = TextEditingController(),
+      damagedCtrl = TextEditingController();
+
+  void dispose() {
+    goodCtrl.dispose();
+    damagedCtrl.dispose();
+  }
+}
+
+class _BatchCountModal extends ConsumerStatefulWidget {
+  final String auditId;
+  final AuditLineItem item;
+  final bool canEdit;
+  final StockAuditStatus auditStatus;
+
+  const _BatchCountModal({
+    required this.auditId,
+    required this.item,
+    required this.canEdit,
+    required this.auditStatus,
+  });
+
+  @override
+  ConsumerState<_BatchCountModal> createState() => _BatchCountModalState();
+}
+
+class _BatchCountModalState extends ConsumerState<_BatchCountModal> {
+  List<_BatchEntry>? _entries;
+  bool _isSaving = false;
+
+  void _initEntries(List<AuditBatch> batches) {
+    if (_entries != null) return;
+
+    final metaBatches = widget.item.meta?['batches'] as List<dynamic>? ?? [];
+    _entries = batches.map((b) {
+      final entry = _BatchEntry(b);
+      final metaBatch = metaBatches
+          .where((m) => m['batch_id']?.toString() == b.id.toString())
+          .firstOrNull;
+      if (metaBatch != null) {
+        entry.goodCtrl.text = metaBatch['counted_qty']?.toString() ?? '';
+        entry.damagedCtrl.text = metaBatch['damaged_qty']?.toString() ?? '';
+      }
+      return entry;
+    }).toList();
+  }
+
+  @override
+  void dispose() {
+    _entries?.forEach((e) => e.dispose());
+    super.dispose();
+  }
+
+  Future<bool> _showDiscrepancyWarning() async {
+    return await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Discrepancy Warning'),
+        content: const Text(
+            'The total counted items for some batches do not match the expected system quantity. '
+            'Please recount to ensure accuracy.\n\nDo you want to proceed anyway?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel & Recount'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+            child: const Text('Proceed'),
+          ),
+        ],
+      ),
+    ) ?? false;
+  }
+
+  Future<void> _confirm() async {
+    if (_entries == null) return;
+
+    int totalGood = 0;
+    int totalDamaged = 0;
+    int totalMissing = 0;
+    bool hasDiscrepancy = false;
+
+    final batchList = _entries!.map((e) {
+      final good = int.tryParse(e.goodCtrl.text) ?? 0;
+      final damaged = int.tryParse(e.damagedCtrl.text) ?? 0;
+      int missing = e.batch.systemQty - good - damaged;
+      if (missing < 0) missing = 0;
+
+      if (good + damaged + missing != e.batch.systemQty) {
+        hasDiscrepancy = true;
+      }
+
+      totalGood += good;
+      totalDamaged += damaged;
+      totalMissing += missing;
+
+      return {
+        'batch_id': int.tryParse(e.batch.id) ?? 0,
+        'batch_code': e.batch.batchCode,
+        'counted_qty': good,
+        'damaged_qty': damaged,
+        'missing_qty': missing,
+      };
+    }).toList();
+
+    if (hasDiscrepancy) {
+      final proceed = await _showDiscrepancyWarning();
+      if (!proceed) return;
+    }
+
+    setState(() => _isSaving = true);
+    try {
+      final updated = await ref
+          .read(stockAuditRepositoryProvider)
+          .countSku(widget.auditId, widget.item.skuId, {
+            'counted_qty': totalGood,
+            'damaged_qty': totalDamaged,
+            'missing_qty': totalMissing,
+            'batches': batchList,
+          });
+      if (mounted) Navigator.pop(context, updated);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final batchesAsync = ref.watch(
+      auditBatchSerialsProvider((widget.auditId, widget.item.skuId)),
+    );
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      backgroundColor: Colors.white,
+      child: Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.8,
+          maxWidth: 600,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text('Enter Batches', style: AppTextStyles.headingMedium),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 20),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              Expanded(
+                child: batchesAsync.when(
+                  loading:
+                      () => const Center(child: CircularProgressIndicator()),
+                  error: (e, _) => Center(child: Text('Error: $e')),
+                  data: (data) {
+                    final batches = data['batches'] as List<AuditBatch>? ?? [];
+                    if (batches.isEmpty) {
+                      return Center(
+                        child: Text(
+                          'No batches found',
+                          style: AppTextStyles.bodyMedium.copyWith(
+                            color: AppColors.textMuted,
+                          ),
+                        ),
+                      );
+                    }
+                    _initEntries(batches);
+                    return SingleChildScrollView(
+                      child: Column(
+                        children: _entries!.map((entry) {
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppColors.background,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.cardBorder),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  entry.batch.batchCode,
+                                  style: AppTextStyles.bodySmall.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                if (entry.batch.expiryDate != null) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Expiry: ${entry.batch.expiryDate}',
+                                    style: AppTextStyles.caption.copyWith(
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                                const SizedBox(height: 10),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: _CountField(
+                                        label: 'Good',
+                                        ctrl: entry.goodCtrl,
+                                        color: AppColors.success,
+                                        readOnly: !widget.canEdit,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: _CountField(
+                                        label: 'Damaged',
+                                        ctrl: entry.damagedCtrl,
+                                        color: AppColors.warning,
+                                        readOnly: !widget.canEdit,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    );
+                  },
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              if (widget.auditStatus == StockAuditStatus.initiatedAuditing)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: _isSaving ? null : () => Navigator.pop(context),
+                      child: const Text('Cancel'),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: (_isSaving || _entries == null)
+                          ? null
+                          : _confirm,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: _isSaving
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text('Confirm & Save'),
+                    ),
+                  ],
+                )
+              else
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Close'),
+                    ),
+                  ],
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

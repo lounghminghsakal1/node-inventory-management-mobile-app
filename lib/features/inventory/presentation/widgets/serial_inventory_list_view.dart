@@ -382,7 +382,9 @@ class _SerialCard extends StatelessWidget {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      "Last Ref: ${item.currentTransaction!.transactionReferenceType} (${item.currentTransaction!.transactionType})",
+                      item.currentTransaction!.transactionReferenceType == 'GoodsReceivedNote'
+                          ? "Ref: GRN - ${item.currentTransaction!.transactionReferenceId ?? 'N/A'}"
+                          : "Ref: ${item.currentTransaction!.transactionReferenceType} - ${item.currentTransaction!.transactionReferenceId ?? 'N/A'}",
                       style: AppTextStyles.caption.copyWith(color: AppColors.textMuted),
                       overflow: TextOverflow.ellipsis,
                     ),

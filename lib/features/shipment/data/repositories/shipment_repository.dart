@@ -24,6 +24,9 @@ class ShipmentRepository {
     String? byShipmentType,
     String? fromDate,
     String? toDate,
+    String? byShipmentNumber,
+    String? bySkuName,
+    String? bySkuCode,
   }) async {
     try {
       final queryParams = <String, dynamic>{'page': page};
@@ -33,6 +36,9 @@ class ShipmentRepository {
       if (byShipmentType != null && byShipmentType.isNotEmpty) queryParams['by_shipment_type'] = byShipmentType;
       if (fromDate != null && fromDate.isNotEmpty) queryParams['from_date'] = fromDate;
       if (toDate != null && toDate.isNotEmpty) queryParams['to_date'] = toDate;
+      if (byShipmentNumber != null && byShipmentNumber.isNotEmpty) queryParams['by_shipment_number'] = byShipmentNumber;
+      if (bySkuName != null && bySkuName.isNotEmpty) queryParams['by_sku_name'] = bySkuName;
+      if (bySkuCode != null && bySkuCode.isNotEmpty) queryParams['by_sku_code'] = bySkuCode;
 
       final response = await _dio.get(
         ApiEndpoints.shipments,

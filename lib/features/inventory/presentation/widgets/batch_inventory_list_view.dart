@@ -291,13 +291,15 @@ class _BatchCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header: SKU Name & Node Badge
+            // Header: Batch Code
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
                   child: Text(
-                    item.productSku?.skuName ?? 'Unknown SKU',
+                    item.batch?.batchCode != null && item.batch!.batchCode.isNotEmpty
+                        ? item.batch!.batchCode
+                        : 'Unknown Batch',
                     style: AppTextStyles.headingMedium.copyWith(fontSize: 16),
                   ),
                 ),
@@ -305,36 +307,29 @@ class _BatchCard extends StatelessWidget {
             ),
             const SizedBox(height: 6),
 
-            // SKU Code & Batch Code
+            // SKU Name & SKU Code
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    "SKU: ${item.productSku?.skuCode ?? 'N/A'}",
-                    style: AppTextStyles.caption.copyWith(color: AppColors.textMuted, fontWeight: FontWeight.w600),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.productSku?.skuName ?? 'Unknown SKU',
+                        style: AppTextStyles.labelMedium.copyWith(fontWeight: FontWeight.w600),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        "SKU: ${item.productSku?.skuCode ?? 'N/A'}",
+                        style: AppTextStyles.caption.copyWith(color: AppColors.textMuted, fontWeight: FontWeight.w600),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
                 ),
-                if (item.batch?.batchCode != null && item.batch!.batchCode.isNotEmpty) ...[
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
-                    ),
-                    child: Text(
-                      "Batch: ${item.batch!.batchCode}",
-                      style: AppTextStyles.caption.copyWith(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ),
-                ],
               ],
             ),
             const SizedBox(height: 12),
@@ -352,19 +347,27 @@ class _BatchCard extends StatelessWidget {
 
             if (item.inTransitQuantity > 0 || item.damagedQuantity > 0 || item.missingQuantity > 0) ...[
               const SizedBox(height: 8),
-              Row(
-                children: [
-                  if (item.inTransitQuantity > 0) ...[
-                    Expanded(child: _QtyBadge(label: "In Transit", count: item.inTransitQuantity, color: AppColors.info)),
-                    const SizedBox(width: 8),
-                  ],
-                  if (item.damagedQuantity > 0) ...[
-                    Expanded(child: _QtyBadge(label: "Damaged", count: item.damagedQuantity, color: AppColors.error)),
-                    const SizedBox(width: 8),
-                  ],
-                  if (item.missingQuantity > 0)
-                    Expanded(child: _QtyBadge(label: "Missing", count: item.missingQuantity, color: AppColors.error)),
-                ],
+              Builder(
+                builder: (context) {
+                  final badges = <Widget>[];
+                  if (item.inTransitQuantity > 0) badges.add(_QtyBadge(label: "In Transit", count: item.inTransitQuantity, color: AppColors.info));
+                  if (item.damagedQuantity > 0) badges.add(_QtyBadge(label: "Damaged", count: item.damagedQuantity, color: AppColors.error));
+                  if (item.missingQuantity > 0) badges.add(_QtyBadge(label: "Missing", count: item.missingQuantity, color: AppColors.error));
+                  
+                  while (badges.length < 3) {
+                    badges.add(const SizedBox.shrink());
+                  }
+
+                  return Row(
+                    children: [
+                      Expanded(child: badges[0]),
+                      const SizedBox(width: 8),
+                      Expanded(child: badges[1]),
+                      const SizedBox(width: 8),
+                      Expanded(child: badges[2]),
+                    ],
+                  );
+                },
               ),
             ],
           ],

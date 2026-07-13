@@ -90,6 +90,8 @@ class ApiEndpoints {
       '/goods_received_notes/$grnId/initiate_qc';
   static String saveQcLineItems(String grnId) =>
       '/goods_received_notes/$grnId/qc_line_items';
+  static String deleteGrnLineItem(String grnId, String lineItemId) =>
+      '/goods_received_notes/$grnId/delete_line_item?grn_line_item_id=$lineItemId';
 
 
   // Stock Audits

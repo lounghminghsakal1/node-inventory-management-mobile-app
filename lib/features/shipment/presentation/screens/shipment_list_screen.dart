@@ -20,6 +20,7 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
     with TickerProviderStateMixin {
   late TabController _typeTabCtrl;
   late TabController _statusTabCtrl;
+  final TextEditingController _searchCtrl = TextEditingController();
   String _search = '';
   String _shipmentType = 'forward_shipment';
 
@@ -44,12 +45,13 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
 
   List<(String, List<ShipmentStatus>?)> get _currentStatusTabs =>
       _shipmentType == 'forward_shipment'
-          ? _forwardStatusTabs
-          : _returnStatusTabs;
+      ? _forwardStatusTabs
+      : _returnStatusTabs;
 
   void _onTypeTabChanged() {
-    final newType =
-        _typeTabCtrl.index == 0 ? 'forward_shipment' : 'reverse_shipment';
+    final newType = _typeTabCtrl.index == 0
+        ? 'forward_shipment'
+        : 'reverse_shipment';
     if (_shipmentType != newType) {
       _shipmentType = newType;
       _statusTabCtrl.removeListener(_onStatusTabChanged);
@@ -60,10 +62,9 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
       );
       _statusTabCtrl.addListener(_onStatusTabChanged);
       setState(() {});
-      ref.read(shipmentListProvider.notifier).load(
-            page: 1,
-            byShipmentType: newType,
-          );
+      ref
+          .read(shipmentListProvider.notifier)
+          .load(page: 1, byShipmentType: newType);
     }
   }
 
@@ -75,8 +76,10 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
   void initState() {
     super.initState();
     _typeTabCtrl = TabController(length: 2, vsync: this);
-    _statusTabCtrl =
-        TabController(length: _forwardStatusTabs.length, vsync: this);
+    _statusTabCtrl = TabController(
+      length: _forwardStatusTabs.length,
+      vsync: this,
+    );
     _typeTabCtrl.addListener(_onTypeTabChanged);
     _statusTabCtrl.addListener(_onStatusTabChanged);
   }
@@ -87,6 +90,7 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
     _statusTabCtrl.removeListener(_onStatusTabChanged);
     _typeTabCtrl.dispose();
     _statusTabCtrl.dispose();
+    _searchCtrl.dispose();
     super.dispose();
   }
 
@@ -148,41 +152,148 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
                 // Search bar
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                  child: TextField(
-                    style: AppTextStyles.bodyMedium,
-                    cursorColor: AppColors.primary,
-                    decoration: InputDecoration(
-                      hintText: 'Search by shipment number...',
-                      hintStyle: AppTextStyles.bodySmall,
-                      prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
-                      fillColor: AppColors.card,
-                      filled: true,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(
-                          color: AppColors.cardBorder,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _searchCtrl,
+                          style: AppTextStyles.bodyMedium,
+                          cursorColor: AppColors.primary,
+                          decoration: InputDecoration(
+                            hintText: 'Search by shipment number...',
+                            hintStyle: AppTextStyles.bodySmall,
+                            prefixIcon: const Icon(
+                              Icons.search_rounded,
+                              size: 20,
+                            ),
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
+                            fillColor: AppColors.card,
+                            filled: true,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(
+                                color: AppColors.cardBorder,
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(
+                                color: AppColors.cardBorder,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(
+                                color: AppColors.primary,
+                                width: 1.5,
+                              ),
+                            ),
+                          ),
+                          onSubmitted: (v) {
+                            ref
+                                .read(shipmentListProvider.notifier)
+                                .updateFilters(
+                                  byShipmentNumber: v.trim().isEmpty
+                                      ? null
+                                      : v.trim(),
+                                  byStatus: state.byStatus,
+                                  byOrderNumber: state.byOrderNumber,
+                                  fromDate: state.fromDate,
+                                  toDate: state.toDate,
+                                );
+                          },
+                          onChanged: (v) => setState(
+                            () => _search = v,
+                          ), // Keep local search for text
                         ),
                       ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(
-                          color: AppColors.cardBorder,
-                        ),
+                      const SizedBox(width: 12),
+                      Builder(
+                        builder: (ctx) {
+                          final hasFilters =
+                              state.byOrderNumber != null ||
+                              state.fromDate != null ||
+                              state.toDate != null ||
+                              state.bySkuName != null ||
+                              state.bySkuCode != null;
+                          return InkWell(
+                            onTap: () {
+                              showModalBottomSheet(
+                                context: context,
+                                isScrollControlled: true,
+                                backgroundColor: AppColors.card,
+                                shape: const RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.vertical(
+                                    top: Radius.circular(20),
+                                  ),
+                                ),
+                                builder: (ctx) => _ShipmentFilterSheet(
+                                  initialOrderNum: state.byOrderNumber,
+                                  initialSkuName: state.bySkuName,
+                                  initialSkuCode: state.bySkuCode,
+                                  initialFromDate: state.fromDate,
+                                  initialToDate: state.toDate,
+                                  onApply:
+                                      (
+                                        orderNum,
+                                        skuName,
+                                        skuCode,
+                                        fromDate,
+                                        toDate,
+                                      ) {
+                                        ref
+                                            .read(shipmentListProvider.notifier)
+                                            .updateFilters(
+                                              byOrderNumber: orderNum,
+                                              byShipmentNumber:
+                                                  state.byShipmentNumber,
+                                              bySkuName: skuName,
+                                              bySkuCode: skuCode,
+                                              fromDate: fromDate,
+                                              toDate: toDate,
+                                            );
+                                      },
+                                  onReset: () {
+                                    _searchCtrl.clear();
+                                    setState(() => _search = '');
+                                    ref
+                                        .read(shipmentListProvider.notifier)
+                                        .clearFilters();
+                                  },
+                                ),
+                              );
+                            },
+                            borderRadius: BorderRadius.circular(10),
+                            child: Container(
+                              height: 42,
+                              width: 42,
+                              decoration: BoxDecoration(
+                                color: hasFilters
+                                    ? AppColors.primary
+                                    : AppColors.card,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: hasFilters
+                                      ? AppColors.primary
+                                      : AppColors.cardBorder,
+                                ),
+                              ),
+                              child: Icon(
+                                Icons.tune_rounded,
+                                color: hasFilters
+                                    ? Colors.white
+                                    : AppColors.primary,
+                                size: 20,
+                              ),
+                            ),
+                          );
+                        },
                       ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(
-                          color: AppColors.primary,
-                          width: 1.5,
-                        ),
-                      ),
-                    ),
-                    onChanged: (v) => setState(() => _search = v),
+                    ],
                   ),
                 ),
                 // Status Tabs
@@ -263,14 +374,13 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
                   child: RefreshIndicator(
                     color: AppColors.primary,
                     backgroundColor: AppColors.card,
-                    onRefresh: () async =>
-                        ref.read(shipmentListProvider.notifier).load(
-                              page: 1,
-                              byShipmentType: _shipmentType,
-                            ),
+                    onRefresh: () async => ref
+                        .read(shipmentListProvider.notifier)
+                        .load(page: 1, byShipmentType: _shipmentType),
                     child: ListView.builder(
                       padding: const EdgeInsets.all(16),
-                      itemCount: filtered.length + (state.isMoreLoading ? 1 : 0),
+                      itemCount:
+                          filtered.length + (state.isMoreLoading ? 1 : 0),
                       itemBuilder: (_, i) {
                         if (i == filtered.length) {
                           return const Padding(
@@ -494,7 +604,8 @@ class _OrderSearchBottomSheetState extends State<_OrderSearchBottomSheet> {
                                 queryParameters: {
                                   'orderId': o.id.toString(),
                                   'orderNumber': o.orderNumber,
-                                  'customerName': 'Customer ID: ${o.customer.id}',
+                                  'customerName':
+                                      'Customer ID: ${o.customer.id}',
                                 },
                               ).toString(),
                             );
@@ -505,6 +616,338 @@ class _OrderSearchBottomSheetState extends State<_OrderSearchBottomSheet> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ShipmentFilterSheet extends StatefulWidget {
+  final String? initialOrderNum;
+  final String? initialSkuName;
+  final String? initialSkuCode;
+  final String? initialFromDate;
+  final String? initialToDate;
+  final Function(
+    String? orderNum,
+    String? skuName,
+    String? skuCode,
+    String? fromDate,
+    String? toDate,
+  )
+  onApply;
+  final VoidCallback onReset;
+
+  const _ShipmentFilterSheet({
+    required this.initialOrderNum,
+    required this.initialSkuName,
+    required this.initialSkuCode,
+    required this.initialFromDate,
+    required this.initialToDate,
+    required this.onApply,
+    required this.onReset,
+  });
+
+  @override
+  State<_ShipmentFilterSheet> createState() => _ShipmentFilterSheetState();
+}
+
+class _ShipmentFilterSheetState extends State<_ShipmentFilterSheet> {
+  late TextEditingController _orderCtrl;
+  late TextEditingController _skuNameCtrl;
+  late TextEditingController _skuCodeCtrl;
+  late TextEditingController _fromCtrl;
+  late TextEditingController _toCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _orderCtrl = TextEditingController(text: widget.initialOrderNum ?? '');
+    _skuNameCtrl = TextEditingController(text: widget.initialSkuName ?? '');
+    _skuCodeCtrl = TextEditingController(text: widget.initialSkuCode ?? '');
+    _fromCtrl = TextEditingController(text: widget.initialFromDate ?? '');
+    _toCtrl = TextEditingController(text: widget.initialToDate ?? '');
+  }
+
+  @override
+  void dispose() {
+    _orderCtrl.dispose();
+    _skuNameCtrl.dispose();
+    _skuCodeCtrl.dispose();
+    _fromCtrl.dispose();
+    _toCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _selectDate(TextEditingController ctrl) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+      builder: (context, child) {
+        return Theme(
+          data: ThemeData.light().copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppColors.primary,
+              onPrimary: Colors.white,
+              surface: AppColors.surface,
+              onSurface: AppColors.textPrimary,
+            ),
+            dialogBackgroundColor: AppColors.card,
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      ctrl.text =
+          "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        16,
+        20,
+        MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text("Filter Shipments", style: AppTextStyles.headingLarge),
+              IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text("Order Number", style: AppTextStyles.labelMedium),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _orderCtrl,
+            decoration: InputDecoration(
+              hintText: "Enter exact order number...",
+              hintStyle: AppTextStyles.bodySmall,
+              filled: true,
+              fillColor: AppColors.surface,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: AppColors.cardBorder),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: AppColors.cardBorder),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: AppColors.primary),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text("SKU Name", style: AppTextStyles.labelMedium),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _skuNameCtrl,
+            decoration: InputDecoration(
+              hintText: "Enter SKU name...",
+              hintStyle: AppTextStyles.bodySmall,
+              filled: true,
+              fillColor: AppColors.surface,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: AppColors.cardBorder),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: AppColors.cardBorder),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: AppColors.primary),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text("SKU Code", style: AppTextStyles.labelMedium),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _skuCodeCtrl,
+            decoration: InputDecoration(
+              hintText: "Enter SKU code...",
+              hintStyle: AppTextStyles.bodySmall,
+              filled: true,
+              fillColor: AppColors.surface,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: AppColors.cardBorder),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: AppColors.cardBorder),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: AppColors.primary),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("From Date", style: AppTextStyles.labelMedium),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _fromCtrl,
+                      readOnly: true,
+                      onTap: () => _selectDate(_fromCtrl),
+                      decoration: InputDecoration(
+                        hintText: "YYYY-MM-DD",
+                        hintStyle: AppTextStyles.bodySmall,
+                        suffixIcon: const Icon(Icons.calendar_today, size: 16),
+                        filled: true,
+                        fillColor: AppColors.surface,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(
+                            color: AppColors.cardBorder,
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(
+                            color: AppColors.cardBorder,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("To Date", style: AppTextStyles.labelMedium),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _toCtrl,
+                      readOnly: true,
+                      onTap: () => _selectDate(_toCtrl),
+                      decoration: InputDecoration(
+                        hintText: "YYYY-MM-DD",
+                        hintStyle: AppTextStyles.bodySmall,
+                        suffixIcon: const Icon(Icons.calendar_today, size: 16),
+                        filled: true,
+                        fillColor: AppColors.surface,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(
+                            color: AppColors.cardBorder,
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(
+                            color: AppColors.cardBorder,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    side: const BorderSide(color: AppColors.cardBorder),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  onPressed: () {
+                    _orderCtrl.clear();
+                    _skuNameCtrl.clear();
+                    _skuCodeCtrl.clear();
+                    _fromCtrl.clear();
+                    _toCtrl.clear();
+                    widget.onReset();
+                    Navigator.pop(context);
+                  },
+                  child: Text("Reset", style: AppTextStyles.labelMedium),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  onPressed: () {
+                    widget.onApply(
+                      _orderCtrl.text.isEmpty ? null : _orderCtrl.text,
+                      _skuNameCtrl.text.isEmpty ? null : _skuNameCtrl.text,
+                      _skuCodeCtrl.text.isEmpty ? null : _skuCodeCtrl.text,
+                      _fromCtrl.text.isEmpty ? null : _fromCtrl.text,
+                      _toCtrl.text.isEmpty ? null : _toCtrl.text,
+                    );
+                    Navigator.pop(context);
+                  },
+                  child: Text(
+                    "Apply Filters",
+                    style: AppTextStyles.labelMedium.copyWith(
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

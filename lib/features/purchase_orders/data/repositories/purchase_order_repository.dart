@@ -212,6 +212,16 @@ class PurchaseOrderRepository {
     return await getGrnDetail(grnId);
   }
 
+  Future<void> deleteGrnLineItem(int grnId, int grnLineItemId) async {
+    final res = await _dio.delete(ApiEndpoints.deleteGrnLineItem(grnId.toString(), grnLineItemId.toString()));
+    if (res.data is Map<String, dynamic>) {
+      final status = res.data['status']?.toString().toLowerCase();
+      if (status != null && status != 'success' && status != 'ok') {
+        throw Exception(res.data['message'] ?? res.data['error'] ?? 'Failed to delete GRN line item');
+      }
+    }
+  }
+
   Future<List<PoSkuItemModel>> getPurchaseOrderSkuItems(int poId, [int? grnId]) async {
     final res = await _dio.get(ApiEndpoints.poReceivingSummary(poId.toString(), grnId?.toString()));
     final data = res.data['data'] as Map<String, dynamic>? ?? {};

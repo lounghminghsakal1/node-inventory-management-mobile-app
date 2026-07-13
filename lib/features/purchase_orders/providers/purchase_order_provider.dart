@@ -152,6 +152,44 @@ class PurchaseOrderListNotifier extends StateNotifier<PurchaseOrderListState> {
       toDate: state.toDate,
     );
   }
+
+  void updateFilters({
+    String? byVendorName,
+    int? byVendorId,
+    String? byPoNumber,
+    String? byStatus,
+    String? fromDate,
+    String? toDate,
+  }) {
+    load(
+      page: 1,
+      byVendorName: byVendorName ?? state.byVendorName,
+      byVendorId: byVendorId ?? state.byVendorId,
+      byPoNumber: byPoNumber ?? state.byPoNumber,
+      byStatus: byStatus ?? state.byStatus,
+      fromDate: fromDate ?? state.fromDate,
+      toDate: toDate ?? state.toDate,
+    );
+  }
+
+  void clearFilters() {
+    state = PurchaseOrderListState(
+      purchaseOrders: state.purchaseOrders,
+      isLoading: state.isLoading,
+      isMoreLoading: state.isMoreLoading,
+      error: state.error,
+      currentPage: state.currentPage,
+      totalPages: state.totalPages,
+      totalCount: state.totalCount,
+      byVendorName: state.byVendorName,
+      byVendorId: state.byVendorId,
+      byStatus: state.byStatus,
+      byPoNumber: null,
+      fromDate: null,
+      toDate: null,
+    );
+    load(page: 1);
+  }
 }
 
 final purchaseOrderListProvider =
@@ -217,6 +255,21 @@ class GrnController extends StateNotifier<AsyncValue<void>> {
     } catch (e, st) {
       state = AsyncValue.error(e, st);
       return null;
+    }
+  }
+
+  Future<void> deleteGrnLineItem(int grnId, int poId, int grnLineItemId) async {
+    state = const AsyncValue.loading();
+    try {
+      final repo = ref.read(purchaseOrderRepoProvider);
+      await repo.deleteGrnLineItem(grnId, grnLineItemId);
+      ref.invalidate(grnDetailProvider(grnId));
+      ref.invalidate(grnListForPoProvider(poId));
+      ref.invalidate(poSkuItemsProvider(poId));
+      state = const AsyncValue.data(null);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      rethrow;
     }
   }
 

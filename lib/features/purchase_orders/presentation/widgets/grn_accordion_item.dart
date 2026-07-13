@@ -668,10 +668,10 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                               ),
                               const SizedBox(width: 4),
                               IconButton(
-                                icon: const Icon(Icons.delete_outline, color: AppColors.error, size: 20),
-                                tooltip: "Remove Line Item",
-                                onPressed: _loadingAction != null ? null : () {},
-                              ),
+                                  icon: const Icon(Icons.delete_outline, color: AppColors.error, size: 20),
+                                  tooltip: "Remove Line Item",
+                                  onPressed: _loadingAction != null ? null : () => _confirmDeleteLineItem(li),
+                                ),
                             ],
                           ],
                         ),
@@ -1251,6 +1251,45 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
       setState(() {
         _qcModifiedItems[updatedItem.id] = updatedItem;
       });
+    }
+  }
+
+  Future<void> _confirmDeleteLineItem(GrnLineItemModel li) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Delete Line Item"),
+        content: const Text("Are you sure you want to delete this line item?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("Delete"),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !mounted) return;
+
+    setState(() => _loadingAction = 'delete_${li.id}');
+    try {
+      await ref.read(grnControllerProvider.notifier).deleteGrnLineItem(widget.grn.id, widget.grn.purchaseOrderId, li.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Line item deleted successfully"), backgroundColor: AppColors.success),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', '')), backgroundColor: AppColors.error),
+      );
+    } finally {
+      if (mounted) setState(() => _loadingAction = null);
     }
   }
 

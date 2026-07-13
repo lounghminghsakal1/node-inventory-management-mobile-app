@@ -17,7 +17,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 4,
+      length: 3,
       child: Column(
         children: [
           // ── Top Tab Bar ─────────────────────────────────────────────────────
@@ -96,7 +96,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 NodeInventoryListView(),
                 BatchInventoryListView(),
                 SerialInventoryListView(),
-                NodeInventoryLedgerView(),
               ],
             ),
           ),

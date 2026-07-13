@@ -4,11 +4,13 @@ class SerialCurrentTransactionModel {
   final int id;
   final String transactionReferenceType;
   final String transactionType;
+  final int? transactionReferenceId;
 
   const SerialCurrentTransactionModel({
     required this.id,
     required this.transactionReferenceType,
     required this.transactionType,
+    this.transactionReferenceId,
   });
 
   factory SerialCurrentTransactionModel.fromJson(Map<String, dynamic> json) {
@@ -16,6 +18,7 @@ class SerialCurrentTransactionModel {
       id: int.tryParse(json['id']?.toString() ?? '0') ?? 0,
       transactionReferenceType: json['transaction_reference_type']?.toString() ?? 'N/A',
       transactionType: json['transaction_type']?.toString() ?? 'N/A',
+      transactionReferenceId: int.tryParse(json['transaction_reference_id']?.toString() ?? ''),
     );
   }
 }

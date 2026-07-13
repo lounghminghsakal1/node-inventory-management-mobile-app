@@ -15,6 +15,12 @@ class ShipmentListState {
   final int totalCount;
   final String byShipmentType;
   final String? byStatus;
+  final String? byOrderNumber;
+  final String? byShipmentNumber;
+  final String? bySkuName;
+  final String? bySkuCode;
+  final String? fromDate;
+  final String? toDate;
 
   const ShipmentListState({
     this.shipments = const [],
@@ -26,6 +32,12 @@ class ShipmentListState {
     this.totalCount = 0,
     this.byShipmentType = 'forward_shipment',
     this.byStatus,
+    this.byOrderNumber,
+    this.byShipmentNumber,
+    this.bySkuName,
+    this.bySkuCode,
+    this.fromDate,
+    this.toDate,
   });
 
   ShipmentListState copyWith({
@@ -38,6 +50,12 @@ class ShipmentListState {
     int? totalCount,
     String? byShipmentType,
     String? byStatus,
+    String? byOrderNumber,
+    String? byShipmentNumber,
+    String? bySkuName,
+    String? bySkuCode,
+    String? fromDate,
+    String? toDate,
   }) =>
       ShipmentListState(
         shipments: shipments ?? this.shipments,
@@ -49,6 +67,12 @@ class ShipmentListState {
         totalCount: totalCount ?? this.totalCount,
         byShipmentType: byShipmentType ?? this.byShipmentType,
         byStatus: byStatus ?? this.byStatus,
+        byOrderNumber: byOrderNumber ?? this.byOrderNumber,
+        byShipmentNumber: byShipmentNumber ?? this.byShipmentNumber,
+        bySkuName: bySkuName ?? this.bySkuName,
+        bySkuCode: bySkuCode ?? this.bySkuCode,
+        fromDate: fromDate ?? this.fromDate,
+        toDate: toDate ?? this.toDate,
       );
 }
 
@@ -62,30 +86,50 @@ class ShipmentListNotifier extends StateNotifier<ShipmentListState> {
 
   Future<void> load({
     int page = 1,
+    String? byShipmentType,
     String? byStatus,
     String? byOrderNumber,
+    String? byShipmentNumber,
     String? byCustomerCode,
-    String? byShipmentType,
+    String? bySkuName,
+    String? bySkuCode,
     String? fromDate,
     String? toDate,
   }) async {
     if (!mounted) return;
     final targetShipmentType = byShipmentType ?? state.byShipmentType;
+
     if (page == 1) {
-      state = state.copyWith(isLoading: true, error: null, byShipmentType: targetShipmentType, byStatus: byStatus, shipments: []);
+      state = state.copyWith(
+        isLoading: true, 
+        error: null, 
+        byShipmentType: targetShipmentType, 
+        byStatus: byStatus ?? state.byStatus,
+        byOrderNumber: byOrderNumber ?? state.byOrderNumber,
+        byShipmentNumber: byShipmentNumber ?? state.byShipmentNumber,
+        bySkuName: bySkuName ?? state.bySkuName,
+        bySkuCode: bySkuCode ?? state.bySkuCode,
+        fromDate: fromDate ?? state.fromDate,
+        toDate: toDate ?? state.toDate,
+        shipments: []
+      );
     } else {
       if (state.isLoading || state.isMoreLoading || state.currentPage >= state.totalPages) return;
       state = state.copyWith(isMoreLoading: true, error: null,);
     }
+
     try {
       final res = await _repo.getShipmentsApi(
         page: page,
-        byStatus: byStatus ?? state.byStatus,
-        byOrderNumber: byOrderNumber,
+        byStatus: state.byStatus,
+        byOrderNumber: state.byOrderNumber,
         byCustomerCode: byCustomerCode,
         byShipmentType: targetShipmentType,
-        fromDate: fromDate,
-        toDate: toDate,
+        fromDate: state.fromDate,
+        toDate: state.toDate,
+        byShipmentNumber: state.byShipmentNumber,
+        bySkuName: state.bySkuName,
+        bySkuCode: state.bySkuCode,
       );
       if (!mounted) return;
       final updatedShipments = page == 1 ? res.shipments : [...state.shipments, ...res.shipments];
@@ -110,7 +154,49 @@ class ShipmentListNotifier extends StateNotifier<ShipmentListState> {
 
   Future<void> loadNextPage() async {
     if (state.isLoading || state.isMoreLoading || state.currentPage >= state.totalPages) return;
-    await load(page: state.currentPage + 1, byShipmentType: state.byShipmentType, byStatus: state.byStatus);
+    await load(page: state.currentPage + 1, byShipmentType: state.byShipmentType);
+  }
+
+  void updateFilters({
+    String? byStatus,
+    String? byOrderNumber,
+    String? byShipmentNumber,
+    String? bySkuName,
+    String? bySkuCode,
+    String? fromDate,
+    String? toDate,
+  }) {
+    state = state.copyWith(
+      byStatus: byStatus,
+      byOrderNumber: byOrderNumber,
+      byShipmentNumber: byShipmentNumber,
+      bySkuName: bySkuName,
+      bySkuCode: bySkuCode,
+      fromDate: fromDate,
+      toDate: toDate,
+    );
+    load(page: 1);
+  }
+  
+  void clearFilters() {
+    state = ShipmentListState(
+      shipments: state.shipments,
+      isLoading: state.isLoading,
+      isMoreLoading: state.isMoreLoading,
+      error: state.error,
+      currentPage: state.currentPage,
+      totalPages: state.totalPages,
+      totalCount: state.totalCount,
+      byShipmentType: state.byShipmentType,
+      byStatus: state.byStatus,
+      byOrderNumber: null,
+      byShipmentNumber: null,
+      bySkuName: null,
+      bySkuCode: null,
+      fromDate: null,
+      toDate: null,
+    );
+    load(page: 1);
   }
 
   Future<Shipment> createShipment({

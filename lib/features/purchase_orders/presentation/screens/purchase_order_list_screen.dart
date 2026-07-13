@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -19,6 +20,7 @@ class _PurchaseOrderListScreenState
     with SingleTickerProviderStateMixin {
   late TabController _tabCtrl;
   String _search = '';
+  Timer? _debounce;
 
   static const _tabs = [
     ('All', null),
@@ -41,6 +43,7 @@ class _PurchaseOrderListScreenState
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _tabCtrl.dispose();
     super.dispose();
   }
@@ -89,7 +92,17 @@ class _PurchaseOrderListScreenState
                             color: AppColors.primary, width: 1.5),
                       ),
                     ),
-                    onChanged: (v) => setState(() => _search = v),
+                    onChanged: (v) {
+                      setState(() => _search = v);
+                      if (_debounce?.isActive ?? false) _debounce!.cancel();
+                      _debounce = Timer(const Duration(milliseconds: 500), () {
+                        ref.read(purchaseOrderListProvider.notifier).load(
+                              page: 1,
+                              byStatus: _tabs[_tabCtrl.index].$2,
+                              byPoNumber: v.trim().isEmpty ? null : v.trim(),
+                            );
+                      });
+                    },
                   ),
                 ),
                 TabBar(
@@ -131,12 +144,6 @@ class _PurchaseOrderListScreenState
                   if (statusFilter != null &&
                       po.status.toLowerCase() != statusFilter) {
                     return false;
-                  }
-                  if (_search.isNotEmpty) {
-                    final q = _search.toLowerCase();
-                    return po.purchaseOrderNumber.toLowerCase().contains(q) ||
-                        po.vendor.firmName.toLowerCase().contains(q) ||
-                        po.vendor.code.toLowerCase().contains(q);
                   }
                   return true;
                 }).toList();

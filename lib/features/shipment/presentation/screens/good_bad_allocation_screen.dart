@@ -239,56 +239,57 @@ class _GoodBadAllocationScreenState extends ConsumerState<GoodBadAllocationScree
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Before completing, please select whether returned items should be restored to inventory.',
-                  style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
-                ),
-                const SizedBox(height: 16),
-                InkWell(
-                  onTap: () => setModalState(() => inventoryReturn = !inventoryReturn),
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.06),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
-                    ),
-                    child: Row(
-                      children: [
-                        Checkbox(
-                          value: inventoryReturn,
-                          activeColor: AppColors.primary,
-                          onChanged: (v) => setModalState(() => inventoryReturn = v ?? true),
-                        ),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Restore to Inventory', style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w600)),
-                              Text(
-                                inventoryReturn
-                                    ? 'Good qty → Available, Bad qty → Damaged'
-                                    : 'No restoration (All qty treated as write-off)',
-                                style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: reasonController,
-                  decoration: InputDecoration(
-                    labelText: 'Return Reason (Optional)',
-                    hintText: 'e.g. Customer returned damaged goods',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  maxLines: 2,
-                ),
+                Text("Are you sure you want to complete this reverse shipment ?", style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),)
+                // Text(
+                //   'Before completing, please select whether returned items should be restored to inventory.',
+                //   style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+                // ),
+                // const SizedBox(height: 16),
+                // InkWell(
+                //   onTap: () => setModalState(() => inventoryReturn = !inventoryReturn),
+                //   borderRadius: BorderRadius.circular(12),
+                //   child: Container(
+                //     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                //     decoration: BoxDecoration(
+                //       color: AppColors.primary.withValues(alpha: 0.06),
+                //       borderRadius: BorderRadius.circular(12),
+                //       border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+                //     ),
+                //     child: Row(
+                //       children: [
+                //         Checkbox(
+                //           value: inventoryReturn,
+                //           activeColor: AppColors.primary,
+                //           onChanged: (v) => setModalState(() => inventoryReturn = v ?? true),
+                //         ),
+                //         Expanded(
+                //           child: Column(
+                //             crossAxisAlignment: CrossAxisAlignment.start,
+                //             children: [
+                //               Text('Restore to Inventory', style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w600)),
+                //               Text(
+                //                 inventoryReturn
+                //                     ? 'Good qty → Available, Bad qty → Damaged'
+                //                     : 'No restoration (All qty treated as write-off)',
+                //                 style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
+                //               ),
+                //             ],
+                //           ),
+                //         ),
+                //       ],
+                //     ),
+                //   ),
+                // ),
+                // const SizedBox(height: 16),
+                // TextFormField(
+                //   controller: reasonController,
+                //   decoration: InputDecoration(
+                //     labelText: 'Return Reason (Optional)',
+                //     hintText: 'e.g. Customer returned damaged goods',
+                //     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                //   ),
+                //   maxLines: 2,
+                // ),
               ],
             ),
           ),

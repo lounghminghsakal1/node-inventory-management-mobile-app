@@ -592,7 +592,7 @@ class _AllocationCardState extends ConsumerState<_AllocationCard> {
                         Row(
                           children: [
                             Text(
-                              'Allocation Type: ',
+                              'Selection Type: ',
                               style: AppTextStyles.labelMedium,
                             ),
                             const SizedBox(width: 12),

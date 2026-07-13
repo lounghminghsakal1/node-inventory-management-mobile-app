@@ -22,7 +22,7 @@ class _AuditScreenState extends ConsumerState<AuditScreen>
     'initiated_auditing',
     'assigned',
     'sent_for_review',
-    null,
+    '',
   ];
 
   @override
@@ -114,7 +114,7 @@ class _AuditScreenState extends ConsumerState<AuditScreen>
                 _buildTabContent(state, 'initiated_auditing'),
                 _buildTabContent(state, 'assigned'),
                 _buildTabContent(state, 'sent_for_review'),
-                _buildTabContent(state, null),
+                _buildTabContent(state, ''),
               ],
             ),
           ),

@@ -13,6 +13,7 @@ import '../../providers/shipment_provider.dart';
 import 'allocation_screen.dart';
 import '../../../auth/providers/auth_provider.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../data/repositories/shipment_repository.dart';
 
@@ -119,71 +120,71 @@ class ShipmentDetailScreen extends ConsumerWidget {
                   ),
                 ),
               ),
-              if (canEditOrCancel)
-                PopupMenuButton<String>(
-                  icon: const Icon(
-                    Icons.more_vert_rounded,
-                    color: AppColors.textSecondary,
-                  ),
-                  color: AppColors.surface,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: const BorderSide(color: AppColors.cardBorder),
-                  ),
-                  onSelected: (value) async {
-                    if (value == 'edit') {
-                      _showEditModal(context, ref, shipment);
-                    } else if (value == 'cancel') {
-                      final confirm = await _confirmDialog(
-                        context,
-                        'Cancel Shipment',
-                        'Are you sure you want to cancel this shipment?',
-                      );
-                      if (confirm == true && context.mounted) {
-                        await ref
-                            .read(shipmentListProvider.notifier)
-                            .updateStatus(
-                              shipment.id,
-                              ShipmentStatus.cancelled,
-                            );
-                        ref.invalidate(shipmentByIdProvider(shipmentId));
-                      }
-                    }
-                  },
-                  itemBuilder: (context) => [
-                    const PopupMenuItem<String>(
-                      value: 'edit',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.edit_outlined,
-                            size: 18,
-                            color: AppColors.textSecondary,
-                          ),
-                          SizedBox(width: 10),
-                          Text('Edit Shipment'),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuItem<String>(
-                      value: 'cancel',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.cancel_outlined,
-                            size: 18,
-                            color: AppColors.error,
-                          ),
-                          SizedBox(width: 10),
-                          Text(
-                            'Cancel Shipment',
-                            style: TextStyle(color: AppColors.error),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+              //   if (canEditOrCancel)
+              //     PopupMenuButton<String>(
+              //       icon: const Icon(
+              //         Icons.more_vert_rounded,
+              //         color: AppColors.textSecondary,
+              //       ),
+              //       color: AppColors.surface,
+              //       shape: RoundedRectangleBorder(
+              //         borderRadius: BorderRadius.circular(12),
+              //         side: const BorderSide(color: AppColors.cardBorder),
+              //       ),
+              //       onSelected: (value) async {
+              //         if (value == 'edit') {
+              //           _showEditModal(context, ref, shipment);
+              //         } else if (value == 'cancel') {
+              //           final confirm = await _confirmDialog(
+              //             context,
+              //             'Cancel Shipment',
+              //             'Are you sure you want to cancel this shipment?',
+              //           );
+              //           if (confirm == true && context.mounted) {
+              //             await ref
+              //                 .read(shipmentListProvider.notifier)
+              //                 .updateStatus(
+              //                   shipment.id,
+              //                   ShipmentStatus.cancelled,
+              //                 );
+              //             ref.invalidate(shipmentByIdProvider(shipmentId));
+              //           }
+              //         }
+              //       },
+              //       itemBuilder: (context) => [
+              //         const PopupMenuItem<String>(
+              //           value: 'edit',
+              //           child: Row(
+              //             children: [
+              //               Icon(
+              //                 Icons.edit_outlined,
+              //                 size: 18,
+              //                 color: AppColors.textSecondary,
+              //               ),
+              //               SizedBox(width: 10),
+              //               Text('Edit Shipment'),
+              //             ],
+              //           ),
+              //         ),
+              //         const PopupMenuItem<String>(
+              //           value: 'cancel',
+              //           child: Row(
+              //             children: [
+              //               Icon(
+              //                 Icons.cancel_outlined,
+              //                 size: 18,
+              //                 color: AppColors.error,
+              //               ),
+              //               SizedBox(width: 10),
+              //               Text(
+              //                 'Cancel Shipment',
+              //                 style: TextStyle(color: AppColors.error),
+              //               ),
+              //             ],
+              //           ),
+              //         ),
+              //       ],
+              //     ),
             ],
           ),
           body: SingleChildScrollView(
@@ -450,6 +451,7 @@ class ShipmentDetailScreen extends ConsumerWidget {
                             onPressed: () => context.push(
                               '/shipments/${shipment.parentShipment!['id']}',
                             ),
+                            gradient: AppColors.greenGradient,
                           ),
                         ],
                       ],
@@ -488,7 +490,7 @@ class ShipmentDetailScreen extends ConsumerWidget {
                           _infoTile(
                             Icons.add_road_outlined,
                             'Distance',
-                            '${shipment.driverDetails!.distance} km/m',
+                            '${shipment.driverDetails!.distance} km',
                           ),
                         if (shipment.driverDetails!.courierName != null &&
                             shipment.driverDetails!.courierName!.isNotEmpty)
@@ -539,6 +541,13 @@ class ShipmentDetailScreen extends ConsumerWidget {
                                 );
                               }),
                         ],
+                        if (shipment.driverDetails!.images != null &&
+                            shipment.driverDetails!.images!.isNotEmpty)
+                          _buildImagesGallery(
+                            context,
+                            shipment.driverDetails!.images!,
+                            'Dispatch Images',
+                          ),
                       ],
                     ),
                   ),
@@ -572,6 +581,39 @@ class ShipmentDetailScreen extends ConsumerWidget {
                             'Delivery Note',
                             shipment.deliveryDetails!.deliveryNote!,
                             isMultiline: true,
+                          ),
+                        if (shipment
+                            .deliveryDetails!
+                            .additionalDetails
+                            .isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          const Divider(color: AppColors.cardBorder),
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'Additional Details',
+                              style: AppTextStyles.caption.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          ...shipment.deliveryDetails!.additionalDetails.entries
+                              .map((e) {
+                                return _infoTile(
+                                  Icons.label_outline_rounded,
+                                  e.key,
+                                  e.value.toString(),
+                                );
+                              }),
+                        ],
+                        if (shipment.deliveryDetails!.images.isNotEmpty)
+                          _buildImagesGallery(
+                            context,
+                            shipment.deliveryDetails!.images,
+                            'Delivery Images',
                           ),
                       ],
                     ),
@@ -682,6 +724,151 @@ class ShipmentDetailScreen extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildImagesGallery(
+    BuildContext context,
+    List<ShipmentMedia> images,
+    String title,
+  ) {
+    if (images.isEmpty) return const SizedBox();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 8),
+        const Divider(color: AppColors.cardBorder),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            title,
+            style: AppTextStyles.caption.copyWith(
+              fontWeight: FontWeight.bold,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        ...images.map((img) {
+          final displayTitle = img.title.isNotEmpty ? img.title : 'Image';
+          return ListTile(
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            leading: const Icon(
+              Icons.image_outlined,
+              color: AppColors.textSecondary,
+            ),
+            title: Text(displayTitle, style: AppTextStyles.bodySmall),
+            subtitle: (img.description != null && img.description!.isNotEmpty)
+                ? Text(img.description!, style: AppTextStyles.caption)
+                : null,
+            trailing: IconButton(
+              icon: const Icon(
+                Icons.remove_red_eye_outlined,
+                color: AppColors.primary,
+              ),
+              onPressed: () => _showImagePopup(context, img, displayTitle),
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  void _showImagePopup(BuildContext context, ShipmentMedia img, String title) {
+    showDialog(
+      context: context,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16),
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: AppTextStyles.headingSmall,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: img.url.toLowerCase().endsWith('.pdf')
+                    ? SizedBox(
+                        height: 400,
+                        width: double.infinity,
+                        child: SfPdfViewer.network(
+                          img.url,
+                          canShowScrollHead: false,
+                          canShowScrollStatus: false,
+                        ),
+                      )
+                    : Image.network(
+                        img.url,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.broken_image,
+                                    size: 40,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                  SizedBox(height: 8),
+                                  Text(
+                                    'Unable to preview this file type.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: AppColors.textSecondary,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(32),
+                              child: CircularProgressIndicator(),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+              if (img.description != null && img.description!.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text(img.description!, style: AppTextStyles.bodySmall),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -906,11 +1093,18 @@ class _LineItemRow extends ConsumerWidget {
                 Row(
                   children: [
                     Icon(
-                      isUntracked || (item.isAllocated && !(shipment.status == ShipmentStatus.created && !shipment.fullyAllocated))
+                      isUntracked ||
+                              (item.isAllocated &&
+                                  !(shipment.status == ShipmentStatus.created &&
+                                      !shipment.fullyAllocated))
                           ? Icons.check_circle_rounded
                           : Icons.radio_button_unchecked_rounded,
                       size: 14,
-                      color: isUntracked || (item.isAllocated && !(shipment.status == ShipmentStatus.created && !shipment.fullyAllocated))
+                      color:
+                          isUntracked ||
+                              (item.isAllocated &&
+                                  !(shipment.status == ShipmentStatus.created &&
+                                      !shipment.fullyAllocated))
                           ? AppColors.success
                           : AppColors.textMuted,
                     ),
@@ -918,9 +1112,17 @@ class _LineItemRow extends ConsumerWidget {
                     Text(
                       isUntracked
                           ? 'No allocation needed'
-                          : ((shipment.status == ShipmentStatus.created && !shipment.fullyAllocated) ? 'Pending' : (item.isAllocated ? 'Allocated' : 'Pending')),
+                          : ((shipment.status == ShipmentStatus.created &&
+                                    !shipment.fullyAllocated)
+                                ? 'Pending'
+                                : (item.isAllocated ? 'Allocated' : 'Pending')),
                       style: AppTextStyles.caption.copyWith(
-                        color: isUntracked || (item.isAllocated && !(shipment.status == ShipmentStatus.created && !shipment.fullyAllocated))
+                        color:
+                            isUntracked ||
+                                (item.isAllocated &&
+                                    !(shipment.status ==
+                                            ShipmentStatus.created &&
+                                        !shipment.fullyAllocated))
                             ? AppColors.success
                             : AppColors.textMuted,
                       ),
@@ -1866,9 +2068,7 @@ class _DeliverShipmentModalState extends ConsumerState<_DeliverShipmentModal> {
         }
       }
 
-      final payload = <String, dynamic>{
-        "shipment_delivery_details": innerMap,
-      };
+      final payload = <String, dynamic>{"shipment_delivery_details": innerMap};
       await ref
           .read(shipmentListProvider.notifier)
           .markDelivered(widget.shipment.id, payload);

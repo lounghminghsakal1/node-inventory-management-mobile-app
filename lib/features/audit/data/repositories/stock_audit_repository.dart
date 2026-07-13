@@ -22,11 +22,15 @@ class StockAuditRepository {
   Future<({List<StockAuditDetail> audits, int currentPage, int totalPages, int totalCount})>
       getStockAudits({int page = 1, String? auditType, String? status}) async {
     try {
-      final queryParameters = <String, dynamic>{'page': page};
-      if (auditType != null && auditType.isNotEmpty) {
-        queryParameters['by_audit_type'] = auditType;
-      }
-      if (status != null && status.isNotEmpty) {
+      Map<String, dynamic>? queryParameters;
+      
+      if (status == null || status.isEmpty) {
+        queryParameters = null;
+      } else {
+        queryParameters = <String, dynamic>{'page': page};
+        if (auditType != null && auditType.isNotEmpty) {
+          queryParameters['by_audit_type'] = auditType;
+        }
         queryParameters['by_status'] = status;
       }
 

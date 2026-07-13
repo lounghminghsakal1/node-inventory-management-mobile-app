@@ -65,7 +65,13 @@ class NodeOpsAppBar extends ConsumerWidget implements PreferredSizeWidget {
                 size: 18,
                 color: AppColors.textPrimary,
               ),
-              onPressed: () => context.pop(),
+              onPressed: () {
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/home');
+                }
+              },
               tooltip: 'Back',
             )
           : null,

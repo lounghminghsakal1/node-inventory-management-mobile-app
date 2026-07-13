@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +8,7 @@ import '../../../../app/theme/app_text_styles.dart';
 
 import '../../data/models/stock_audit.dart';
 import '../../providers/stock_audit_provider.dart';
+import '../../utils/audit_draft_service.dart';
 
 // Main Screen
 
@@ -709,23 +710,52 @@ class _UntrackedInlineEditorState
   late final TextEditingController _damagedCtrl;
   bool _isSaving = false;
 
+  bool _isLoadingDraft = true;
+
   @override
   void initState() {
     super.initState();
-    _goodCtrl = TextEditingController(
-      text: widget.item.countedQty?.toString() ?? '',
-    );
-    _damagedCtrl = TextEditingController(
-      text: widget.item.damagedQty?.toString() ?? '',
-    );
+    _goodCtrl = TextEditingController();
+    _damagedCtrl = TextEditingController();
+    _loadDraft();
+  }
+
+  Future<void> _loadDraft() async {
+    final draft = await AuditDraftService.getDraft(
+        widget.auditId, widget.item.skuId.toString());
+    if (draft != null) {
+      _goodCtrl.text = draft['good']?.toString() ?? '';
+      _damagedCtrl.text = draft['damaged']?.toString() ?? '';
+    } else {
+      _goodCtrl.text = widget.item.countedQty?.toString() ?? '';
+      _damagedCtrl.text = widget.item.damagedQty?.toString() ?? '';
+    }
+    if (mounted) setState(() => _isLoadingDraft = false);
+  }
+
+  Future<void> _saveDraft() async {
+    final data = {
+      'good': _goodCtrl.text,
+      'damaged': _damagedCtrl.text,
+    };
+    await AuditDraftService.saveDraft(
+        widget.auditId, widget.item.skuId.toString(), data);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Draft saved successfully'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    }
   }
 
   @override
   void didUpdateWidget(_UntrackedInlineEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.item != oldWidget.item) {
-      _goodCtrl.text = widget.item.countedQty?.toString() ?? '';
-      _damagedCtrl.text = widget.item.damagedQty?.toString() ?? '';
+      _isLoadingDraft = true;
+      _loadDraft();
     }
   }
 
@@ -781,12 +811,14 @@ class _UntrackedInlineEditorState
 
     setState(() => _isSaving = true);
     try {
-      final updated = await ref.read(stockAuditRepositoryProvider).countSku(
-        widget.auditId,
-        widget.item.skuId,
-        {'counted_qty': good, 'damaged_qty': damaged, 'missing_qty': missing},
-      );
-      await widget.onSaved(updated);
+        final updated = await ref.read(stockAuditRepositoryProvider).countSku(
+          widget.auditId,
+          widget.item.skuId,
+          {'counted_qty': good, 'damaged_qty': damaged, 'missing_qty': missing},
+        );
+        await AuditDraftService.clearDraft(
+            widget.auditId, widget.item.skuId.toString());
+        await widget.onSaved(updated);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -834,36 +866,57 @@ class _UntrackedInlineEditorState
           ],
         ),
         const SizedBox(height: 8),
-        SizedBox(
-          height: 44,
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: _isSaving ? null : _save,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+        Row(
+          children: [
+            Expanded(
+              child: SizedBox(
+                height: 44,
+                child: OutlinedButton(
+                  onPressed: (_isSaving || _isLoadingDraft) ? null : _saveDraft,
+                  style: OutlinedButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    side: const BorderSide(color: AppColors.primary),
+                  ),
+                  child: const Text('Save Draft'),
+                ),
               ),
             ),
-            child: _isSaving
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Text(
-                    'Save',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: Colors.white,
+            const SizedBox(width: 8),
+            Expanded(
+              child: SizedBox(
+                height: 44,
+                child: ElevatedButton(
+                  onPressed: (_isSaving || _isLoadingDraft) ? null : _save,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-          ),
+                  child: _isSaving
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text(
+                          'Save',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: Colors.white,
+                          ),
+                        ),
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -1016,21 +1069,63 @@ class _BatchCountModalState extends ConsumerState<_BatchCountModal> {
   List<_BatchEntry>? _entries;
   bool _isSaving = false;
 
+  bool _isLoadingDraft = true;
+  Map<String, dynamic>? _draft;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDraft();
+  }
+
+  Future<void> _loadDraft() async {
+    _draft = await AuditDraftService.getDraft(
+        widget.auditId, widget.item.skuId.toString());
+    if (mounted) setState(() => _isLoadingDraft = false);
+  }
+
   void _initEntries(List<AuditBatch> batches) {
     if (_entries != null) return;
 
     final metaBatches = widget.item.meta?['batches'] as List<dynamic>? ?? [];
     _entries = batches.map((b) {
       final entry = _BatchEntry(b);
-      final metaBatch = metaBatches
-          .where((m) => m['batch_id']?.toString() == b.id.toString())
-          .firstOrNull;
-      if (metaBatch != null) {
-        entry.goodCtrl.text = metaBatch['counted_qty']?.toString() ?? '';
-        entry.damagedCtrl.text = metaBatch['damaged_qty']?.toString() ?? '';
+      final draftBatch = _draft?[b.id.toString()];
+      if (draftBatch != null) {
+        entry.goodCtrl.text = draftBatch['good']?.toString() ?? '';
+        entry.damagedCtrl.text = draftBatch['damaged']?.toString() ?? '';
+      } else {
+        final metaBatch = metaBatches
+            .where((m) => m['batch_id']?.toString() == b.id.toString())
+            .firstOrNull;
+        if (metaBatch != null) {
+          entry.goodCtrl.text = metaBatch['counted_qty']?.toString() ?? '';
+          entry.damagedCtrl.text = metaBatch['damaged_qty']?.toString() ?? '';
+        }
       }
       return entry;
     }).toList();
+  }
+
+  Future<void> _saveDraft() async {
+    if (_entries == null) return;
+    final Map<String, dynamic> data = {};
+    for (var e in _entries!) {
+      data[e.batch.id.toString()] = {
+        'good': e.goodCtrl.text,
+        'damaged': e.damagedCtrl.text,
+      };
+    }
+    await AuditDraftService.saveDraft(
+        widget.auditId, widget.item.skuId.toString(), data);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Draft saved successfully'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    }
   }
 
   @override
@@ -1116,6 +1211,8 @@ class _BatchCountModalState extends ConsumerState<_BatchCountModal> {
             'missing_qty': totalMissing,
             'batches': batchList,
           });
+      await AuditDraftService.clearDraft(
+          widget.auditId, widget.item.skuId.toString());
       if (mounted) Navigator.pop(context, updated);
     } catch (e) {
       if (mounted) {
@@ -1133,6 +1230,22 @@ class _BatchCountModalState extends ConsumerState<_BatchCountModal> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoadingDraft) {
+      return Dialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: const Padding(
+          padding: EdgeInsets.all(40),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+            ],
+          ),
+        ),
+      );
+    }
+
     final batchesAsync = ref.watch(
       auditSkuBatchesProvider((
         auditId: widget.auditId,
@@ -1258,7 +1371,18 @@ class _BatchCountModalState extends ConsumerState<_BatchCountModal> {
                       onPressed: _isSaving ? null : () => Navigator.pop(context),
                       child: const Text('Cancel'),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 8),
+                    OutlinedButton(
+                      onPressed: _isSaving ? null : _saveDraft,
+                      style: OutlinedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        side: const BorderSide(color: AppColors.primary),
+                      ),
+                      child: const Text('Save Draft'),
+                    ),
+                    const SizedBox(width: 8),
                     ElevatedButton(
                       onPressed: (_isSaving || _entries == null)
                           ? null
@@ -1279,7 +1403,7 @@ class _BatchCountModalState extends ConsumerState<_BatchCountModal> {
                                 color: Colors.white,
                               ),
                             )
-                          : const Text('Confirm & Save'),
+                          : const Text('Confirm\n & Save'),
                     ),
                   ],
                 )
@@ -1329,31 +1453,69 @@ class _SerialCountModalState extends ConsumerState<_SerialCountModal> {
     detectionSpeed: DetectionSpeed.noDuplicates,
   );
 
+  bool _isLoadingDraft = true;
+  Map<String, dynamic>? _draft;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDraft();
+  }
+
+  Future<void> _loadDraft() async {
+    _draft = await AuditDraftService.getDraft(
+        widget.auditId, widget.item.skuId.toString());
+    if (mounted) setState(() => _isLoadingDraft = false);
+  }
+
   void _initSets(List<AuditSerial> serials) {
     if (_good != null) return;
     _expectedSerials = serials;
 
-    final damagedList =
-        widget.item.meta?['damaged_serials'] as List<dynamic>? ?? [];
-    _damaged = damagedList.map((e) => e.toString()).toSet();
-
-    if (widget.item.isCounted) {
-      final goodList =
-          widget.item.meta?['good_serials'] as List<dynamic>? ?? [];
-      if (goodList.isNotEmpty) {
-        _good = goodList.map((e) => e.toString()).toSet();
-      } else {
-        // Fallback: derive good from non-damaged/non-missing serials
-        final missingList =
-            widget.item.meta?['missing_serials'] as List<dynamic>? ?? [];
-        final missing = missingList.map((e) => e.toString()).toSet();
-        _good = serials
-            .map((s) => s.serialNumber)
-            .where((sn) => !_damaged!.contains(sn) && !missing.contains(sn))
-            .toSet();
-      }
+    if (_draft != null) {
+      _good = (_draft!['good'] as List<dynamic>?)?.map((e) => e.toString()).toSet() ?? {};
+      _damaged = (_draft!['damaged'] as List<dynamic>?)?.map((e) => e.toString()).toSet() ?? {};
     } else {
-      _good = {};
+      final damagedList =
+          widget.item.meta?['damaged_serials'] as List<dynamic>? ?? [];
+      _damaged = damagedList.map((e) => e.toString()).toSet();
+
+      if (widget.item.isCounted) {
+        final goodList =
+            widget.item.meta?['good_serials'] as List<dynamic>? ?? [];
+        if (goodList.isNotEmpty) {
+          _good = goodList.map((e) => e.toString()).toSet();
+        } else {
+          // Fallback: derive good from non-damaged/non-missing serials
+          final missingList =
+              widget.item.meta?['missing_serials'] as List<dynamic>? ?? [];
+          final missing = missingList.map((e) => e.toString()).toSet();
+          _good = serials
+              .map((s) => s.serialNumber)
+              .where((sn) => !_damaged!.contains(sn) && !missing.contains(sn))
+              .toSet();
+        }
+      } else {
+        _good = {};
+      }
+    }
+  }
+
+  Future<void> _saveDraft() async {
+    if (_good == null || _damaged == null) return;
+    final data = {
+      'good': _good!.toList(),
+      'damaged': _damaged!.toList(),
+    };
+    await AuditDraftService.saveDraft(
+        widget.auditId, widget.item.skuId.toString(), data);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Draft saved successfully'),
+          backgroundColor: AppColors.success,
+        ),
+      );
     }
   }
 
@@ -1482,6 +1644,8 @@ class _SerialCountModalState extends ConsumerState<_SerialCountModal> {
             'damaged_serials': _damaged!.toList(),
             'missing_serials': missing,
           });
+      await AuditDraftService.clearDraft(
+          widget.auditId, widget.item.skuId.toString());
       if (mounted) Navigator.pop(context, updated);
     } catch (e) {
       if (mounted) {
@@ -1499,6 +1663,15 @@ class _SerialCountModalState extends ConsumerState<_SerialCountModal> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoadingDraft) {
+      return const Scaffold(
+        backgroundColor: AppColors.background,
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     final serialsAsync = ref.watch(
       auditSkuSerialsProvider((
         auditId: widget.auditId,
@@ -1679,7 +1852,21 @@ class _SerialCountModalState extends ConsumerState<_SerialCountModal> {
                                 child: const Text('Cancel'),
                               ),
                             ),
-                            const SizedBox(width: 12),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: _isSaving ? null : _saveDraft,
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(
+                                      color: AppColors.primary),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                                child: const Text('Save Draft'),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
                             Expanded(
                               child: ElevatedButton(
                                 onPressed:

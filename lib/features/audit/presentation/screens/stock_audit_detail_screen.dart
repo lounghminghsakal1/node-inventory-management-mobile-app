@@ -231,7 +231,7 @@ class _StockAuditDetailScreenState
 
     return Column(
       children: [
-// Summary bar
+        // Summary bar
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           child: Row(
@@ -302,7 +302,6 @@ class _StockAuditDetailScreenState
     );
   }
 }
-
 
 class _AuditHeader extends StatelessWidget {
   final StockAuditDetail audit;
@@ -686,7 +685,6 @@ class _QtyChip extends StatelessWidget {
   }
 }
 
-
 class _UntrackedInlineEditor extends ConsumerStatefulWidget {
   final AuditLineItem item;
   final String auditId;
@@ -722,7 +720,9 @@ class _UntrackedInlineEditorState
 
   Future<void> _loadDraft() async {
     final draft = await AuditDraftService.getDraft(
-        widget.auditId, widget.item.skuId.toString());
+      widget.auditId,
+      widget.item.skuId.toString(),
+    );
     if (draft != null) {
       _goodCtrl.text = draft['good']?.toString() ?? '';
       _damagedCtrl.text = draft['damaged']?.toString() ?? '';
@@ -734,12 +734,12 @@ class _UntrackedInlineEditorState
   }
 
   Future<void> _saveDraft() async {
-    final data = {
-      'good': _goodCtrl.text,
-      'damaged': _damagedCtrl.text,
-    };
+    final data = {'good': _goodCtrl.text, 'damaged': _damagedCtrl.text};
     await AuditDraftService.saveDraft(
-        widget.auditId, widget.item.skuId.toString(), data);
+      widget.auditId,
+      widget.item.skuId.toString(),
+      data,
+    );
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -783,9 +783,7 @@ class _UntrackedInlineEditorState
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.error,
-                ),
+                style: FilledButton.styleFrom(backgroundColor: AppColors.error),
                 child: const Text('Proceed'),
               ),
             ],
@@ -811,14 +809,16 @@ class _UntrackedInlineEditorState
 
     setState(() => _isSaving = true);
     try {
-        final updated = await ref.read(stockAuditRepositoryProvider).countSku(
-          widget.auditId,
-          widget.item.skuId,
-          {'counted_qty': good, 'damaged_qty': damaged, 'missing_qty': missing},
-        );
-        await AuditDraftService.clearDraft(
-            widget.auditId, widget.item.skuId.toString());
-        await widget.onSaved(updated);
+      final updated = await ref.read(stockAuditRepositoryProvider).countSku(
+        widget.auditId,
+        widget.item.skuId,
+        {'counted_qty': good, 'damaged_qty': damaged, 'missing_qty': missing},
+      );
+      await AuditDraftService.clearDraft(
+        widget.auditId,
+        widget.item.skuId.toString(),
+      );
+      await widget.onSaved(updated);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -957,8 +957,12 @@ class _TrackedInlineEditor extends ConsumerWidget {
     final updated = await showDialog<AuditLineItem>(
       context: context,
       barrierDismissible: false,
-      builder: (_) =>
-          _SerialCountModal(auditId: auditId, item: item, canEdit: canEdit, auditStatus: auditStatus),
+      builder: (_) => _SerialCountModal(
+        auditId: auditId,
+        item: item,
+        canEdit: canEdit,
+        auditStatus: auditStatus,
+      ),
     );
     if (updated != null) onSaved(updated);
   }
@@ -1080,7 +1084,9 @@ class _BatchCountModalState extends ConsumerState<_BatchCountModal> {
 
   Future<void> _loadDraft() async {
     _draft = await AuditDraftService.getDraft(
-        widget.auditId, widget.item.skuId.toString());
+      widget.auditId,
+      widget.item.skuId.toString(),
+    );
     if (mounted) setState(() => _isLoadingDraft = false);
   }
 
@@ -1117,7 +1123,10 @@ class _BatchCountModalState extends ConsumerState<_BatchCountModal> {
       };
     }
     await AuditDraftService.saveDraft(
-        widget.auditId, widget.item.skuId.toString(), data);
+      widget.auditId,
+      widget.item.skuId.toString(),
+      data,
+    );
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1151,9 +1160,7 @@ class _BatchCountModalState extends ConsumerState<_BatchCountModal> {
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.error,
-                ),
+                style: FilledButton.styleFrom(backgroundColor: AppColors.error),
                 child: const Text('Proceed'),
               ),
             ],
@@ -1212,7 +1219,9 @@ class _BatchCountModalState extends ConsumerState<_BatchCountModal> {
             'batches': batchList,
           });
       await AuditDraftService.clearDraft(
-          widget.auditId, widget.item.skuId.toString());
+        widget.auditId,
+        widget.item.skuId.toString(),
+      );
       if (mounted) Navigator.pop(context, updated);
     } catch (e) {
       if (mounted) {
@@ -1238,9 +1247,7 @@ class _BatchCountModalState extends ConsumerState<_BatchCountModal> {
           padding: EdgeInsets.all(40),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(),
-            ],
+            children: [CircularProgressIndicator()],
           ),
         ),
       );
@@ -1368,7 +1375,9 @@ class _BatchCountModalState extends ConsumerState<_BatchCountModal> {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     TextButton(
-                      onPressed: _isSaving ? null : () => Navigator.pop(context),
+                      onPressed: _isSaving
+                          ? null
+                          : () => Navigator.pop(context),
                       child: const Text('Cancel'),
                     ),
                     const SizedBox(width: 8),
@@ -1464,7 +1473,9 @@ class _SerialCountModalState extends ConsumerState<_SerialCountModal> {
 
   Future<void> _loadDraft() async {
     _draft = await AuditDraftService.getDraft(
-        widget.auditId, widget.item.skuId.toString());
+      widget.auditId,
+      widget.item.skuId.toString(),
+    );
     if (mounted) setState(() => _isLoadingDraft = false);
   }
 
@@ -1473,8 +1484,16 @@ class _SerialCountModalState extends ConsumerState<_SerialCountModal> {
     _expectedSerials = serials;
 
     if (_draft != null) {
-      _good = (_draft!['good'] as List<dynamic>?)?.map((e) => e.toString()).toSet() ?? {};
-      _damaged = (_draft!['damaged'] as List<dynamic>?)?.map((e) => e.toString()).toSet() ?? {};
+      _good =
+          (_draft!['good'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toSet() ??
+          {};
+      _damaged =
+          (_draft!['damaged'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toSet() ??
+          {};
     } else {
       final damagedList =
           widget.item.meta?['damaged_serials'] as List<dynamic>? ?? [];
@@ -1503,12 +1522,12 @@ class _SerialCountModalState extends ConsumerState<_SerialCountModal> {
 
   Future<void> _saveDraft() async {
     if (_good == null || _damaged == null) return;
-    final data = {
-      'good': _good!.toList(),
-      'damaged': _damaged!.toList(),
-    };
+    final data = {'good': _good!.toList(), 'damaged': _damaged!.toList()};
     await AuditDraftService.saveDraft(
-        widget.auditId, widget.item.skuId.toString(), data);
+      widget.auditId,
+      widget.item.skuId.toString(),
+      data,
+    );
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1597,16 +1616,12 @@ class _SerialCountModalState extends ConsumerState<_SerialCountModal> {
         actions: [
           FilledButton(
             onPressed: () => Navigator.pop(ctx, 'damaged'),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.warning,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.warning),
             child: const Text('Damaged'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, 'good'),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.success,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.success),
             child: const Text('Good'),
           ),
         ],
@@ -1645,7 +1660,9 @@ class _SerialCountModalState extends ConsumerState<_SerialCountModal> {
             'missing_serials': missing,
           });
       await AuditDraftService.clearDraft(
-          widget.auditId, widget.item.skuId.toString());
+        widget.auditId,
+        widget.item.skuId.toString(),
+      );
       if (mounted) Navigator.pop(context, updated);
     } catch (e) {
       if (mounted) {
@@ -1666,9 +1683,7 @@ class _SerialCountModalState extends ConsumerState<_SerialCountModal> {
     if (_isLoadingDraft) {
       return const Scaffold(
         backgroundColor: AppColors.background,
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
+        body: Center(child: CircularProgressIndicator()),
       );
     }
 
@@ -1693,8 +1708,10 @@ class _SerialCountModalState extends ConsumerState<_SerialCountModal> {
               padding: const EdgeInsets.fromLTRB(20, 20, 8, 0),
               child: Row(
                 children: [
-                  const Icon(Icons.qr_code_scanner_rounded,
-                      color: AppColors.primary),
+                  const Icon(
+                    Icons.qr_code_scanner_rounded,
+                    color: AppColors.primary,
+                  ),
                   const SizedBox(width: 10),
                   Text('Scan Serials', style: AppTextStyles.headingMedium),
                   const Spacer(),
@@ -1709,8 +1726,7 @@ class _SerialCountModalState extends ConsumerState<_SerialCountModal> {
 
             Expanded(
               child: serialsAsync.when(
-                loading: () =>
-                    const Center(child: CircularProgressIndicator()),
+                loading: () => const Center(child: CircularProgressIndicator()),
                 error: (e, _) => Center(child: Text('Error: $e')),
                 data: (serials) {
                   if (serials.isEmpty) {
@@ -1734,12 +1750,16 @@ class _SerialCountModalState extends ConsumerState<_SerialCountModal> {
                         Container(
                           height: 220,
                           margin: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 8),
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
                           clipBehavior: Clip.hardEdge,
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(12),
-                            border:
-                                Border.all(color: AppColors.primary, width: 2),
+                            border: Border.all(
+                              color: AppColors.primary,
+                              width: 2,
+                            ),
                           ),
                           child: MobileScanner(
                             controller: _scannerController,
@@ -1750,7 +1770,9 @@ class _SerialCountModalState extends ConsumerState<_SerialCountModal> {
                       // Summary
                       Padding(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 8),
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
                         child: Row(
                           children: [
                             _SerialStatChip(
@@ -1766,8 +1788,9 @@ class _SerialCountModalState extends ConsumerState<_SerialCountModal> {
                             ),
                             const SizedBox(width: 8),
                             _SerialStatChip(
-                              label: 'Pending',
-                              count: serials.length -
+                              label: 'Missing',
+                              count:
+                                  serials.length -
                                   _good!.length -
                                   _damaged!.length,
                               color: AppColors.textMuted,
@@ -1780,37 +1803,46 @@ class _SerialCountModalState extends ConsumerState<_SerialCountModal> {
                       Expanded(
                         child: SingleChildScrollView(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 4),
+                            horizontal: 16,
+                            vertical: 4,
+                          ),
                           child: Wrap(
                             spacing: 8,
                             runSpacing: 8,
                             children: [
                               ..._good!.map(
                                 (s) => Chip(
-                                  avatar: const Icon(Icons.check_circle,
-                                      color: Colors.white, size: 16),
-                                  label: Text(s,
-                                      style:
-                                          const TextStyle(color: Colors.white)),
+                                  avatar: const Icon(
+                                    Icons.check_circle,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
+                                  label: Text(
+                                    s,
+                                    style: const TextStyle(color: Colors.white),
+                                  ),
                                   backgroundColor: AppColors.success,
                                   onDeleted: widget.canEdit
-                                      ? () =>
-                                          setState(() => _good!.remove(s))
+                                      ? () => setState(() => _good!.remove(s))
                                       : null,
                                   deleteIconColor: Colors.white,
                                 ),
                               ),
                               ..._damaged!.map(
                                 (s) => Chip(
-                                  avatar: const Icon(Icons.warning_rounded,
-                                      color: Colors.white, size: 16),
-                                  label: Text(s,
-                                      style:
-                                          const TextStyle(color: Colors.white)),
+                                  avatar: const Icon(
+                                    Icons.warning_rounded,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
+                                  label: Text(
+                                    s,
+                                    style: const TextStyle(color: Colors.white),
+                                  ),
                                   backgroundColor: AppColors.warning,
                                   onDeleted: widget.canEdit
-                                      ? () => setState(
-                                            () => _damaged!.remove(s))
+                                      ? () =>
+                                            setState(() => _damaged!.remove(s))
                                       : null,
                                   deleteIconColor: Colors.white,
                                 ),
@@ -1829,82 +1861,82 @@ class _SerialCountModalState extends ConsumerState<_SerialCountModal> {
             Container(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
               decoration: const BoxDecoration(
-                border: Border(
-                  top: BorderSide(color: AppColors.cardBorder),
-                ),
+                border: Border(top: BorderSide(color: AppColors.cardBorder)),
               ),
-              child:
-                  widget.auditStatus == StockAuditStatus.initiatedAuditing
-                      ? Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: _isSaving
-                                    ? null
-                                    : () => Navigator.pop(context),
-                                style: OutlinedButton.styleFrom(
-                                  side: const BorderSide(
-                                      color: AppColors.cardBorder),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                ),
-                                child: const Text('Cancel'),
+              child: widget.auditStatus == StockAuditStatus.initiatedAuditing
+                  ? Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: _isSaving
+                                ? null
+                                : () => Navigator.pop(context),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(
+                                color: AppColors.cardBorder,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: _isSaving ? null : _saveDraft,
-                                style: OutlinedButton.styleFrom(
-                                  side: const BorderSide(
-                                      color: AppColors.primary),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                ),
-                                child: const Text('Save Draft'),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed:
-                                    (_isSaving || _good == null)
-                                        ? null
-                                        : _confirm,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.primary,
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                ),
-                                child: _isSaving
-                                    ? const SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: Colors.white,
-                                        ),
-                                      )
-                                    : const Text('Confirm & Save'),
-                              ),
-                            ),
-                          ],
-                        )
-                      : OutlinedButton(
-                          onPressed: () => Navigator.pop(context),
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(
-                                color: AppColors.cardBorder),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
+                            child: const Text('Cancel'),
                           ),
-                          child: const Text('Close'),
                         ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: _isSaving
+                                ? null
+                                : () {
+                                    _saveDraft();
+                                    Navigator.pop(context);
+                                  },
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: AppColors.primary),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            child: const Text('Save Draft'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: (_isSaving || _good == null)
+                                ? null
+                                : _confirm,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            child: _isSaving
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Text('Confirm & Save'),
+                          ),
+                        ),
+                      ],
+                    )
+                  : OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: AppColors.cardBorder),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text('Close'),
+                    ),
             ),
           ],
         ),
@@ -1912,7 +1944,6 @@ class _SerialCountModalState extends ConsumerState<_SerialCountModal> {
     );
   }
 }
-
 
 class _SerialStatChip extends StatelessWidget {
   final String label;
@@ -2038,7 +2069,6 @@ class _CountField extends StatelessWidget {
   }
 }
 
-
 class _TrackingBadge extends StatelessWidget {
   final String trackingType;
   const _TrackingBadge({required this.trackingType});
@@ -2074,5 +2104,3 @@ class _TrackingBadge extends StatelessWidget {
     );
   }
 }
-
-

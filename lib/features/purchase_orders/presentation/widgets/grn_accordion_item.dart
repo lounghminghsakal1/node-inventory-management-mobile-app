@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/widgets/app_button.dart';
@@ -2431,6 +2432,11 @@ class _SerialInputModalState extends ConsumerState<_SerialInputModal> {
   late List<String> _serials;
   final _manualController = TextEditingController();
   final _bulkController = TextEditingController();
+  
+  final MobileScannerController _scannerController = MobileScannerController(
+    detectionSpeed: DetectionSpeed.noDuplicates,
+  );
+
   int _selectedTab = 0; // 0: Manual, 1: Bulk, 2: Barcode
   String? _warningMsg;
   bool _isValidating = false;
@@ -2446,6 +2452,7 @@ class _SerialInputModalState extends ConsumerState<_SerialInputModal> {
     FocusManager.instance.primaryFocus?.unfocus();
     _manualController.dispose();
     _bulkController.dispose();
+    _scannerController.dispose();
     super.dispose();
   }
 
@@ -2493,10 +2500,40 @@ class _SerialInputModalState extends ConsumerState<_SerialInputModal> {
     });
   }
 
-  void _simulateBarcodeScan() {
+  Future<void> _handleBarcodeDetect(BarcodeCapture capture) async {
     if (_serials.length >= widget.targetQty) return;
-    final scanned = "SER-${DateTime.now().millisecondsSinceEpoch % 1000000}";
-    setState(() => _serials.add(scanned));
+    
+    final barcodes = capture.barcodes;
+    for (final barcode in barcodes) {
+      final s = barcode.rawValue?.trim();
+      if (s != null && s.isNotEmpty && !_serials.contains(s)) {
+        if (mounted) {
+          setState(() {
+            _isValidating = true;
+            _warningMsg = null;
+          });
+        }
+        
+        final isValid = await ref.read(grnControllerProvider.notifier).validateSerial(s, widget.productSkuId);
+        
+        if (!mounted) return;
+        setState(() {
+          _isValidating = false;
+        });
+
+        if (!isValid) {
+          setState(() => _warningMsg = "Serial '$s' already exists in inventory or is invalid!");
+        } else {
+          setState(() {
+            _serials.add(s);
+            _warningMsg = null;
+          });
+        }
+        
+        // Return after processing the first valid one in this capture
+        break;
+      }
+    }
   }
 
   @override
@@ -2565,12 +2602,23 @@ class _SerialInputModalState extends ConsumerState<_SerialInputModal> {
                 Center(
                   child: Column(
                     children: [
-                      const Icon(Icons.qr_code_scanner, size: 48, color: AppColors.primary),
+                      Container(
+                        height: 220,
+                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        clipBehavior: Clip.hardEdge,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.primary, width: 2),
+                        ),
+                        child: MobileScanner(
+                          controller: _scannerController,
+                          onDetect: _handleBarcodeDetect,
+                        ),
+                      ),
                       const SizedBox(height: 8),
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.camera_alt_outlined),
-                        label: const Text("Simulate Barcode Scan"),
-                        onPressed: _simulateBarcodeScan,
+                      Text(
+                        "Point the camera at a barcode to scan.",
+                        style: AppTextStyles.caption,
                       ),
                     ],
                   ),

@@ -143,8 +143,7 @@ Dio _buildDio(FlutterSecureStorage storage) {
         if (error.response != null) {
           await _saveCookiesFromResponse(storage, error.response!);
         }
-        if (error.response?.statusCode == 401 ||
-            error.response?.statusCode == 403) {
+        if (error.response?.statusCode == 401) {
           // Token expired / unauthorized / forbidden — clear all auth tokens and redirect to login
           await storage.delete(key: AppConstants.keyAccessToken);
           await storage.delete(key: AppConstants.keyClient);

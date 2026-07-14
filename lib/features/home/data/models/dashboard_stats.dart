@@ -25,7 +25,7 @@ class DashboardStats {
   );
 }
 
-// â”€â”€ Splash / Dashboard API models â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// -- Splash / Dashboard API models --------------------------------------------
 
 class StockAudit {
   final int id;
@@ -122,7 +122,7 @@ class SplashData {
       );
 }
 
-// â”€â”€ Activity feed (static / placeholder) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// -- Activity feed (static / placeholder) -------------------------------------
 
 class ActivityItem {
   final String id;
@@ -146,21 +146,21 @@ const List<ActivityItem> dummyActivity = [
   ActivityItem(
     id: '1',
     title: 'SH-2024-089 Dispatched',
-    subtitle: 'Delivered to Acme Corp â€” 3 items',
+    subtitle: 'Delivered to Acme Corp - 3 items',
     timeAgo: '12 min ago',
     type: ActivityType.shipment,
   ),
   ActivityItem(
     id: '2',
     title: 'GRN-2024-045 Completed',
-    subtitle: 'PO-1023 inwarded â€” 150 units',
+    subtitle: 'PO-1023 inwarded - 150 units',
     timeAgo: '1 hr ago',
     type: ActivityType.grn,
   ),
   ActivityItem(
     id: '3',
     title: 'Return SH-2024-071 Initiated',
-    subtitle: 'TechMart â€” 2 good, 1 damaged',
+    subtitle: 'TechMart - 2 good, 1 damaged',
     timeAgo: '3 hrs ago',
     type: ActivityType.return_,
   ),
@@ -174,7 +174,7 @@ const List<ActivityItem> dummyActivity = [
   ActivityItem(
     id: '5',
     title: 'SH-2024-086 Created',
-    subtitle: 'RetailHub â€” 4 items, allocation pending',
+    subtitle: 'RetailHub - 4 items, allocation pending',
     timeAgo: '6 hrs ago',
     type: ActivityType.shipment,
   ),

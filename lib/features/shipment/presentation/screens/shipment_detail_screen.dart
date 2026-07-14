@@ -194,11 +194,11 @@ class ShipmentDetailScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // â”€â”€ Progress Timeline â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                // -- Progress Timeline ------------------------------------------
                 _ShipmentTimeline(shipment: shipment),
                 const SizedBox(height: 24),
 
-                // â”€â”€ Primary Focus: Line Items â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                // -- Primary Focus: Line Items ----------------------------------
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
@@ -322,7 +322,7 @@ class ShipmentDetailScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                // â”€â”€ Shipping & Delivery Info (if present) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                // -- Shipping & Delivery Info (if present) ---------------------
                 if ((shipment.shippingAddress != null &&
                         shipment.shippingAddress!.isNotEmpty) ||
                     (shipment.billingAddress != null &&
@@ -362,7 +362,7 @@ class ShipmentDetailScreen extends ConsumerWidget {
                   const SizedBox(height: 16),
                 ],
 
-                // â”€â”€ Parent Forward Shipment Info (Reverse Shipments) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                // -- Parent Forward Shipment Info (Reverse Shipments) ----------
                 if (shipment.parentShipment != null ||
                     shipment.parentShipmentNumber != null) ...[
                   _SectionCard(
@@ -444,7 +444,7 @@ class ShipmentDetailScreen extends ConsumerWidget {
                   const SizedBox(height: 16),
                 ],
 
-                // â”€â”€ Driver (if dispatched) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                // -- Driver (if dispatched) ------------------------------------
                 if (shipment.driverDetails != null) ...[
                   const SizedBox(height: 16),
                   _SectionCard(
@@ -537,7 +537,7 @@ class ShipmentDetailScreen extends ConsumerWidget {
                   ),
                 ],
 
-                // â”€â”€ Delivery Details (if delivered) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                // -- Delivery Details (if delivered) ---------------------------
                 if (shipment.deliveryDetails != null) ...[
                   const SizedBox(height: 16),
                   _SectionCard(
@@ -604,7 +604,7 @@ class ShipmentDetailScreen extends ConsumerWidget {
                   ),
                 ],
 
-                // â”€â”€ Fee Details (if present) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                // -- Fee Details (if present) ----------------------------------
                 if ((shipment.labourFee != null &&
                         shipment.labourFee!.isNotEmpty &&
                         shipment.labourFee != '0' &&
@@ -625,7 +625,7 @@ class ShipmentDetailScreen extends ConsumerWidget {
                           _infoTile(
                             Icons.payments_outlined,
                             'Labour Fee',
-                            'â‚¹${shipment.labourFee}',
+                            '₹${shipment.labourFee}',
                           ),
                         if (shipment.driverFee != null &&
                             shipment.driverFee!.isNotEmpty &&
@@ -634,7 +634,7 @@ class ShipmentDetailScreen extends ConsumerWidget {
                           _infoTile(
                             Icons.payments_outlined,
                             'Driver Fee',
-                            'â‚¹${shipment.driverFee}',
+                            '₹${shipment.driverFee}',
                           ),
                       ],
                     ),
@@ -643,7 +643,7 @@ class ShipmentDetailScreen extends ConsumerWidget {
 
                 const SizedBox(height: 24),
 
-                // â”€â”€ Action Buttons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                // -- Action Buttons --------------------------------------------
                 if(splash!.hasPermission("Shipment", "update")) _ActionButtons(shipment: shipment),
                 const SizedBox(height: 16),
               ],
@@ -862,7 +862,7 @@ class ShipmentDetailScreen extends ConsumerWidget {
   }
 }
 
-// â”€â”€ Progress Timeline â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// -- Progress Timeline ---------------------------------------------------------
 class _ShipmentTimeline extends StatelessWidget {
   final Shipment shipment;
   const _ShipmentTimeline({required this.shipment});
@@ -991,7 +991,7 @@ class _ShipmentTimeline extends StatelessWidget {
   }
 }
 
-// â”€â”€ Line Item Row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// -- Line Item Row -------------------------------------------------------------
 class _LineItemRow extends ConsumerWidget {
   final ShipmentLineItem item;
   final Shipment shipment;
@@ -1420,7 +1420,7 @@ class _LineItemRow extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
-                      'Untracked item â€” no allocation required.',
+                      'Untracked item - no allocation required.',
                       style: AppTextStyles.caption.copyWith(
                         color: AppColors.secondary,
                       ),
@@ -1732,7 +1732,7 @@ class _LineItemRow extends ConsumerWidget {
   }
 }
 
-// â”€â”€ Action Buttons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// -- Action Buttons ------------------------------------------------------------
 class _ActionButtons extends ConsumerWidget {
   final Shipment shipment;
   const _ActionButtons({required this.shipment});
@@ -2351,7 +2351,7 @@ class _DeliverShipmentModalState extends ConsumerState<_DeliverShipmentModal> {
   }
 }
 
-// â”€â”€ Edit Shipment Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// -- Edit Shipment Modal -------------------------------------------------------
 class _EditShipmentModal extends ConsumerStatefulWidget {
   final Shipment shipment;
   const _EditShipmentModal({required this.shipment});
@@ -2521,7 +2521,7 @@ class _EditShipmentModalState extends ConsumerState<_EditShipmentModal> {
   }
 }
 
-// â”€â”€ Section Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// -- Section Card --------------------------------------------------------------
 class _SectionCard extends StatelessWidget {
   final String title;
   final Widget child;

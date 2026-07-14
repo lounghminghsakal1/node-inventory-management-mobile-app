@@ -92,19 +92,19 @@ class _PurchaseOrderDetailScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // â”€â”€ PO Summary Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                // -- PO Summary Card -----------------------------------------
                 _buildPoSummaryCard(po),
                 const SizedBox(height: 24),
 
-                // â”€â”€ Vendor Details Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                // -- Vendor Details Card -------------------------------------
                 _buildVendorCard(po.vendor),
                 const SizedBox(height: 24),
 
-                // â”€â”€ PO Line Items Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                // -- PO Line Items Section -----------------------------------
                 _buildLineItemsSection(po.lineItems),
                 const SizedBox(height: 24),
 
-                // â”€â”€ Goods Received Notes Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                // -- Goods Received Notes Section ----------------------------
                 Text(
                   'Goods Received Notes (GRNs)',
                   style: AppTextStyles.headingMedium,

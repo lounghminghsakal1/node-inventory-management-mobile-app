@@ -28,7 +28,7 @@ import '../../core/widgets/app_shell.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 
-// â”€â”€ Router Notifier (bridges Riverpod â†’ GoRouter refresh) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// -- Router Notifier (bridges Riverpod -> GoRouter refresh) --------------------
 class _RouterNotifier extends ChangeNotifier {
   final Ref _ref;
   _RouterNotifier(this._ref) {
@@ -40,22 +40,22 @@ class _RouterNotifier extends ChangeNotifier {
   }
 }
 
-// â”€â”€ Top-level redirect function (supports hot reload updates) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// -- Top-level redirect function (supports hot reload updates) -----------------
 String? _appRedirect(BuildContext context, GoRouterState state, Ref ref) {
   final auth = ref.read(authProvider);
   final loc = state.matchedLocation;
 
-  // Still checking stored session â€” don't redirect yet
+  // Still checking stored session - don't redirect yet
   if (auth.status == AuthStatus.initial || auth.status == AuthStatus.checking) {
     return null;
   }
 
-  // Not authenticated â†’ send to login
+  // Not authenticated -> send to login
   if (auth.status == AuthStatus.unauthenticated) {
     return loc == '/login' ? null : '/login';
   }
 
-  // Authenticated but node not selected â†’ send to node-select (mandatory)
+  // Authenticated but node not selected -> send to node-select (mandatory)
   if (auth.status == AuthStatus.nodeRequired) {
     if (loc == '/node-select') return null;
     return '/node-select';
@@ -73,7 +73,7 @@ String? _appRedirect(BuildContext context, GoRouterState state, Ref ref) {
   return null;
 }
 
-// â”€â”€ Router Provider â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// -- Router Provider -----------------------------------------------------------
 final routerProvider = Provider<GoRouter>((ref) {
   final notifier = _RouterNotifier(ref);
 
@@ -82,14 +82,14 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: '/login',
     redirect: (context, state) => _appRedirect(context, state, ref),
     routes: [
-      // â”€â”€ Auth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // -- Auth --------------------------------------------------------------
       GoRoute(
         path: '/login',
         name: 'login',
         builder: (context, _) => const LoginScreen(),
       ),
 
-      // â”€â”€ Node Selection (mandatory after login, or optional via AppBar) â”€â”€â”€
+      // -- Node Selection (mandatory after login, or optional via AppBar) ---
       GoRoute(
         path: '/node-select',
         name: 'node-select',
@@ -99,7 +99,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
 
-      // â”€â”€ Shell with bottom nav â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // -- Shell with bottom nav ---------------------------------------------
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             _ScaffoldWithNavBar(navigationShell: navigationShell),
@@ -172,7 +172,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           );
         },
       ),
-      // â”€â”€ Order sub-routes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // -- Order sub-routes --------------------------------------------------
       GoRoute(
         path: '/orders/:id',
         name: 'order-detail',
@@ -207,7 +207,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
 
-      // â”€â”€ Shipment sub-routes (pushed, no bottom nav) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // -- Shipment sub-routes (pushed, no bottom nav) -----------------------
       GoRoute(
         path: '/shipments/create',
         name: 'shipment-create',
@@ -244,7 +244,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
 
-      // â”€â”€ Additional feature routes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // -- Additional feature routes -----------------------------------------
       GoRoute(
         path: '/adjustment',
         name: 'adjustment',
@@ -254,7 +254,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   );
 });
 
-// â”€â”€ Bottom Nav Shell â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// -- Bottom Nav Shell ----------------------------------------------------------
 class _ScaffoldWithNavBar extends ConsumerWidget {
   final StatefulNavigationShell navigationShell;
   const _ScaffoldWithNavBar({required this.navigationShell});

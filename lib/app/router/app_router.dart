@@ -1,7 +1,9 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:node_management_app/features/audit/presentation/screens/stock_audit_detail_screen.dart';
+import '../../core/network/dio_client.dart';
+import '../../core/widgets/app_shell.dart';
 import '../../features/auth/providers/auth_provider.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/node_selection/presentation/screens/node_selection_screen.dart';
@@ -24,7 +26,7 @@ import '../../features/inventory/presentation/screens/inventory_screen.dart';
 import '../../features/inventory/presentation/screens/batch_inventory_detail_screen.dart';
 import '../../features/inventory/presentation/screens/serial_inventory_detail_screen.dart';
 import '../../features/adjustment/presentation/screens/adjustment_screen.dart';
-import '../../core/widgets/app_shell.dart';
+
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 
@@ -78,6 +80,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   final notifier = _RouterNotifier(ref);
 
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     refreshListenable: notifier,
     initialLocation: '/login',
     redirect: (context, state) => _appRedirect(context, state, ref),

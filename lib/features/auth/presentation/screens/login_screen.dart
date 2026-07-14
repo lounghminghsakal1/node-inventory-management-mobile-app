@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:node_management_app/core/utils/snackbar_utils.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/widgets/app_button.dart';
@@ -74,30 +75,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   void _showError(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.error_outline, color: AppColors.error, size: 18),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                msg,
-                style: AppTextStyles.bodySmall.copyWith(
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: AppColors.surface,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: const BorderSide(color: AppColors.error, width: 1),
-        ),
-        margin: const EdgeInsets.all(16),
-      ),
+    showTopSnackBar(
+      context,
+      msg,
+      backgroundColor: AppColors.surface,
+      textColor: AppColors.textPrimary,
+      icon: Icons.error_outline_rounded,
     );
   }
 

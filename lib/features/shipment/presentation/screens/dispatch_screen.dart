@@ -10,6 +10,7 @@ import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/utils/media_picker_service.dart';
 import '../../data/repositories/shipment_repository.dart';
 import '../../providers/shipment_provider.dart';
+import 'package:node_management_app/core/utils/snackbar_utils.dart';
 
 class _KeyValuePair {
   final keyCtrl = TextEditingController();
@@ -423,12 +424,7 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isUploadingMedia = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Media upload failed: ${e.toString()}'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        showTopErrorSnackBar(context, 'Media upload failed: ${e.toString()}');
       }
     }
   }
@@ -436,12 +432,7 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
   Future<void> _dispatch() async {
     if (!_formKey.currentState!.validate()) return;
     if (_uploadedMedia.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please upload at least one media to proceed with dispatch.'),
-          backgroundColor: AppColors.warning,
-        ),
-      );
+      showTopErrorSnackBar(context, 'Please upload at least one media to proceed with dispatch.');
       return;
     }
 
@@ -476,24 +467,12 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
       if (mounted) {
         ref.invalidate(shipmentByIdProvider(widget.shipmentId));
         ref.invalidate(shipmentListProvider);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Shipment marked as dispatched successfully!'),
-            backgroundColor: AppColors.success,
-          ),
-        );
+        showTopSuccessSnackBar(context, 'Shipment marked as dispatched successfully!');
         context.pop(); // back to detail
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Error: ${e.toString().replaceFirst('Exception: ', '')}',
-            ),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        showTopErrorSnackBar(context, 'Error: ${e.toString()}');
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);

@@ -6,6 +6,7 @@ import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_shell.dart';
 import '../../../purchase_orders/providers/purchase_order_provider.dart';
+import 'package:node_management_app/core/utils/snackbar_utils.dart';
 
 class CreateGrnScreen extends ConsumerStatefulWidget {
   final int poId;
@@ -114,12 +115,7 @@ class _CreateGrnScreenState extends ConsumerState<CreateGrnScreen> {
         _uploadedFileS3Url = s3Url;
         _uploadError = null;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("'$fileName' uploaded successfully!"),
-          backgroundColor: AppColors.success,
-        ),
-      );
+      showTopSuccessSnackBar(context, "'$fileName' uploaded successfully!");
     } else {
       setState(() {
         _isUploading = false;
@@ -141,21 +137,11 @@ class _CreateGrnScreenState extends ConsumerState<CreateGrnScreen> {
   Future<void> _handleCreateGrn() async {
     if (!_formKey.currentState!.validate()) return;
     if (_invoiceDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Please select a Vendor Invoice Date"),
-          backgroundColor: AppColors.error,
-        ),
-      );
+      showTopErrorSnackBar(context, "Please select a Vendor Invoice Date");
       return;
     }
     if (_isUploading) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Please wait for the file to finish uploading"),
-          backgroundColor: AppColors.warning,
-        ),
-      );
+      showTopErrorSnackBar(context, "Please wait for the file to finish uploading");
       return;
     }
 
@@ -169,12 +155,7 @@ class _CreateGrnScreenState extends ConsumerState<CreateGrnScreen> {
         );
 
     if (grn != null && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("New GRN (${grn.grnNumber}) created successfully!"),
-          backgroundColor: AppColors.success,
-        ),
-      );
+      showTopSuccessSnackBar(context, "New GRN (${grn.grnNumber}) created successfully!");
       Navigator.of(context).pop();
     }
   }

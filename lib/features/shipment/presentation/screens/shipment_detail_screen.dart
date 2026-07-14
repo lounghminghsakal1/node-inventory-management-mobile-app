@@ -17,6 +17,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../data/repositories/shipment_repository.dart';
+import 'package:node_management_app/core/utils/snackbar_utils.dart';
 
 class _KeyValuePair {
   final keyCtrl = TextEditingController();
@@ -1626,11 +1627,7 @@ class _LineItemRow extends ConsumerWidget {
         ),
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No manual lots required for this item type.'),
-        ),
-      );
+      showTopSnackBar(context, 'No manual lots required for this item type.');
     }
   }
 
@@ -1709,24 +1706,12 @@ class _LineItemRow extends ConsumerWidget {
         Navigator.pop(context); // close loading indicator
         ref.invalidate(shipmentByIdProvider(shipment.id));
         ref.invalidate(shipmentListProvider);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Allocation updated successfully!'),
-            backgroundColor: AppColors.success,
-          ),
-        );
+        showTopSuccessSnackBar(context, 'Allocation updated successfully!');
       }
     } catch (e) {
       if (context.mounted) {
         Navigator.pop(context); // close loading indicator
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Failed to update allocation: ${e.toString().replaceFirst('Exception: ', '')}',
-            ),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        showTopErrorSnackBar(context, 'Failed to update allocation: ${e.toString()}');
       }
     }
   }
@@ -1789,24 +1774,12 @@ class _ActionButtons extends ConsumerWidget {
                   Navigator.pop(context); // close progress dialog
                   ref.invalidate(shipmentByIdProvider(shipment.id));
                   ref.invalidate(shipmentListProvider);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Shipment packed successfully!'),
-                      backgroundColor: AppColors.success,
-                    ),
-                  );
+                  showTopSuccessSnackBar(context, 'Shipment packed successfully!');
                 }
               } catch (e) {
                 if (context.mounted) {
                   Navigator.pop(context); // close progress dialog
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Failed to pack shipment: ${e.toString().replaceFirst('Exception: ', '')}',
-                      ),
-                      backgroundColor: AppColors.error,
-                    ),
-                  );
+                  showTopErrorSnackBar(context, 'Failed to pack shipment: ${e.toString()}');
                 }
               }
             },
@@ -1835,24 +1808,12 @@ class _ActionButtons extends ConsumerWidget {
                   Navigator.pop(context); // close progress dialog
                   ref.invalidate(shipmentByIdProvider(shipment.id));
                   ref.invalidate(shipmentListProvider);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Invoice generated successfully!'),
-                      backgroundColor: AppColors.success,
-                    ),
-                  );
+                  showTopSuccessSnackBar(context, 'Invoice generated successfully!');
                 }
               } catch (e) {
                 if (context.mounted) {
                   Navigator.pop(context); // close progress dialog
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Failed to generate invoice: ${e.toString().replaceFirst('Exception: ', '')}',
-                      ),
-                      backgroundColor: AppColors.error,
-                    ),
-                  );
+                  showTopErrorSnackBar(context, 'Failed to generate invoice: ${e.toString()}');
                 }
               }
             },
@@ -2007,12 +1968,7 @@ class _DeliverShipmentModalState extends ConsumerState<_DeliverShipmentModal> {
     } catch (e) {
       if (mounted) {
         setState(() => _isUploadingMedia = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Media upload failed: ${e.toString()}'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        showTopErrorSnackBar(context, 'Media upload failed: ${e.toString()}');
       }
     }
   }
@@ -2020,12 +1976,7 @@ class _DeliverShipmentModalState extends ConsumerState<_DeliverShipmentModal> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_uploadedMedia.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please upload at least one media to proceed.'),
-          backgroundColor: AppColors.warning,
-        ),
-      );
+      showTopErrorSnackBar(context, 'Please upload at least one media to proceed.');
       return;
     }
 
@@ -2061,24 +2012,12 @@ class _DeliverShipmentModalState extends ConsumerState<_DeliverShipmentModal> {
         Navigator.pop(context);
         ref.invalidate(shipmentByIdProvider(widget.shipment.id));
         ref.invalidate(shipmentListProvider);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Shipment marked as delivered successfully!'),
-            backgroundColor: AppColors.success,
-          ),
-        );
+        showTopSuccessSnackBar(context, 'Shipment marked as delivered successfully!');
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Failed to mark as delivered: ${e.toString().replaceFirst('Exception: ', '')}',
-            ),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        showTopErrorSnackBar(context, 'Failed to mark as delivered: ${e.toString()}');
       }
     }
   }

@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:node_management_app/core/utils/snackbar_utils.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../data/models/dashboard_stats.dart';
 import '../../providers/home_provider.dart';
 import '../widgets/stat_card.dart';
 import '../widgets/quick_action_tile.dart';
-import '../widgets/recent_activity_card.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -34,12 +34,7 @@ class HomeScreen extends ConsumerWidget {
     if (hasAccess) {
       context.go(route);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('You have not authorised to see that feature ($featureName)'),
-          backgroundColor: AppColors.error,
-        ),
-      );
+      showTopErrorSnackBar(context, 'You are not authorised to see $featureName');
     }
   }
 
@@ -150,27 +145,6 @@ class HomeScreen extends ConsumerWidget {
                     ],
                   ),
                   const SizedBox(height: 28),
-
-                  // ── Recent Activity ────────────────────────────────────────
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _buildSectionLabel('Recent Activity'),
-                      TextButton(
-                        onPressed: () {},
-                        child: Text(
-                          'See all',
-                          style: AppTextStyles.labelMedium.copyWith(color: AppColors.primary),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  ...dummyActivity.map((a) => Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: RecentActivityCard(item: a),
-                      )),
-                  const SizedBox(height: 24),
                 ]),
               ),
             ),

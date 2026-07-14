@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/app_constants.dart';
+import '../utils/snackbar_utils.dart';
 import 'api_endpoints.dart';
 import 'api_exception.dart';
 
@@ -17,21 +18,15 @@ final authLogoutSignal = AuthLogoutSignal();
 final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
 
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
+
 void _showGlobalErrorSnackBar(String message) {
   if (message.isEmpty) return;
   Future.microtask(() {
-    final messenger = rootScaffoldMessengerKey.currentState;
-    if (messenger == null) return;
-    messenger.removeCurrentSnackBar();
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(
-          message,
-          style: const TextStyle(color: Colors.white, fontSize: 14),
-        ),
-        backgroundColor: const Color(0xFFDC2626), // AppColors.error
-        behavior: SnackBarBehavior.floating,
-      ),
+    showTopSnackBarFromNavigatorKey(
+      rootNavigatorKey,
+      message,
+      isError: true,
     );
   });
 }
@@ -164,7 +159,9 @@ Dio _buildDio(FlutterSecureStorage storage) {
             'Something went wrong';
 
         if (error.response?.data is Map) {
-          final status = error.response!.data['status']?.toString().toLowerCase();
+          final status = error.response!.data['status']
+              ?.toString()
+              .toLowerCase();
           if (status == 'failure' || status == 'error') {
             _showGlobalErrorSnackBar(extractedMsg);
           } else if (error.response?.data['message'] != null ||

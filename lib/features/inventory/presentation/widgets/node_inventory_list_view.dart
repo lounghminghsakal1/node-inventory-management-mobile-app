@@ -121,19 +121,21 @@ class _NodeInventoryListViewState extends ConsumerState<NodeInventoryListView> {
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppColors.surface,
+                    color: (state.bySkuCode != null || state.bySkuId != null || !state.availableOnly)
+                        ? AppColors.primary
+                        : AppColors.surface,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
                       color: (state.bySkuCode != null || state.bySkuId != null || !state.availableOnly)
                           ? AppColors.primary
                           : AppColors.cardBorder,
-                      width: (state.bySkuCode != null || state.bySkuId != null || !state.availableOnly) ? 1.5 : 1,
+                      width: 1,
                     ),
                   ),
                   child: Icon(
                     Icons.filter_list_rounded,
                     color: (state.bySkuCode != null || state.bySkuId != null || !state.availableOnly)
-                        ? AppColors.primary
+                        ? Colors.white
                         : AppColors.textMuted,
                     size: 22,
                   ),
@@ -143,50 +145,7 @@ class _NodeInventoryListViewState extends ConsumerState<NodeInventoryListView> {
           ),
         ),
 
-        // Active Filter Chips
-        if (state.bySkuName != null || state.bySkuCode != null || state.bySkuId != null || !state.availableOnly)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  if (state.bySkuName != null && state.bySkuName!.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: _FilterChip(
-                        label: "Name: ${state.bySkuName}",
-                        onRemove: () => ref.read(nodeInventoryListProvider.notifier).updateFilters(bySkuName: ''),
-                      ),
-                    ),
-                  if (state.bySkuCode != null && state.bySkuCode!.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: _FilterChip(
-                        label: "Code: ${state.bySkuCode}",
-                        onRemove: () => ref.read(nodeInventoryListProvider.notifier).updateFilters(bySkuCode: ''),
-                      ),
-                    ),
-                  if (state.bySkuId != null && state.bySkuId!.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: _FilterChip(
-                        label: "ID: ${state.bySkuId}",
-                        onRemove: () => ref.read(nodeInventoryListProvider.notifier).updateFilters(bySkuId: ''),
-                      ),
-                    ),
-                  if (!state.availableOnly)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: _FilterChip(
-                        label: "Showing All Stock",
-                        onRemove: () => ref.read(nodeInventoryListProvider.notifier).filterAvailableOnly(true),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
+
 
         // ── List View ─────────────────────────────────────────────────────────
         Expanded(
@@ -411,35 +370,6 @@ class _NodeInventoryListViewState extends ConsumerState<NodeInventoryListView> {
   }
 }
 
-class _FilterChip extends StatelessWidget {
-  final String label;
-  final VoidCallback onRemove;
-
-  const _FilterChip({required this.label, required this.onRemove});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(label, style: AppTextStyles.labelSmall.copyWith(color: AppColors.primary, fontWeight: FontWeight.w600)),
-          const SizedBox(width: 6),
-          InkWell(
-            onTap: onRemove,
-            child: const Icon(Icons.close, size: 14, color: AppColors.primary),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _NodeInventoryFilterSheet extends StatefulWidget {
   final String? initialSkuName;

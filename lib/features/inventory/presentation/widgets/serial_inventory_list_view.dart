@@ -120,19 +120,21 @@ class _SerialInventoryListViewState extends ConsumerState<SerialInventoryListVie
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppColors.surface,
+                    color: (state.byStatus != 'all' || state.bySkuCode != null || state.bySkuName != null)
+                        ? AppColors.primary
+                        : AppColors.surface,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
                       color: (state.byStatus != 'all' || state.bySkuCode != null || state.bySkuName != null)
                           ? AppColors.primary
                           : AppColors.cardBorder,
-                      width: (state.byStatus != 'all' || state.bySkuCode != null || state.bySkuName != null) ? 1.5 : 1,
+                      width: 1,
                     ),
                   ),
                   child: Icon(
                     Icons.filter_list_rounded,
                     color: (state.byStatus != 'all' || state.bySkuCode != null || state.bySkuName != null)
-                        ? AppColors.primary
+                        ? Colors.white
                         : AppColors.textMuted,
                     size: 22,
                   ),
@@ -142,38 +144,7 @@ class _SerialInventoryListViewState extends ConsumerState<SerialInventoryListVie
           ),
         ),
 
-        // Active Filter Chips
-        if (state.byStatus != 'all' || state.bySkuCode != null || state.bySkuName != null)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  if (state.byStatus != 'all') ...[
-                    _FilterChip(
-                      label: "Status: ${state.byStatus.replaceAll('_', ' ')}",
-                      onRemove: () => ref.read(serialInventoryListProvider.notifier).updateFilters(byStatus: 'all'),
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                  if (state.bySkuCode != null && state.bySkuCode!.isNotEmpty) ...[
-                    _FilterChip(
-                      label: "Code: ${state.bySkuCode}",
-                      onRemove: () => ref.read(serialInventoryListProvider.notifier).updateFilters(bySkuCode: ''),
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                  if (state.bySkuName != null && state.bySkuName!.isNotEmpty) ...[
-                    _FilterChip(
-                      label: "Name: ${state.bySkuName}",
-                      onRemove: () => ref.read(serialInventoryListProvider.notifier).updateFilters(bySkuName: ''),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
+
 
         // ── List View ────────────────────────────────────────────────────────
         Expanded(
@@ -248,35 +219,6 @@ class _SerialInventoryListViewState extends ConsumerState<SerialInventoryListVie
   }
 }
 
-class _FilterChip extends StatelessWidget {
-  final String label;
-  final VoidCallback onRemove;
-
-  const _FilterChip({required this.label, required this.onRemove});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(label, style: AppTextStyles.labelSmall.copyWith(color: AppColors.primary, fontWeight: FontWeight.w600)),
-          const SizedBox(width: 4),
-          InkWell(
-            onTap: onRemove,
-            child: const Icon(Icons.close_rounded, size: 14, color: AppColors.primary),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _SerialCard extends StatelessWidget {
   final SerialInventoryModel item;

@@ -8,6 +8,7 @@ import '../../../../core/widgets/tracking_type_badge.dart';
 import '../../data/models/shipment.dart';
 import '../../data/repositories/shipment_repository.dart';
 import '../../providers/shipment_provider.dart';
+import 'package:node_management_app/core/utils/snackbar_utils.dart';
 
 class _ReturnLineItemState {
   final String lineItemId;
@@ -373,19 +374,12 @@ class _GoodBadAllocationScreenState extends ConsumerState<GoodBadAllocationScree
       ref.invalidate(shipmentListProvider);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Return completed successfully!'),
-            backgroundColor: AppColors.success,
-          ),
-        );
+        showTopSuccessSnackBar(context, 'Return completed successfully!');
         context.go('/shipments');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
-        );
+        showTopErrorSnackBar(context, 'Error: $e');
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);

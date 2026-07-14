@@ -12,6 +12,7 @@ import '../../../../core/widgets/tracking_type_badge.dart';
 import '../../../home/providers/home_provider.dart';
 import '../../data/models/purchase_order_model.dart';
 import '../../providers/purchase_order_provider.dart';
+import 'package:node_management_app/core/utils/snackbar_utils.dart';
 
 class GrnAccordionItem extends ConsumerStatefulWidget {
   final GrnModel grn;
@@ -160,40 +161,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: AppColors.info.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppColors.info.withValues(alpha: 0.3)),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Icon(Icons.info_outline, color: AppColors.info, size: 20),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text("Current Status: ", style: AppTextStyles.caption.copyWith(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
-                        StatusBadge(status: grn.status),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      "Enter received quantities directly for items that arrived at the node and attach any batches/serials. Fully received items are grayed out. All price fields are hidden.",
-                      style: AppTextStyles.caption.copyWith(color: AppColors.textPrimary),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 2),
         _buildInvoiceMetadataCard(grn),
 
         // Inwarding Form
@@ -712,9 +680,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
     final controller = _skuQtyControllers.putIfAbsent(poLi.productSkuId, () => TextEditingController());
     final qtyVal = int.tryParse(controller.text) ?? 0;
     if (qtyVal <= 0 || qtyVal > poLi.remainingQuantity) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Please enter Received Qty between 1 and ${poLi.remainingQuantity} first"), backgroundColor: AppColors.error),
-      );
+      showTopErrorSnackBar(context, "Please enter Received Qty between 1 and ${poLi.remainingQuantity} first");
       return;
     }
 
@@ -737,9 +703,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
     final controller = _skuQtyControllers.putIfAbsent(poLi.productSkuId, () => TextEditingController());
     final qtyVal = int.tryParse(controller.text) ?? 0;
     if (qtyVal <= 0 || qtyVal > poLi.remainingQuantity) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Please enter Received Qty between 1 and ${poLi.remainingQuantity} first"), backgroundColor: AppColors.error),
-      );
+      showTopErrorSnackBar(context, "Please enter Received Qty between 1 and ${poLi.remainingQuantity} first");
       return;
     }
 
@@ -772,9 +736,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
       if (qtyVal <= 0) continue;
 
       if (qtyVal > poLi.remainingQuantity) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Received Qty for ${poLi.skuName} cannot exceed ${poLi.remainingQuantity}"), backgroundColor: AppColors.error),
-        );
+        showTopErrorSnackBar(context, "Received Qty for ${poLi.skuName} cannot exceed ${poLi.remainingQuantity}");
         return;
       }
 
@@ -784,31 +746,16 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
       if (poLi.trackingType == 'batch') {
         final totalBatchQty = batches.fold<int>(0, (sum, b) => sum + b.quantity);
         if (totalBatchQty != qtyVal) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text("Total batch quantity ($totalBatchQty) for '${poLi.skuName}' must equal Received Qty ($qtyVal)"),
-              backgroundColor: AppColors.error,
-            ),
-          );
+          showTopErrorSnackBar(context, "Total batch quantity ($totalBatchQty) does not match received qty ($qtyVal)");
           return;
         }
         if (batches.any((b) => b.batchCode.trim().isEmpty)) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text("All batches for '${poLi.skuName}' must have a valid Batch Code"),
-              backgroundColor: AppColors.error,
-            ),
-          );
+          showTopErrorSnackBar(context, "All batches for '${poLi.skuName}' must have a valid Batch Code");
           return;
         }
       } else if (poLi.trackingType == 'serial') {
         if (serials.length != qtyVal) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text("Total serials count (${serials.length}) for '${poLi.skuName}' must equal Received Qty ($qtyVal)"),
-              backgroundColor: AppColors.error,
-            ),
-          );
+          showTopErrorSnackBar(context, "Total serials count (${serials.length}) does not match received qty ($qtyVal)");
           return;
         }
       }
@@ -842,9 +789,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
     }
 
     if (payloadItems.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please enter Received Qty > 0 for at least one item"), backgroundColor: AppColors.error),
-      );
+      showTopErrorSnackBar(context, "Please enter Received Qty > 0 for at least one item");
       return;
     }
 
@@ -875,12 +820,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
       await ref.read(grnDetailProvider(widget.grn.id).future);
       if (!mounted) return;
       ref.invalidate(poSkuItemsProvider(widget.grn.purchaseOrderId));
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Line items added to GRN successfully"),
-          backgroundColor: AppColors.success,
-        ),
-      );
+      showTopSuccessSnackBar(context, "Line items added to GRN successfully");
     } catch (e) {
       if (!mounted) return;
       String errMsg = e.toString().replaceAll('Exception: ', '');
@@ -890,9 +830,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
           errMsg = (data['message'] ?? data['error']).toString();
         }
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed to add line items: $errMsg"), backgroundColor: AppColors.error),
-      );
+      showTopErrorSnackBar(context, "Failed to add line items: $errMsg");
     } finally {
       if (mounted) setState(() => _loadingAction = null);
     }
@@ -929,9 +867,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
       await ref.read(grnDetailProvider(widget.grn.id).future);
       if (!mounted) return;
       ref.invalidate(poSkuItemsProvider(widget.grn.purchaseOrderId));
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Line item updated successfully"), backgroundColor: AppColors.success),
-      );
+      showTopSuccessSnackBar(context, "Line item updated successfully");
     } catch (e) {
       if (!mounted) return;
       String errMsg = e.toString().replaceAll('Exception: ', '');
@@ -941,9 +877,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
           errMsg = (data['message'] ?? data['error']).toString();
         }
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed to update item: $errMsg"), backgroundColor: AppColors.error),
-      );
+      showTopErrorSnackBar(context, "Failed to update item: $errMsg");
     } finally {
       if (mounted) setState(() => _loadingAction = null);
     }
@@ -986,9 +920,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
       await ref.read(grnDetailProvider(widget.grn.id).future);
       if (!mounted) return;
       ref.invalidate(poSkuItemsProvider(widget.grn.purchaseOrderId));
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Line item removed successfully"), backgroundColor: AppColors.success),
-      );
+      showTopSuccessSnackBar(context, "Line item removed successfully");
     } catch (e) {
       if (!mounted) return;
       String errMsg = e.toString().replaceAll('Exception: ', '');
@@ -998,9 +930,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
           errMsg = (data['message'] ?? data['error']).toString();
         }
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed to remove item: $errMsg"), backgroundColor: AppColors.error),
-      );
+      showTopErrorSnackBar(context, "Failed to remove item: $errMsg");
     } finally {
       if (mounted) setState(() => _loadingAction = null);
     }
@@ -1011,9 +941,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
     try {
       await ref.read(grnControllerProvider.notifier).updateStatus(widget.grn.id, widget.grn.purchaseOrderId, 'qc_pending');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("GRN transitioned to QC Pending! Details refreshed."), backgroundColor: AppColors.success),
-      );
+      showTopSuccessSnackBar(context, "GRN transitioned to QC Pending! Details refreshed.");
     } catch (e) {
       if (!mounted) return;
       String errMsg = e.toString().replaceAll('Exception: ', '');
@@ -1023,9 +951,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
           errMsg = (data['message'] ?? data['error']).toString();
         }
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed to transition status: $errMsg"), backgroundColor: AppColors.error),
-      );
+      showTopErrorSnackBar(context, "Failed to transition status: $errMsg");
     } finally {
       if (mounted) setState(() => _loadingAction = null);
     }
@@ -1041,63 +967,16 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: AppColors.warning.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppColors.warning),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Icon(Icons.assignment_late_outlined, color: AppColors.warning, size: 20),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text("Current Status: ", style: AppTextStyles.caption.copyWith(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
-                        StatusBadge(status: grn.status),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      "Perform QC inspections by clicking the action button on each product row. Rejection reasons are mandatory when any bad quantity is recorded.",
-                      style: AppTextStyles.caption.copyWith(color: AppColors.textPrimary),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 2),
         _buildInvoiceMetadataCard(grn),
 
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text("Quality Check Items", style: AppTextStyles.headingMedium),
-            // ElevatedButton.icon(
-            //   style: ElevatedButton.styleFrom(
-            //     backgroundColor: AppColors.primary,
-            //     foregroundColor: Colors.white,
-            //     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            //   ),
-            //   icon: const Icon(Icons.fact_check_outlined, size: 16),
-            //   label: const Text("QC Check"),
-            //   onPressed: () {
-            //     if (grn.lineItems.isNotEmpty) {
-            //       _openQcModal(_qcModifiedItems[grn.lineItems.first.id] ?? grn.lineItems.first);
-            //     }
-            //   },
-            // ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 6),
         Column(
           children: grn.lineItems.map((li) {
             final activeItem = _qcModifiedItems[li.id] ?? li;
@@ -1129,8 +1008,9 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(activeItem.skuName, style: AppTextStyles.labelMedium),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 1),
                             Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text("SKU: ${activeItem.skuCode}",
                                 style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
@@ -1294,14 +1174,10 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
     try {
       await ref.read(grnControllerProvider.notifier).deleteGrnLineItem(widget.grn.id, widget.grn.purchaseOrderId, li.id);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Line item deleted successfully"), backgroundColor: AppColors.success),
-      );
+      showTopSuccessSnackBar(context, "Line item deleted successfully");
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', '')), backgroundColor: AppColors.error),
-      );
+      showTopErrorSnackBar(context, e.toString());
     } finally {
       if (mounted) setState(() => _loadingAction = null);
     }
@@ -1314,9 +1190,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
     try {
       await ref.read(grnControllerProvider.notifier).submitQc(widget.grn.id, widget.grn.purchaseOrderId, allItems);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Quality Check submitted successfully!"), backgroundColor: AppColors.success),
-      );
+      showTopSuccessSnackBar(context, "Quality Check submitted successfully!");
     } catch (e) {
       if (!mounted) return;
       String errMsg = e.toString().replaceAll('Exception: ', '');
@@ -1326,9 +1200,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
           errMsg = (data['message'] ?? data['error']).toString();
         }
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed to submit QC: $errMsg"), backgroundColor: AppColors.error),
-      );
+      showTopErrorSnackBar(context, "Failed to submit QC: $errMsg");
     } finally {
       if (mounted) setState(() => _loadingAction = null);
     }
@@ -1341,40 +1213,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: AppColors.success.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppColors.success),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Icon(Icons.verified_outlined, color: AppColors.success, size: 20),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text("Current Status: ", style: AppTextStyles.caption.copyWith(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
-                        StatusBadge(status: grn.status),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      "Quality inspection complete and line items accepted into inventory.",
-                      style: AppTextStyles.caption.copyWith(color: AppColors.textPrimary),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 2),
 
         // Invoice Metadata Card
         _buildInvoiceMetadataCard(grn),
@@ -1386,7 +1225,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
           children: grn.lineItems.map((li) {
             return Container(
               margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: AppColors.surface,
                 borderRadius: BorderRadius.circular(12),
@@ -1409,7 +1248,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                       TrackingTypeBadge(trackingType: li.trackingType),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 6),
                   Row(
                     children: [
                       Expanded(
@@ -1497,14 +1336,11 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _qcStatCol("Invoice No", grn.vendorInvoiceNo ?? "N/A", AppColors.textPrimary),
-              _qcStatCol("Invoice Date", grn.vendorInvoiceDate ?? "N/A", AppColors.textPrimary),
-              _qcStatCol("Received Date", grn.receivedDate ?? "N/A", AppColors.textPrimary),
-            ],
-          ),
+          _buildMetadataRow("Invoice No", grn.vendorInvoiceNo ?? "N/A"),
+          const SizedBox(height: 8),
+          _buildMetadataRow("Invoice Date", grn.vendorInvoiceDate ?? "N/A"),
+          const SizedBox(height: 8),
+          _buildMetadataRow("Received Date", grn.receivedDate ?? "N/A"),
           if (grn.remarks != null && grn.remarks!.isNotEmpty) ...[
             const SizedBox(height: 12),
             const Divider(height: 1),
@@ -1521,6 +1357,22 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildMetadataRow(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
+        Expanded(
+          child: Text(
+            value,
+            style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+            textAlign: TextAlign.right,
+          ),
+        ),
+      ],
     );
   }
 
@@ -2300,7 +2152,7 @@ class _BatchInputModalState extends State<_BatchInputModal> {
         ],
       ),
       content: SizedBox(
-        width: 650,
+        width: MediaQuery.of(context).size.width * 0.95,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -2314,7 +2166,7 @@ class _BatchInputModalState extends State<_BatchInputModal> {
                 final batch = entry.value;
                 return Container(
                   margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: AppColors.card,
                     borderRadius: BorderRadius.circular(8),
@@ -2332,17 +2184,18 @@ class _BatchInputModalState extends State<_BatchInputModal> {
                               onChanged: (val) => _batches[idx] = _batches[idx].copyWith(batchCode: val),
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 9),
                           Expanded(
                             child: TextFormField(
                               initialValue: batch.quantity > 0 ? batch.quantity.toString() : '',
-                              decoration: const InputDecoration(labelText: "Quantity *"),
+                              decoration: const InputDecoration(labelText: "Qty *", ),
                               keyboardType: TextInputType.number,
                               onChanged: (val) => setState(() => _batches[idx] = _batches[idx].copyWith(quantity: int.tryParse(val) ?? 0)),
                             ),
                           ),
-                          const SizedBox(width: 8),
                           IconButton(
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
                             icon: const Icon(Icons.delete_outline, color: AppColors.error),
                             onPressed: () => setState(() => _batches.removeAt(idx)),
                           ),
@@ -2355,27 +2208,27 @@ class _BatchInputModalState extends State<_BatchInputModal> {
                             child: InkWell(
                               onTap: () => _selectDate(context, idx, true),
                               child: InputDecorator(
-                                decoration: const InputDecoration(labelText: "Manufactured Date *", contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
+                                decoration: const InputDecoration(labelText: "Mfg. Date *", contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(batch.manufactureDate ?? "Select Date", style: AppTextStyles.caption),
+                                    Text(batch.manufactureDate ?? "Select", style: AppTextStyles.caption),
                                     const Icon(Icons.calendar_today_outlined, size: 16, color: AppColors.primary),
                                   ],
                                 ),
                               ),
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 8),
                           Expanded(
                             child: InkWell(
                               onTap: () => _selectDate(context, idx, false),
                               child: InputDecorator(
-                                decoration: const InputDecoration(labelText: "Expiry Date", contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
+                                decoration: const InputDecoration(labelText: "Exp. Date", contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(batch.expiryDate ?? "Select Date", style: AppTextStyles.caption),
+                                    Text(batch.expiryDate ?? "Select", style: AppTextStyles.caption),
                                     const Icon(Icons.calendar_today_outlined, size: 16, color: AppColors.primary),
                                   ],
                                 ),
@@ -2538,13 +2391,7 @@ class _SerialInputModalState extends ConsumerState<_SerialInputModal> {
           setState(() => _warningMsg = "Serial '$s' already exists in inventory or is invalid!");
         } else {
           HapticFeedback.lightImpact();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text("Detected: $s"),
-              backgroundColor: AppColors.success,
-              duration: const Duration(seconds: 2),
-            ),
-          );
+          showTopSuccessSnackBar(context, "Detected: $s");
           setState(() {
             _serials.add(s);
             _warningMsg = null;

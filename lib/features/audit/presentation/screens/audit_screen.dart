@@ -40,8 +40,6 @@ class _AuditScreenState extends ConsumerState<AuditScreen>
   }
 
   void _onStatusTabChanged() {
-    if (_statusTabCtrl.indexIsChanging) return;
-
     final statusValue = _statusValues[_statusTabCtrl.index];
     final state = ref.read(stockAuditsProvider);
     if (state.filterStatus != statusValue) {
@@ -99,13 +97,13 @@ class _AuditScreenState extends ConsumerState<AuditScreen>
               fontWeight: FontWeight.w600,
             ),
             tabs: const [
-              Tab(text: 'Pending'),
+              Tab(text: 'Ongoing'),
               Tab(text: 'Assigned'),
               Tab(text: 'Sent for Review'),
               Tab(text: 'All'),
             ],
           ),
-          
+
           // ── Content ────────────────────────────────────────────────
           Expanded(
             child: TabBarView(
@@ -163,17 +161,15 @@ class _AuditScreenState extends ConsumerState<AuditScreen>
       content = CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: _buildEmpty(),
-          ),
+          SliverFillRemaining(hasScrollBody: false, child: _buildEmpty()),
         ],
       );
     } else {
       List<StockAuditDetail> displayAudits = List.from(state.audits);
       if (_showTodayOnTop) {
         final today = DateTime.now();
-        final todayStr = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+        final todayStr =
+            '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
         displayAudits.sort((a, b) {
           final aIsToday = a.scheduledDate == todayStr;
           final bIsToday = b.scheduledDate == todayStr;
@@ -214,7 +210,8 @@ class _AuditScreenState extends ConsumerState<AuditScreen>
                   ListView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    itemCount: displayAudits.length + (state.isMoreLoading ? 1 : 0),
+                    itemCount:
+                        displayAudits.length + (state.isMoreLoading ? 1 : 0),
                     itemBuilder: (_, i) {
                       if (i >= displayAudits.length) {
                         return const Padding(
@@ -311,7 +308,7 @@ class _AuditCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isSpot = audit.auditType.toLowerCase() == 'spot';
-    final typeBadgeColor = isSpot ? AppColors.warning : const Color(0xFF3F51B5);
+    final typeBadgeColor = isSpot ? AppColors.warning : const Color.fromARGB(255, 2, 30, 189);
 
     Color statusBadgeColor;
     String statusLabel = audit.status.label.toUpperCase();
@@ -402,8 +399,20 @@ class _AuditCard extends StatelessWidget {
                           _TypeBadge(
                             label: statusLabel,
                             color: statusBadgeColor,
+                            size: 11,
                           ),
                           const SizedBox(width: 6),
+                        ],
+                      ),
+                      SizedBox(height: 4,),
+                      Row(
+                        children: [
+                          Text(
+                            "Audit Type: ",
+                            style: AppTextStyles.caption.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
                           _TypeBadge(
                             label: audit.auditType.toUpperCase(),
                             color: typeBadgeColor,
@@ -453,7 +462,8 @@ class _AuditCard extends StatelessWidget {
 class _TypeBadge extends StatelessWidget {
   final String label;
   final Color color;
-  const _TypeBadge({required this.label, required this.color});
+  final double size;
+  const _TypeBadge({required this.label, required this.color, this.size = 9});
 
   @override
   Widget build(BuildContext context) {
@@ -468,7 +478,7 @@ class _TypeBadge extends StatelessWidget {
         style: AppTextStyles.caption.copyWith(
           color: color,
           fontWeight: FontWeight.bold,
-          fontSize: 9,
+          fontSize: size,
         ),
       ),
     );

@@ -10,6 +10,7 @@ import '../../../orders/providers/order_provider.dart';
 import '../../data/models/order.dart';
 import '../../data/models/shippable_line_item.dart';
 import '../../providers/shipment_provider.dart';
+import 'package:node_management_app/core/utils/snackbar_utils.dart';
 
 class CreateShipmentScreen extends ConsumerStatefulWidget {
   final String? orderId;
@@ -557,12 +558,7 @@ class _CreateShipmentScreenState extends ConsumerState<CreateShipmentScreen> {
       ref.invalidate(shipmentListProvider);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Shipment created successfully!'),
-            backgroundColor: AppColors.success,
-          ),
-        );
+        showTopSuccessSnackBar(context, 'Shipment created successfully!');
         if (widget.orderId != null && context.canPop()) {
           context.pop();
         } else {
@@ -571,13 +567,7 @@ class _CreateShipmentScreenState extends ConsumerState<CreateShipmentScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content:
-                Text('Error: ${e.toString().replaceFirst("Exception: ", "")}'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        showTopErrorSnackBar(context, 'Error: ${e.toString()}');
       }
     }
   }

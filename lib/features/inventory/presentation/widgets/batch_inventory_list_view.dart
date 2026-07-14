@@ -120,19 +120,21 @@ class _BatchInventoryListViewState extends ConsumerState<BatchInventoryListView>
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppColors.surface,
+                    color: (state.bySkuCode != null || state.byBatchId != null || !state.availableOnly)
+                        ? AppColors.primary
+                        : AppColors.surface,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
                       color: (state.bySkuCode != null || state.byBatchId != null || !state.availableOnly)
                           ? AppColors.primary
                           : AppColors.cardBorder,
-                      width: (state.bySkuCode != null || state.byBatchId != null || !state.availableOnly) ? 1.5 : 1,
+                      width: 1,
                     ),
                   ),
                   child: Icon(
                     Icons.filter_list_rounded,
                     color: (state.bySkuCode != null || state.byBatchId != null || !state.availableOnly)
-                        ? AppColors.primary
+                        ? Colors.white
                         : AppColors.textMuted,
                     size: 22,
                   ),
@@ -142,29 +144,6 @@ class _BatchInventoryListViewState extends ConsumerState<BatchInventoryListView>
           ),
         ),
 
-        // Active Filter Chips
-        if (state.availableOnly || state.bySkuCode != null || state.byBatchId != null)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  if (state.availableOnly) ...[
-                    _FilterChip(label: "Available Only", onRemove: () => ref.read(batchInventoryListProvider.notifier).updateFilters(availableOnly: false)),
-                    const SizedBox(width: 8),
-                  ],
-                  if (state.bySkuCode != null && state.bySkuCode!.isNotEmpty) ...[
-                    _FilterChip(label: "Code: ${state.bySkuCode}", onRemove: () => ref.read(batchInventoryListProvider.notifier).updateFilters(bySkuCode: '')),
-                    const SizedBox(width: 8),
-                  ],
-                  if (state.byBatchId != null && state.byBatchId!.isNotEmpty) ...[
-                    _FilterChip(label: "Batch: ${state.byBatchId}", onRemove: () => ref.read(batchInventoryListProvider.notifier).updateFilters(byBatchId: '')),
-                  ],
-                ],
-              ),
-            ),
-          ),
 
         // ── List View ────────────────────────────────────────────────────────
         Expanded(
@@ -239,35 +218,6 @@ class _BatchInventoryListViewState extends ConsumerState<BatchInventoryListView>
   }
 }
 
-class _FilterChip extends StatelessWidget {
-  final String label;
-  final VoidCallback onRemove;
-
-  const _FilterChip({required this.label, required this.onRemove});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(label, style: AppTextStyles.labelSmall.copyWith(color: AppColors.primary, fontWeight: FontWeight.w600)),
-          const SizedBox(width: 4),
-          InkWell(
-            onTap: onRemove,
-            child: const Icon(Icons.close_rounded, size: 14, color: AppColors.primary),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _BatchCard extends StatelessWidget {
   final BatchInventoryModel item;

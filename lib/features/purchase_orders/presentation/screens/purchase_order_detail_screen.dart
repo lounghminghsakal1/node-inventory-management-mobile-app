@@ -109,13 +109,6 @@ class _PurchaseOrderDetailScreenState
                   'Goods Received Notes (GRNs)',
                   style: AppTextStyles.headingMedium,
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'Click on any GRN below to expand its line items and inspection reports.',
-                  style: AppTextStyles.bodySmall.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
                 const SizedBox(height: 16),
 
                 _buildGrnSection(po),

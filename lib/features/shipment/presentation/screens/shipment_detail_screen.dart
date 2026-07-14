@@ -1,6 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:node_management_app/features/home/providers/home_provider.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/widgets/app_button.dart';
@@ -46,6 +47,7 @@ class ShipmentDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final asyncShipment = ref.watch(shipmentByIdProvider(shipmentId));
+    final splash = ref.watch(splashDataProvider).valueOrNull;
 
     return asyncShipment.when(
       skipLoadingOnReload: false,
@@ -642,7 +644,7 @@ class ShipmentDetailScreen extends ConsumerWidget {
                 const SizedBox(height: 24),
 
                 // â”€â”€ Action Buttons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-                _ActionButtons(shipment: shipment),
+                if(splash!.hasPermission("Shipment", "update")) _ActionButtons(shipment: shipment),
                 const SizedBox(height: 16),
               ],
             ),

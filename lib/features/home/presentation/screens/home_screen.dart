@@ -12,6 +12,37 @@ import '../widgets/recent_activity_card.dart';
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
+  void _navigateWithPermission(
+    BuildContext context,
+    WidgetRef ref,
+    String route,
+    String featureName,
+    String module,
+  ) {
+    final splash = ref.read(splashDataProvider).valueOrNull;
+    if (splash == null) return;
+
+    bool hasAccess = false;
+    if (module == 'Inventory') {
+      hasAccess = splash.hasPermission('NodeInventory', 'read') ||
+                  splash.hasPermission('BatchInventory', 'read') ||
+                  splash.hasPermission('SkuItem', 'read');
+    } else {
+      hasAccess = splash.hasPermission(module, 'read');
+    }
+
+    if (hasAccess) {
+      context.go(route);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('You have not authorised to see that feature ($featureName)'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final splashAsync = ref.watch(splashDataProvider);
@@ -34,8 +65,8 @@ class HomeScreen extends ConsumerWidget {
                   _buildSectionLabel('Overview'),
                   const SizedBox(height: 12),
                   splashAsync.when(
-                    data: (splash) => _buildStatsRow(context, splash),
-                    loading: () => _buildLoadingStatsRow(context),
+                    data: (splash) => _buildStatsRow(context, ref, splash),
+                    loading: () => _buildLoadingStatsRow(context, ref),
                     error: (err, _) => _buildErrorStatsRow(context, ref, err.toString()),
                   ),
                   const SizedBox(height: 24),
@@ -52,7 +83,7 @@ class HomeScreen extends ConsumerWidget {
                             children: [
                               _buildSectionLabel('Pending Stock Audits'),
                               TextButton(
-                                onPressed: () => context.go('/audit'),
+                                onPressed: () => _navigateWithPermission(context, ref, '/audit', 'Stock Audit', 'StockAudit'),
                                 child: Text(
                                   'View All',
                                   style: AppTextStyles.labelMedium.copyWith(color: AppColors.primary),
@@ -61,7 +92,7 @@ class HomeScreen extends ConsumerWidget {
                             ],
                           ),
                           const SizedBox(height: 8),
-                          ...splash.stockAudits.map((audit) => _buildStockAuditCard(context, audit)),
+                          ...splash.stockAudits.map((audit) => _buildStockAuditCard(context, ref, audit)),
                           const SizedBox(height: 24),
                         ],
                       );
@@ -84,31 +115,31 @@ class HomeScreen extends ConsumerWidget {
                         label: 'Shipments',
                         icon: Icons.local_shipping_rounded,
                         color: AppColors.primary,
-                        onTap: () => context.go('/shipments'),
+                        onTap: () => _navigateWithPermission(context, ref, '/shipments', 'Shipments', 'Shipment'),
                       ),
                       QuickActionTile(
                         label: 'Purchase Orders',
                         icon: Icons.shopping_bag_rounded,
                         color: AppColors.secondary,
-                        onTap: () => context.go('/purchase-orders'),
+                        onTap: () => _navigateWithPermission(context, ref, '/purchase-orders', 'Purchase Orders', 'PurchaseOrder'),
                       ),
                       QuickActionTile(
                         label: 'Inventory',
                         icon: Icons.inventory_2_rounded,
                         color: AppColors.accentGreen,
-                        onTap: () => context.go('/inventory'),
+                        onTap: () => _navigateWithPermission(context, ref, '/inventory', 'Inventory', 'Inventory'),
                       ),
                       QuickActionTile(
                         label: 'Audit',
                         icon: Icons.fact_check_rounded,
                         color: AppColors.warning,
-                        onTap: () => context.go('/audit'),
+                        onTap: () => _navigateWithPermission(context, ref, '/audit', 'Stock Audit', 'StockAudit'),
                       ),
                       QuickActionTile(
                         label: 'GRN',
                         icon: Icons.receipt_long_rounded,
                         color: AppColors.accent,
-                        onTap: () => context.go('/purchase-orders'),
+                        onTap: () => _navigateWithPermission(context, ref, '/purchase-orders', 'Purchase Orders', 'PurchaseOrder'),
                       ),
                       QuickActionTile(
                         label: 'Refresh',
@@ -150,7 +181,7 @@ class HomeScreen extends ConsumerWidget {
   }
 
 
-  Widget _buildStatsRow(BuildContext context, SplashData splash) {
+  Widget _buildStatsRow(BuildContext context, WidgetRef ref, SplashData splash) {
     return Row(
       children: [
         Expanded(
@@ -159,7 +190,7 @@ class HomeScreen extends ConsumerWidget {
             value: '${splash.pendingForwardShipmentsCount}',
             icon: Icons.local_shipping_outlined,
             gradient: AppColors.primaryGradient,
-            onTap: () => context.go('/shipments'),
+            onTap: () => _navigateWithPermission(context, ref, '/shipments', 'Shipments', 'Shipment'),
           ),
         ),
         const SizedBox(width: 12),
@@ -169,7 +200,7 @@ class HomeScreen extends ConsumerWidget {
             value: '${splash.returnInitiatedShipmentsCount}',
             icon: Icons.assignment_return_outlined,
             gradient: AppColors.warningGradient,
-            onTap: () => context.go('/shipments'),
+            onTap: () => _navigateWithPermission(context, ref, '/shipments', 'Shipments', 'Shipment'),
           ),
         ),
         const SizedBox(width: 12),
@@ -179,14 +210,14 @@ class HomeScreen extends ConsumerWidget {
             value: '${splash.stockAudits.length}',
             icon: Icons.fact_check_outlined,
             gradient: AppColors.cyanGradient,
-            onTap: () => context.go('/audit'),
+            onTap: () => _navigateWithPermission(context, ref, '/audit', 'Stock Audit', 'StockAudit'),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildLoadingStatsRow(BuildContext context) {
+  Widget _buildLoadingStatsRow(BuildContext context, WidgetRef ref) {
     return Row(
       children: [
         Expanded(
@@ -195,7 +226,7 @@ class HomeScreen extends ConsumerWidget {
             value: '...',
             icon: Icons.local_shipping_outlined,
             gradient: AppColors.primaryGradient,
-            onTap: () => context.go('/shipments'),
+            onTap: () => _navigateWithPermission(context, ref, '/shipments', 'Shipments', 'Shipment'),
           ),
         ),
         const SizedBox(width: 12),
@@ -205,7 +236,7 @@ class HomeScreen extends ConsumerWidget {
             value: '...',
             icon: Icons.assignment_return_outlined,
             gradient: AppColors.warningGradient,
-            onTap: () => context.go('/inventory'),
+            onTap: () => _navigateWithPermission(context, ref, '/shipments', 'Shipments', 'Shipment'),
           ),
         ),
         const SizedBox(width: 12),
@@ -215,7 +246,7 @@ class HomeScreen extends ConsumerWidget {
             value: '...',
             icon: Icons.fact_check_outlined,
             gradient: AppColors.cyanGradient,
-            onTap: () => context.go('/audit'),
+            onTap: () => _navigateWithPermission(context, ref, '/audit', 'Stock Audit', 'StockAudit'),
           ),
         ),
       ],
@@ -247,7 +278,7 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildStockAuditCard(BuildContext context, StockAudit audit) {
+  Widget _buildStockAuditCard(BuildContext context, WidgetRef ref, StockAudit audit) {
     final isSpot = audit.auditType.toLowerCase() == 'spot';
     final badgeColor = isSpot ? AppColors.warning : AppColors.primary;
 
@@ -262,7 +293,7 @@ class HomeScreen extends ConsumerWidget {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
-          onTap: () => context.go('/audit/${audit.id}'),
+          onTap: () => _navigateWithPermission(context, ref, '/audit/${audit.id}', 'Stock Audit', 'StockAudit'),
           child: Padding(
             padding: const EdgeInsets.all(14),
             child: Row(

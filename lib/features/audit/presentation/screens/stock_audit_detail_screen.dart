@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +9,7 @@ import '../../../../app/theme/app_text_styles.dart';
 import '../../data/models/stock_audit.dart';
 import '../../providers/stock_audit_provider.dart';
 import '../../utils/audit_draft_service.dart';
+import '../../../home/providers/home_provider.dart';
 
 // Main Screen
 
@@ -176,6 +177,9 @@ class _StockAuditDetailScreenState
     StockAuditDetail audit,
     AuditLineItemsState lineItemsState,
   ) {
+    final splash = ref.watch(splashDataProvider).valueOrNull;
+    final canUpdate = splash?.hasPermission('StockAudit', 'update') ?? false;
+
     return RefreshIndicator(
       color: AppColors.primary,
       onRefresh: _refresh,
@@ -188,6 +192,7 @@ class _StockAuditDetailScreenState
                 _AuditHeader(
                   audit: audit,
                   isActionLoading: _isActionLoading,
+                  canUpdate: canUpdate,
                   onInitiate: () => _initiate(audit),
                   onSendForReview: _sendForReview,
                 ),
@@ -196,7 +201,12 @@ class _StockAuditDetailScreenState
             ),
           ),
           SliverFillRemaining(
-            child: _buildLineItemsBody(audit, lineItemsState),
+            child: _buildLineItemsBody(
+              audit,
+              lineItemsState,
+              canUpdate,
+              splash?.hasPermission('StockAudit', 'read') ?? false,
+            ),
           ),
         ],
       ),
@@ -206,6 +216,8 @@ class _StockAuditDetailScreenState
   Widget _buildLineItemsBody(
     StockAuditDetail audit,
     AuditLineItemsState lineItemsState,
+    bool canUpdate,
+    bool canRead,
   ) {
     if (lineItemsState.error != null && lineItemsState.items.isEmpty) {
       return Center(
@@ -286,10 +298,12 @@ class _StockAuditDetailScreenState
                       }
                       final item = lineItemsState.items[i];
                       final canEdit =
-                          audit.status == StockAuditStatus.initiatedAuditing;
+                          audit.status == StockAuditStatus.initiatedAuditing &&
+                          canUpdate;
                       return _SkuLineItemCard(
                         item: item,
                         canEdit: canEdit,
+                        canRead: canRead,
                         auditId: widget.auditId,
                         auditStatus: audit.status,
                         onSaved: _onSkuSaved,
@@ -306,12 +320,14 @@ class _StockAuditDetailScreenState
 class _AuditHeader extends StatelessWidget {
   final StockAuditDetail audit;
   final bool isActionLoading;
+  final bool canUpdate;
   final VoidCallback onInitiate;
   final VoidCallback onSendForReview;
 
   const _AuditHeader({
     required this.audit,
     required this.isActionLoading,
+    required this.canUpdate,
     required this.onInitiate,
     required this.onSendForReview,
   });
@@ -400,12 +416,7 @@ class _AuditHeader extends StatelessWidget {
                   height: 20,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              // Show the Initiate button for the entire "assigned" status,
-              // not just when canInitiate is true ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â tapping it outside the
-              // scheduled date now surfaces an error snackbar (handled in
-              // _StockAuditDetailScreenState._initiate) instead of hiding
-              // the button/list entirely.
-              else if (audit.status == StockAuditStatus.assigned)
+              else if (audit.status == StockAuditStatus.assigned && canUpdate)
                 ElevatedButton.icon(
                   onPressed: onInitiate,
                   icon: const Icon(Icons.play_arrow_rounded, size: 18),
@@ -422,7 +433,7 @@ class _AuditHeader extends StatelessWidget {
                     ),
                   ),
                 )
-              else if (audit.status == StockAuditStatus.initiatedAuditing)
+              else if (audit.status == StockAuditStatus.initiatedAuditing && canUpdate)
                 ElevatedButton.icon(
                   onPressed: onSendForReview,
                   icon: const Icon(Icons.send_rounded, size: 18),
@@ -541,12 +552,11 @@ class _HeaderChip extends StatelessWidget {
 }
 
 // SKU Line
-// Full-width expandable card shown in the main list. Shows qty data inline and
-// embeds the appropriate count panel directly beneath.
 
 class _SkuLineItemCard extends StatelessWidget {
   final AuditLineItem item;
   final bool canEdit;
+  final bool canRead;
   final String auditId;
   final StockAuditStatus auditStatus;
   final Future<void> Function(AuditLineItem) onSaved;
@@ -554,6 +564,7 @@ class _SkuLineItemCard extends StatelessWidget {
   const _SkuLineItemCard({
     required this.item,
     required this.canEdit,
+    required this.canRead,
     required this.auditId,
     required this.auditStatus,
     required this.onSaved,
@@ -584,7 +595,6 @@ class _SkuLineItemCard extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Status indicator (only shown when counted)
               if (hasCounts)
                 Padding(
                   padding: const EdgeInsets.only(top: 2, right: 10),
@@ -594,7 +604,6 @@ class _SkuLineItemCard extends StatelessWidget {
                     size: 18,
                   ),
                 ),
-              // Name + inputs/chips
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -615,7 +624,6 @@ class _SkuLineItemCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    // Inline inputs/chips depending on tracking type
                     if (item.trackingType == 'untracked')
                       _UntrackedInlineEditor(
                         item: item,
@@ -628,6 +636,7 @@ class _SkuLineItemCard extends StatelessWidget {
                         item: item,
                         auditId: auditId,
                         canEdit: canEdit,
+                        canRead: canRead,
                         auditStatus: auditStatus,
                         onSaved: onSaved,
                       ),
@@ -743,7 +752,7 @@ class _UntrackedInlineEditorState
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Draft saved successfully'),
+          content: Text('Entered quantity saved as draft'),
           backgroundColor: AppColors.success,
         ),
       );
@@ -772,7 +781,7 @@ class _UntrackedInlineEditorState
           builder: (ctx) => AlertDialog(
             title: const Text('Discrepancy Warning'),
             content: const Text(
-              'The total of Good + Damaged does not account for all items.\n\n'
+              'There may be huge variance between you entered quantity with system quantity.\n\n'
               'There may be discrepancies - please recount once more to ensure accuracy.\n\n'
               'Do you want to proceed anyway?',
             ),
@@ -796,12 +805,9 @@ class _UntrackedInlineEditorState
     final good = int.tryParse(_goodCtrl.text) ?? 0;
     final damaged = int.tryParse(_damagedCtrl.text) ?? 0;
 
-    // Auto-calculate missing = system_qty - (good + damaged)
-    // If good alone exceeds system_qty, missing = 0
     int missing = widget.item.systemQty - good - damaged;
     if (missing < 0) missing = 0;
 
-    // Show non-blocking discrepancy warning if totals don't add up
     if (good + damaged + missing != widget.item.systemQty) {
       final proceed = await _showDiscrepancyWarning();
       if (!proceed) return;
@@ -819,6 +825,14 @@ class _UntrackedInlineEditorState
         widget.item.skuId.toString(),
       );
       await widget.onSaved(updated);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Entered quantity saved'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -923,18 +937,18 @@ class _UntrackedInlineEditorState
   }
 }
 
-// Tracked (Batch
-
 class _TrackedInlineEditor extends ConsumerWidget {
   final AuditLineItem item;
   final String auditId;
   final bool canEdit;
+  final bool canRead;
   final StockAuditStatus auditStatus;
   final Future<void> Function(AuditLineItem) onSaved;
   const _TrackedInlineEditor({
     required this.item,
     required this.auditId,
     required this.canEdit,
+    required this.canRead,
     required this.auditStatus,
     required this.onSaved,
   });
@@ -993,7 +1007,7 @@ class _TrackedInlineEditor extends ConsumerWidget {
             ),
           ],
         ),
-        if (auditStatus != StockAuditStatus.assigned) ...[
+        if (auditStatus != StockAuditStatus.assigned && (canEdit || canRead)) ...[
           const SizedBox(height: 12),
           if (item.trackingType == 'batch')
             FilledButton.icon(
@@ -1034,8 +1048,6 @@ class _TrackedInlineEditor extends ConsumerWidget {
     );
   }
 }
-
-// Batch Count Modal
 
 class _BatchEntry {
   final AuditBatch batch;
@@ -1130,7 +1142,7 @@ class _BatchCountModalState extends ConsumerState<_BatchCountModal> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Draft saved successfully'),
+          content: Text('Entered quantities saved as draft'),
           backgroundColor: AppColors.success,
         ),
       );
@@ -1181,11 +1193,9 @@ class _BatchCountModalState extends ConsumerState<_BatchCountModal> {
       final good = int.tryParse(e.goodCtrl.text) ?? 0;
       final damaged = int.tryParse(e.damagedCtrl.text) ?? 0;
 
-      // Auto-calculate missing per batch
       int missing = e.batch.systemQty - good - damaged;
       if (missing < 0) missing = 0;
 
-      // Check if counts are inconsistent
       if (good + damaged + missing != e.batch.systemQty) {
         hasDiscrepancy = true;
       }
@@ -1222,7 +1232,15 @@ class _BatchCountModalState extends ConsumerState<_BatchCountModal> {
         widget.auditId,
         widget.item.skuId.toString(),
       );
-      if (mounted) Navigator.pop(context, updated);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Entered quantities saved'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+        Navigator.pop(context, updated);
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1375,14 +1393,17 @@ class _BatchCountModalState extends ConsumerState<_BatchCountModal> {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     TextButton(
-                      onPressed: _isSaving
-                          ? null
-                          : () => Navigator.pop(context),
+                      onPressed: () => Navigator.pop(context),
                       child: const Text('Cancel'),
                     ),
                     const SizedBox(width: 8),
                     OutlinedButton(
-                      onPressed: _isSaving ? null : _saveDraft,
+                      onPressed: _isSaving
+                          ? null
+                          : () async {
+                              await _saveDraft();
+                              if (mounted) Navigator.pop(context);
+                            },
                       style: OutlinedButton.styleFrom(
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
@@ -1505,7 +1526,6 @@ class _SerialCountModalState extends ConsumerState<_SerialCountModal> {
         if (goodList.isNotEmpty) {
           _good = goodList.map((e) => e.toString()).toSet();
         } else {
-          // Fallback: derive good from non-damaged/non-missing serials
           final missingList =
               widget.item.meta?['missing_serials'] as List<dynamic>? ?? [];
           final missing = missingList.map((e) => e.toString()).toSet();
@@ -1531,7 +1551,7 @@ class _SerialCountModalState extends ConsumerState<_SerialCountModal> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Draft saved successfully'),
+          content: Text('Entered serials saved as draft'),
           backgroundColor: AppColors.success,
         ),
       );
@@ -1551,7 +1571,8 @@ class _SerialCountModalState extends ConsumerState<_SerialCountModal> {
     final code = barcodes.first.rawValue ?? '';
     if (code.isEmpty) return;
 
-    // Already classified
+    HapticFeedback.lightImpact();
+
     if (_good!.contains(code) || _damaged!.contains(code)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1563,7 +1584,6 @@ class _SerialCountModalState extends ConsumerState<_SerialCountModal> {
       return;
     }
 
-    // Check if this serial is expected
     final isExpected = _expectedSerials.any((s) => s.serialNumber == code);
     if (!isExpected) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1576,7 +1596,6 @@ class _SerialCountModalState extends ConsumerState<_SerialCountModal> {
       return;
     }
 
-    // Pause scanner while asking
     _scannerController.stop();
 
     final result = await showDialog<String>(
@@ -1634,14 +1653,12 @@ class _SerialCountModalState extends ConsumerState<_SerialCountModal> {
       setState(() => _damaged!.add(code));
     }
 
-    // Resume scanning
     _scannerController.start();
   }
 
   Future<void> _confirm() async {
     if (_good == null) return;
 
-    // Auto-calculate missing: expected serials not scanned as good or damaged
     final missing = _expectedSerials
         .map((s) => s.serialNumber)
         .where((sn) => !_good!.contains(sn) && !_damaged!.contains(sn))
@@ -1663,7 +1680,15 @@ class _SerialCountModalState extends ConsumerState<_SerialCountModal> {
         widget.auditId,
         widget.item.skuId.toString(),
       );
-      if (mounted) Navigator.pop(context, updated);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Entered serials saved'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+        Navigator.pop(context, updated);
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1682,7 +1707,7 @@ class _SerialCountModalState extends ConsumerState<_SerialCountModal> {
   Widget build(BuildContext context) {
     if (_isLoadingDraft) {
       return const Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: Colors.transparent,
         body: Center(child: CircularProgressIndicator()),
       );
     }
@@ -1694,17 +1719,19 @@ class _SerialCountModalState extends ConsumerState<_SerialCountModal> {
       )),
     );
 
-    return Dialog(
-      backgroundColor: AppColors.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.9,
-        ),
-        child: Column(
-          children: [
-            // Header
-            Padding(
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Center(
+        child: Dialog(
+          backgroundColor: AppColors.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.9,
+            ),
+            child: Column(
+              children: [
+                Padding(
               padding: const EdgeInsets.fromLTRB(20, 20, 8, 0),
               child: Row(
                 children: [
@@ -1743,7 +1770,6 @@ class _SerialCountModalState extends ConsumerState<_SerialCountModal> {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Camera scanner
                       if (widget.canEdit &&
                           widget.auditStatus ==
                               StockAuditStatus.initiatedAuditing)
@@ -1767,7 +1793,6 @@ class _SerialCountModalState extends ConsumerState<_SerialCountModal> {
                           ),
                         ),
 
-                      // Summary
                       Padding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 16,
@@ -1799,7 +1824,6 @@ class _SerialCountModalState extends ConsumerState<_SerialCountModal> {
                         ),
                       ),
 
-                      // Scanned chips
                       Expanded(
                         child: SingleChildScrollView(
                           padding: const EdgeInsets.symmetric(
@@ -1857,7 +1881,6 @@ class _SerialCountModalState extends ConsumerState<_SerialCountModal> {
               ),
             ),
 
-            // Footer
             Container(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
               decoration: const BoxDecoration(
@@ -1887,9 +1910,9 @@ class _SerialCountModalState extends ConsumerState<_SerialCountModal> {
                           child: OutlinedButton(
                             onPressed: _isSaving
                                 ? null
-                                : () {
-                                    _saveDraft();
-                                    Navigator.pop(context);
+                                : () async {
+                                    await _saveDraft();
+                                    if (mounted) Navigator.pop(context);
                                   },
                             style: OutlinedButton.styleFrom(
                               side: const BorderSide(color: AppColors.primary),
@@ -1939,6 +1962,8 @@ class _SerialCountModalState extends ConsumerState<_SerialCountModal> {
                     ),
             ),
           ],
+        ),
+      ),
         ),
       ),
     );

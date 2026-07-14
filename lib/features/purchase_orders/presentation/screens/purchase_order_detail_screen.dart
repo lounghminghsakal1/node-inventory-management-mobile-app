@@ -30,7 +30,8 @@ class _PurchaseOrderDetailScreenState
   Widget build(BuildContext context) {
     final asyncPo = ref.watch(purchaseOrderByIdProvider(widget.poId));
     final splash = ref.watch(splashDataProvider).valueOrNull;
-    final canCreateGrn = splash?.hasPermission('GoodsReceivedNote', 'create') ?? false;
+    final canCreateGrn =
+        splash?.hasPermission('GoodsReceivedNote', 'create') ?? false;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -38,35 +39,38 @@ class _PurchaseOrderDetailScreenState
       bottomNavigationBar: asyncPo.maybeWhen(
         data: (po) {
           if (!canCreateGrn) return null;
-          final isAllGrnCompleted = po.goodsReceivedNotes.isEmpty ? true :
-              po.goodsReceivedNotes.every((grn) => grn.status == 'complete');
+          final isAllGrnCompleted = po.goodsReceivedNotes.isEmpty
+              ? true
+              : po.goodsReceivedNotes.every((grn) => grn.status == 'complete');
           if (!isAllGrnCompleted) {
             return null;
           } else {
             return Container(
-            padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
-              color: AppColors.surface,
-              border: Border(top: BorderSide(color: AppColors.cardBorder)),
-            ),
-            child: SafeArea(
-              top: false,
-              child: AppButton(
-                label: 'Create GRN',
-                icon: Icons.add_box_outlined,
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => CreateGrnScreen(
-                        poId: po.id,
-                        poNumber: po.purchaseOrderNumber,
-                      ),
-                    ),
-                  );
-                },
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: AppColors.surface,
+                border: Border(top: BorderSide(color: AppColors.cardBorder)),
               ),
-            ),
-          );
+              child: SafeArea(
+                top: false,
+                child: splash!.hasPermission("GoodsReceivedNote", "create")
+                    ? AppButton(
+                        label: 'Create GRN',
+                        icon: Icons.add_box_outlined,
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => CreateGrnScreen(
+                                poId: po.id,
+                                poNumber: po.purchaseOrderNumber,
+                              ),
+                            ),
+                          );
+                        },
+                      )
+                    : const SizedBox.shrink(),
+              ),
+            );
           }
         },
         orElse: () => null,

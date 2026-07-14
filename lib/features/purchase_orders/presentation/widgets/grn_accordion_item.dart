@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../../../app/theme/app_colors.dart';
@@ -8,6 +9,7 @@ import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/status_badge.dart';
 import '../../../../core/widgets/tracking_type_badge.dart';
+import '../../../home/providers/home_provider.dart';
 import '../../data/models/purchase_order_model.dart';
 import '../../providers/purchase_order_provider.dart';
 
@@ -152,6 +154,8 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
   // ===========================================================================
   Widget _buildCreatedStatusView(GrnModel grn) {
     final asyncSkuItems = ref.watch(poSkuItemsProvider(grn.purchaseOrderId));
+    final splash = ref.watch(splashDataProvider).valueOrNull;
+    final canUpdateGrn = splash?.hasPermission('GoodsReceivedNote', 'update') ?? false;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -222,7 +226,9 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (unfulfilledSkus.isEmpty)
+                        if (!canUpdateGrn)
+                          const SizedBox.shrink()
+                        else if (unfulfilledSkus.isEmpty)
                           Container(
                             margin: const EdgeInsets.only(bottom: 16),
                             padding: const EdgeInsets.all(16),
@@ -652,6 +658,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                          if (canUpdateGrn) ...[
                             if (_loadingAction == 'update_${li.id}' || _loadingAction == 'delete_${li.id}')
                               const Padding(
                                 padding: EdgeInsets.symmetric(horizontal: 12),
@@ -675,6 +682,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                                 ),
                             ],
                           ],
+                          ],
                         ),
                       ],
                     ),
@@ -686,15 +694,16 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
         const SizedBox(height: 24),
 
         // Proceed to QC Button
-        SizedBox(
-          width: double.infinity,
-          child: AppButton(
-            label: "Proceed to QC",
-            icon: Icons.arrow_forward_rounded,
-            isLoading: _loadingAction == 'proceed_qc',
-            onPressed: (grn.lineItems.isEmpty || _loadingAction != null) ? null : _proceedToQc,
+        if (canUpdateGrn)
+          SizedBox(
+            width: double.infinity,
+            child: AppButton(
+              label: "Proceed to QC",
+              icon: Icons.arrow_forward_rounded,
+              isLoading: _loadingAction == 'proceed_qc',
+              onPressed: (grn.lineItems.isEmpty || _loadingAction != null) ? null : _proceedToQc,
+            ),
           ),
-        ),
       ],
     );
   }
@@ -1026,6 +1035,8 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
   // 2. QC PENDING STATUS VIEW (No Price Fields, Dynamic Action Buttons)
   // ===========================================================================
   Widget _buildQcPendingStatusView(GrnModel grn) {
+    final splash = ref.watch(splashDataProvider).valueOrNull;
+    final canUpdateGrn = splash?.hasPermission('GoodsReceivedNote', 'update') ?? false;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1135,17 +1146,18 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                           ],
                         ),
                       ),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isModified ? AppColors.success : AppColors.getTrackingTextColor(activeItem.trackingType),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      if (canUpdateGrn)
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: isModified ? AppColors.success : AppColors.getTrackingTextColor(activeItem.trackingType),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          icon: Icon(isModified ? Icons.check_circle_outline : Icons.fact_check_outlined, size: 16),
+                          label: Text(isModified ? "Confirmed" : buttonLabel),
+                          onPressed: () => _openQcModal(activeItem),
                         ),
-                        icon: Icon(isModified ? Icons.check_circle_outline : Icons.fact_check_outlined, size: 16),
-                        label: Text(isModified ? "Confirmed" : buttonLabel),
-                        onPressed: () => _openQcModal(activeItem),
-                      ),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -1179,16 +1191,17 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
         const SizedBox(height: 24),
 
         // Submit QC CTA
-        SizedBox(
-          width: double.infinity,
-          child: AppButton(
-            label: "Submit QC and Complete GRN",
-            icon: Icons.done_all,
-            isOutlined: true,
-            isLoading: _loadingAction == 'submit_qc',
-            onPressed: _loadingAction != null ? null : _submitQc,
+        if (canUpdateGrn)
+          SizedBox(
+            width: double.infinity,
+            child: AppButton(
+              label: "Submit QC and Complete GRN",
+              icon: Icons.done_all,
+              isOutlined: true,
+              isLoading: _loadingAction == 'submit_qc',
+              onPressed: _loadingAction != null ? null : _submitQc,
+            ),
           ),
-        ),
       ],
     );
   }
@@ -2524,6 +2537,14 @@ class _SerialInputModalState extends ConsumerState<_SerialInputModal> {
         if (!isValid) {
           setState(() => _warningMsg = "Serial '$s' already exists in inventory or is invalid!");
         } else {
+          HapticFeedback.lightImpact();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Detected: $s"),
+              backgroundColor: AppColors.success,
+              duration: const Duration(seconds: 2),
+            ),
+          );
           setState(() {
             _serials.add(s);
             _warningMsg = null;
@@ -2563,8 +2584,7 @@ class _SerialInputModalState extends ConsumerState<_SerialInputModal> {
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   _tabBtn("Manual Input", 0),
-                  _tabBtn("Bulk Upload", 1),
-                  _tabBtn("Barcode Scan", 2),
+                  _tabBtn("Barcode Scan", 1),
                 ],
               ),
               const SizedBox(height: 16),

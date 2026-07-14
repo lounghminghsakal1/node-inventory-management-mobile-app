@@ -60,30 +60,30 @@ class _AuditScreenState extends ConsumerState<AuditScreen>
       body: Column(
         children: [
           // ── Toggles & Filters ──────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  "Show today's audits on top",
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                Switch(
-                  value: _showTodayOnTop,
-                  onChanged: (val) {
-                    setState(() {
-                      _showTodayOnTop = val;
-                    });
-                  },
-                  activeColor: AppColors.primary,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 2),
+          // Padding(
+          //   padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+          //   child: Row(
+          //     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          //     children: [
+          //       Text(
+          //         "Show today's audits on top",
+          //         style: AppTextStyles.bodyMedium.copyWith(
+          //           color: AppColors.textSecondary,
+          //         ),
+          //       ),
+          //       Switch(
+          //         value: _showTodayOnTop,
+          //         onChanged: (val) {
+          //           setState(() {
+          //             _showTodayOnTop = val;
+          //           });
+          //         },
+          //         activeColor: AppColors.primary,
+          //       ),
+          //     ],
+          //   ),
+          // ),
+          const SizedBox(height: 10),
 
           TabBar(
             controller: _statusTabCtrl,

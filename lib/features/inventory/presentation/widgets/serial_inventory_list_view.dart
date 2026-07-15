@@ -254,8 +254,8 @@ class _SerialCard extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: AppColors.card,
           borderRadius: BorderRadius.circular(12),
@@ -292,48 +292,30 @@ class _SerialCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
 
-            // SKU Info & Node
+            // SKU Info
             Text(
               item.productSku?.skuName ?? 'Unknown SKU',
               style: AppTextStyles.labelMedium.copyWith(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 4),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    "SKU: ${item.productSku?.skuCode ?? 'N/A'}",
-                    style: AppTextStyles.caption.copyWith(color: AppColors.textMuted),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-
-            if (item.currentTransaction != null) ...[
-              const SizedBox(height: 10),
-              Divider(color: AppColors.cardBorder.withValues(alpha: 0.6), height: 1),
-              const SizedBox(height: 8),
-              Row(
+            Text.rich(
+              TextSpan(
                 children: [
-                  const Icon(Icons.receipt_outlined, size: 14, color: AppColors.textMuted),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      item.currentTransaction!.transactionReferenceType == 'GoodsReceivedNote'
-                          ? "Ref: GRN - ${item.currentTransaction!.transactionReferenceId ?? 'N/A'}"
-                          : "Ref: ${item.currentTransaction!.transactionReferenceType} - ${item.currentTransaction!.transactionReferenceId ?? 'N/A'}",
-                      style: AppTextStyles.caption.copyWith(color: AppColors.textMuted),
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                  TextSpan(
+                    text: "SKU: ${item.productSku?.skuCode ?? 'N/A'}",
                   ),
+                  if (item.currentTransaction != null)
+                    TextSpan(
+                      text: item.currentTransaction!.transactionReferenceType == 'GoodsReceivedNote'
+                          ? "  •  Ref: GRN - ${item.currentTransaction!.transactionReferenceId ?? 'N/A'}"
+                          : "  •  Ref: ${item.currentTransaction!.transactionReferenceType} - ${item.currentTransaction!.transactionReferenceId ?? 'N/A'}",
+                    ),
                 ],
               ),
-            ],
+              style: AppTextStyles.caption.copyWith(color: AppColors.textMuted),
+            ),
           ],
         ),
       ),

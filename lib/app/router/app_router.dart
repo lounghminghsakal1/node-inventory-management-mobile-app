@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart' show SystemNavigator;
 import 'package:go_router/go_router.dart';
 import 'package:node_management_app/features/audit/presentation/screens/stock_audit_detail_screen.dart';
 import '../../core/network/dio_client.dart';
@@ -170,9 +171,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/audit/:id',
         name: 'audit-detail',
         builder: (context, state) {
-          return StockAuditDetailScreen(
-            auditId: state.pathParameters['id']!
-          );
+          return StockAuditDetailScreen(auditId: state.pathParameters['id']!);
         },
       ),
       // -- Order sub-routes --------------------------------------------------
@@ -266,78 +265,96 @@ class _ScaffoldWithNavBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final splash = ref.watch(splashDataProvider).valueOrNull;
     final showShipments = splash?.hasPermission('Shipment', 'read') ?? false;
-    final showShipmentCreate = splash?.hasPermission('Shipment', 'create') ?? false;
+    final showShipmentCreate =
+        splash?.hasPermission('Shipment', 'create') ?? false;
     final showPOs = splash?.hasPermission('PurchaseOrder', 'read') ?? false;
     final showAudit = splash?.hasPermission('StockAudit', 'read') ?? false;
-    final showInventory = (splash?.hasPermission('NodeInventory', 'read') ?? false) ||
+    final showInventory =
+        (splash?.hasPermission('NodeInventory', 'read') ?? false) ||
         (splash?.hasPermission('BatchInventory', 'read') ?? false) ||
         (splash?.hasPermission('SkuItem', 'read') ?? false);
 
-    return Scaffold(
-      appBar: NodeOpsAppBar(
-        extraActions: [
-          if (navigationShell.currentIndex == 1 && showShipmentCreate)
-            const _ShipmentsAppBarAction(),
-        ],
-      ),
-      body: navigationShell,
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: AppColors.surface,
-          border: Border(
-            top: BorderSide(color: AppColors.cardBorder, width: 1),
-          ),
+    return PopScope(
+      // Always intercept the pop ourselves — don't let the OS decide.
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+
+        if (navigationShell.currentIndex != 0) {
+          // Not on Home -> go to Home instead of closing/popping.
+          navigationShell.goBranch(0, initialLocation: true);
+          return;
+        }
+
+        // Already on Home -> back button/gesture should close the app.
+        SystemNavigator.pop();
+      },
+      child: Scaffold(
+        appBar: NodeOpsAppBar(
+          extraActions: [
+            if (navigationShell.currentIndex == 1 && showShipmentCreate)
+              const _ShipmentsAppBarAction(),
+          ],
         ),
-        child: SafeArea(
-          child: SizedBox(
-            height: 60,
-            child: Row(
-              children: [
-                _NavItem(
-                  index: 0,
-                  current: navigationShell.currentIndex,
-                  icon: Icons.home_outlined,
-                  activeIcon: Icons.home_rounded,
-                  label: 'Home',
-                  onTap: () => _onTap(context, 0),
-                ),
-                if (showShipments)
+        body: navigationShell,
+        bottomNavigationBar: Container(
+          decoration: const BoxDecoration(
+            color: AppColors.surface,
+            border: Border(
+              top: BorderSide(color: AppColors.cardBorder, width: 1),
+            ),
+          ),
+          child: SafeArea(
+            child: SizedBox(
+              height: 60,
+              child: Row(
+                children: [
                   _NavItem(
-                    index: 1,
+                    index: 0,
                     current: navigationShell.currentIndex,
-                    icon: Icons.local_shipping_outlined,
-                    activeIcon: Icons.local_shipping_rounded,
-                    label: 'Shipments',
-                    onTap: () => _onTap(context, 1),
+                    icon: Icons.home_outlined,
+                    activeIcon: Icons.home_rounded,
+                    label: 'Home',
+                    onTap: () => _onTap(context, 0),
                   ),
-                if (showPOs)
-                  _NavItem(
-                    index: 2,
-                    current: navigationShell.currentIndex,
-                    icon: Icons.receipt_long_outlined,
-                    activeIcon: Icons.receipt_long_rounded,
-                    label: 'Purchase Orders',
-                    onTap: () => _onTap(context, 2),
-                  ),
-                if (showInventory)
-                  _NavItem(
-                    index: 3,
-                    current: navigationShell.currentIndex,
-                    icon: Icons.inventory_2_outlined,
-                    activeIcon: Icons.inventory_2_rounded,
-                    label: 'Inventory',
-                    onTap: () => _onTap(context, 3),
-                  ),
-                if (showAudit)
-                  _NavItem(
-                    index: 4,
-                    current: navigationShell.currentIndex,
-                    icon: Icons.fact_check_outlined,
-                    activeIcon: Icons.fact_check_rounded,
-                    label: 'Audit',
-                    onTap: () => _onTap(context, 4),
-                  ),
-              ],
+                  if (showShipments)
+                    _NavItem(
+                      index: 1,
+                      current: navigationShell.currentIndex,
+                      icon: Icons.local_shipping_outlined,
+                      activeIcon: Icons.local_shipping_rounded,
+                      label: 'Shipments',
+                      onTap: () => _onTap(context, 1),
+                    ),
+                  if (showPOs)
+                    _NavItem(
+                      index: 2,
+                      current: navigationShell.currentIndex,
+                      icon: Icons.receipt_long_outlined,
+                      activeIcon: Icons.receipt_long_rounded,
+                      label: 'Purchase Orders',
+                      onTap: () => _onTap(context, 2),
+                    ),
+                  if (showInventory)
+                    _NavItem(
+                      index: 3,
+                      current: navigationShell.currentIndex,
+                      icon: Icons.inventory_2_outlined,
+                      activeIcon: Icons.inventory_2_rounded,
+                      label: 'Inventory',
+                      onTap: () => _onTap(context, 3),
+                    ),
+                  if (showAudit)
+                    _NavItem(
+                      index: 4,
+                      current: navigationShell.currentIndex,
+                      icon: Icons.fact_check_outlined,
+                      activeIcon: Icons.fact_check_rounded,
+                      label: 'Audit',
+                      onTap: () => _onTap(context, 4),
+                    ),
+                ],
+              ),
             ),
           ),
         ),

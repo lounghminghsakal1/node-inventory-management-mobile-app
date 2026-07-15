@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:node_management_app/core/widgets/back_to_home_scope.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../widgets/node_inventory_list_view.dart';
@@ -80,49 +81,51 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
       return const Center(child: Text('No Inventory Permissions'));
     }
 
-    return DefaultTabController(
-      length: tabs.length,
-      child: Column(
-        children: [
-          Container(
-            margin: const EdgeInsets.fromLTRB(14, 12, 14, 8),
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: AppColors.card,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.cardBorder.withValues(alpha: 0.6)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: TabBar(
-              isScrollable: false,
-              dividerColor: Colors.transparent,
-              indicatorSize: TabBarIndicatorSize.tab,
-              indicatorPadding: EdgeInsets.zero,
-              labelPadding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
-              indicator: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(10),
+    return BackToHomeScope(
+      child: DefaultTabController(
+        length: tabs.length,
+        child: Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: AppColors.card,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.cardBorder.withValues(alpha: 0.6)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-              labelColor: Colors.white,
-              unselectedLabelColor: AppColors.textMuted,
-              labelStyle: AppTextStyles.labelSmall.copyWith(fontWeight: FontWeight.bold, fontSize: 12),
-              unselectedLabelStyle: AppTextStyles.labelSmall.copyWith(fontSize: 12),
-              tabs: tabs,
+              child: TabBar(
+                isScrollable: false,
+                dividerColor: Colors.transparent,
+                indicatorSize: TabBarIndicatorSize.tab,
+                indicatorPadding: EdgeInsets.zero,
+                labelPadding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+                indicator: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                labelColor: Colors.white,
+                unselectedLabelColor: AppColors.textMuted,
+                labelStyle: AppTextStyles.labelSmall.copyWith(fontWeight: FontWeight.bold, fontSize: 12),
+                unselectedLabelStyle: AppTextStyles.labelSmall.copyWith(fontSize: 12),
+                tabs: tabs,
+              ),
             ),
-          ),
-          Expanded(
-            child: TabBarView(
-              physics: const BouncingScrollPhysics(),
-              children: views,
+            Expanded(
+              child: TabBarView(
+                physics: const BouncingScrollPhysics(),
+                children: views,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

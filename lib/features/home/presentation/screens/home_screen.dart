@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:node_management_app/core/utils/helper_functions.dart';
 import 'package:node_management_app/core/utils/snackbar_utils.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
@@ -319,7 +320,7 @@ class HomeScreen extends ConsumerWidget {
                           const Icon(Icons.access_time_rounded, size: 13, color: AppColors.textMuted),
                           const SizedBox(width: 4),
                           Text(
-                            'Scheduled: ${audit.scheduledDate}',
+                            'Scheduled:  ${HelperFunctions.formatDate(DateTime.parse(audit.scheduledDate), hasTime: false)}',
                             style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
                           ),
                         ],

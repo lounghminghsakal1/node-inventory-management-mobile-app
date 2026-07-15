@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:node_management_app/core/utils/helper_functions.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/widgets/status_badge.dart';
@@ -89,7 +90,7 @@ class PurchaseOrderCard extends StatelessWidget {
                           size: 12, color: AppColors.textMuted),
                       const SizedBox(width: 4),
                       Text(
-                        'Delivery: ${po.deliveryDate}',
+                        'Delivery: ${HelperFunctions.formatDate(DateTime.parse(po.deliveryDate!), hasTime: false)}',
                         style: AppTextStyles.caption
                             .copyWith(color: AppColors.textSecondary),
                       ),

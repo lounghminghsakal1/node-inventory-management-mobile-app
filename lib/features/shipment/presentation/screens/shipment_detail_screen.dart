@@ -18,6 +18,7 @@ import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../data/repositories/shipment_repository.dart';
 import 'package:node_management_app/core/utils/snackbar_utils.dart';
+import "../../../../core/utils/helper_functions.dart";
 
 class _KeyValuePair {
   final keyCtrl = TextEditingController();
@@ -286,7 +287,7 @@ class ShipmentDetailScreen extends ConsumerWidget {
                       _infoTile(
                         Icons.calendar_today_outlined,
                         'Created',
-                        _formatDate(shipment.createdAt),
+                        HelperFunctions.formatDate(shipment.createdAt),
                       ),
                       if (shipment.invoiceCode != null &&
                           shipment.invoiceCode!.isNotEmpty)
@@ -299,25 +300,25 @@ class ShipmentDetailScreen extends ConsumerWidget {
                         _infoTile(
                           Icons.event_outlined,
                           'Invoice Date',
-                          _formatDate(shipment.invoiceDate!),
+                          HelperFunctions.formatDate(shipment.invoiceDate!),
                         ),
                       if (shipment.shippedAt != null)
                         _infoTile(
                           Icons.local_shipping_outlined,
                           'Shipped At',
-                          _formatDate(shipment.shippedAt!),
+                          HelperFunctions.formatDate(shipment.shippedAt!),
                         ),
                       if (shipment.deliveredAt != null)
                         _infoTile(
                           Icons.check_circle_outline_rounded,
                           'Delivered At',
-                          _formatDate(shipment.deliveredAt!),
+                          HelperFunctions.formatDate(shipment.deliveredAt!),
                         ),
                       if (shipment.returnedAt != null)
                         _infoTile(
                           Icons.keyboard_return_rounded,
                           'Returned At',
-                          _formatDate(shipment.returnedAt!),
+                          HelperFunctions.formatDate(shipment.returnedAt!),
                         ),
                     ],
                   ),
@@ -420,7 +421,7 @@ class ShipmentDetailScreen extends ConsumerWidget {
                           _infoTile(
                             Icons.calendar_today_outlined,
                             'Parent Delivered At',
-                            _formatDate(
+                            HelperFunctions.formatDate(
                               DateTime.tryParse(
                                     shipment.parentShipment!['delivered_at']
                                         .toString(),
@@ -552,13 +553,6 @@ class ShipmentDetailScreen extends ConsumerWidget {
                             'Received By',
                             shipment.deliveryDetails!.receivedBy!,
                           ),
-                        if (shipment.deliveryDetails!.deliveryOtp != null &&
-                            shipment.deliveryDetails!.deliveryOtp!.isNotEmpty)
-                          _infoTile(
-                            Icons.pin_outlined,
-                            'Delivery OTP',
-                            shipment.deliveryDetails!.deliveryOtp!,
-                          ),
                         if (shipment.deliveryDetails!.deliveryNote != null &&
                             shipment.deliveryDetails!.deliveryNote!.isNotEmpty)
                           _infoTile(
@@ -571,8 +565,10 @@ class ShipmentDetailScreen extends ConsumerWidget {
                             .deliveryDetails!
                             .additionalDetails
                             .isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          const Divider(color: AppColors.cardBorder),
+                          if(shipment.deliveryDetails!.deliveryNote != null &&
+                            shipment.deliveryDetails!.deliveryNote!.isNotEmpty) const SizedBox(height: 8),
+                          if(shipment.deliveryDetails!.deliveryNote != null &&
+                            shipment.deliveryDetails!.deliveryNote!.isNotEmpty) const Divider(color: AppColors.cardBorder),
                           const SizedBox(height: 8),
                           Align(
                             alignment: Alignment.centerLeft,
@@ -645,7 +641,8 @@ class ShipmentDetailScreen extends ConsumerWidget {
                 const SizedBox(height: 24),
 
                 // -- Action Buttons --------------------------------------------
-                if(splash!.hasPermission("Shipment", "update")) _ActionButtons(shipment: shipment),
+                if (splash!.hasPermission("Shipment", "update"))
+                  _ActionButtons(shipment: shipment),
                 const SizedBox(height: 16),
               ],
             ),
@@ -936,8 +933,8 @@ class _ShipmentTimeline extends StatelessWidget {
                       ),
                     AnimatedContainer(
                       duration: const Duration(milliseconds: 300),
-                      width: isCurrent ? 30 : 24,
-                      height: isCurrent ? 30 : 24,
+                      width: isCurrent ? 24 : 24,
+                      height: isCurrent ? 24 : 24,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: isDone
@@ -1711,7 +1708,10 @@ class _LineItemRow extends ConsumerWidget {
     } catch (e) {
       if (context.mounted) {
         Navigator.pop(context); // close loading indicator
-        showTopErrorSnackBar(context, 'Failed to update allocation: ${e.toString()}');
+        showTopErrorSnackBar(
+          context,
+          'Failed to update allocation: ${e.toString()}',
+        );
       }
     }
   }
@@ -1774,12 +1774,18 @@ class _ActionButtons extends ConsumerWidget {
                   Navigator.pop(context); // close progress dialog
                   ref.invalidate(shipmentByIdProvider(shipment.id));
                   ref.invalidate(shipmentListProvider);
-                  showTopSuccessSnackBar(context, 'Shipment packed successfully!');
+                  showTopSuccessSnackBar(
+                    context,
+                    'Shipment packed successfully!',
+                  );
                 }
               } catch (e) {
                 if (context.mounted) {
                   Navigator.pop(context); // close progress dialog
-                  showTopErrorSnackBar(context, 'Failed to pack shipment: ${e.toString()}');
+                  showTopErrorSnackBar(
+                    context,
+                    'Failed to pack shipment: ${e.toString()}',
+                  );
                 }
               }
             },
@@ -1808,12 +1814,18 @@ class _ActionButtons extends ConsumerWidget {
                   Navigator.pop(context); // close progress dialog
                   ref.invalidate(shipmentByIdProvider(shipment.id));
                   ref.invalidate(shipmentListProvider);
-                  showTopSuccessSnackBar(context, 'Invoice generated successfully!');
+                  showTopSuccessSnackBar(
+                    context,
+                    'Invoice generated successfully!',
+                  );
                 }
               } catch (e) {
                 if (context.mounted) {
                   Navigator.pop(context); // close progress dialog
-                  showTopErrorSnackBar(context, 'Failed to generate invoice: ${e.toString()}');
+                  showTopErrorSnackBar(
+                    context,
+                    'Failed to generate invoice: ${e.toString()}',
+                  );
                 }
               }
             },
@@ -1976,7 +1988,10 @@ class _DeliverShipmentModalState extends ConsumerState<_DeliverShipmentModal> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_uploadedMedia.isEmpty) {
-      showTopErrorSnackBar(context, 'Please upload at least one media to proceed.');
+      showTopErrorSnackBar(
+        context,
+        'Please upload at least one media to proceed.',
+      );
       return;
     }
 
@@ -2012,12 +2027,18 @@ class _DeliverShipmentModalState extends ConsumerState<_DeliverShipmentModal> {
         Navigator.pop(context);
         ref.invalidate(shipmentByIdProvider(widget.shipment.id));
         ref.invalidate(shipmentListProvider);
-        showTopSuccessSnackBar(context, 'Shipment marked as delivered successfully!');
+        showTopSuccessSnackBar(
+          context,
+          'Shipment marked as delivered successfully!',
+        );
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        showTopErrorSnackBar(context, 'Failed to mark as delivered: ${e.toString()}');
+        showTopErrorSnackBar(
+          context,
+          'Failed to mark as delivered: ${e.toString()}',
+        );
       }
     }
   }

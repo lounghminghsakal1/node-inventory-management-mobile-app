@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -93,62 +93,73 @@ class _StockAuditDetailScreenState
     final detailAsync = ref.watch(stockAuditDetailProvider(widget.auditId));
     final lineItemsState = ref.watch(auditLineItemsProvider(widget.auditId));
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.surface,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_rounded,
-            color: AppColors.textPrimary,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        context.go('/home');
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: AppColors.surface,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(
+              Icons.arrow_back_rounded,
+              color: AppColors.textPrimary,
+            ),
+            onPressed: () {
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go('/home');
+              }
+            },
           ),
-          onPressed: () {
-            if (context.canPop()) {
-              context.pop();
-            } else {
-              context.go('/home');
+          title: detailAsync.maybeWhen(
+            data: (a) => a == null
+                ? const Text('Stock Audit')
+                : Text(
+                    'Audit #${a.stockAuditNumber}',
+                    style: AppTextStyles.headingMedium,
+                  ),
+            orElse: () => const Text('Stock Audit'),
+          ),
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(1),
+            child: Container(height: 1, color: AppColors.cardBorder),
+          ),
+        ),
+        body: detailAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, _) => Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.error_outline,
+                  color: AppColors.error,
+                  size: 48,
+                ),
+                const SizedBox(height: 12),
+                Text(err.toString().replaceFirst('Exception: ', '')),
+                const SizedBox(height: 12),
+                TextButton.icon(
+                  onPressed: _refresh,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Retry'),
+                ),
+              ],
+            ),
+          ),
+          data: (audit) {
+            if (audit == null) {
+              return const Center(child: Text('Audit not found'));
             }
+            return _buildBody(context, audit, lineItemsState);
           },
         ),
-        title: detailAsync.maybeWhen(
-          data: (a) => a == null
-              ? const Text('Stock Audit')
-              : Text(
-                  'Audit #${a.stockAuditNumber}',
-                  style: AppTextStyles.headingMedium,
-                ),
-          orElse: () => const Text('Stock Audit'),
-        ),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(height: 1, color: AppColors.cardBorder),
-        ),
-      ),
-      body: detailAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.error_outline, color: AppColors.error, size: 48),
-              const SizedBox(height: 12),
-              Text(err.toString().replaceFirst('Exception: ', '')),
-              const SizedBox(height: 12),
-              TextButton.icon(
-                onPressed: _refresh,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Retry'),
-              ),
-            ],
-          ),
-        ),
-        data: (audit) {
-          if (audit == null) {
-            return const Center(child: Text('Audit not found'));
-          }
-          return _buildBody(context, audit, lineItemsState);
-        },
       ),
     );
   }
@@ -703,8 +714,12 @@ class _UntrackedInlineEditorState
   @override
   void initState() {
     super.initState();
-    _goodCtrl = TextEditingController(text: widget.item.countedQty?.toString() ?? '');
-    _damagedCtrl = TextEditingController(text: widget.item.damagedQty?.toString() ?? '');
+    _goodCtrl = TextEditingController(
+      text: widget.item.countedQty?.toString() ?? '',
+    );
+    _damagedCtrl = TextEditingController(
+      text: widget.item.damagedQty?.toString() ?? '',
+    );
     _isEditing = widget.item.countedQty == null;
   }
 
@@ -1404,14 +1419,21 @@ class _SerialCountModalState extends ConsumerState<_SerialCountModal> {
     HapticFeedback.lightImpact();
 
     if (_good!.contains(code) || _damaged!.contains(code)) {
-      showTopSnackBar(context, 'Serial $code already scanned.', backgroundColor: AppColors.textMuted);
+      showTopSnackBar(
+        context,
+        'Serial $code already scanned.',
+        backgroundColor: AppColors.textMuted,
+      );
       return;
     }
 
     final isExpected = _expectedSerials.any((s) => s.serialNumber == code);
     if (!isExpected) {
       _scannerController.stop();
-      showTopErrorSnackBar(context, 'Serial "$code" is not expected for this item.');
+      showTopErrorSnackBar(
+        context,
+        'Serial "$code" is not expected for this item.',
+      );
       await Future.delayed(const Duration(seconds: 1));
 
       _scannerController.start();
@@ -1583,13 +1605,17 @@ class _SerialCountModalState extends ConsumerState<_SerialCountModal> {
                                   StockAuditStatus.initiatedAuditing)
                             Container(
                               height: 180,
-                              margin: const EdgeInsets.symmetric(horizontal: 20),
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                              ),
                               clipBehavior: Clip.hardEdge,
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(16),
                                 color: Colors.black87,
-                                border:
-                                    Border.all(color: AppColors.primary, width: 2),
+                                border: Border.all(
+                                  color: AppColors.primary,
+                                  width: 2,
+                                ),
                               ),
                               child: Stack(
                                 fit: StackFit.expand,
@@ -1632,7 +1658,8 @@ class _SerialCountModalState extends ConsumerState<_SerialCountModal> {
                                 ),
                                 _SerialStatChip(
                                   label: 'Missing',
-                                  count: serials.length -
+                                  count:
+                                      serials.length -
                                       ((_good?.length ?? 0) +
                                           (_damaged?.length ?? 0)),
                                   color: AppColors.error,
@@ -1651,12 +1678,14 @@ class _SerialCountModalState extends ConsumerState<_SerialCountModal> {
                           const SizedBox(height: 8),
                           Expanded(
                             child: ListView.builder(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 20),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                              ),
                               itemCount: serials.length,
                               itemBuilder: (context, index) {
                                 final s = serials[index];
-                                final isGood = _good?.contains(s.serialNumber) ?? false;
+                                final isGood =
+                                    _good?.contains(s.serialNumber) ?? false;
                                 final isDamaged =
                                     _damaged?.contains(s.serialNumber) ?? false;
                                 final isMissing = !isGood && !isDamaged;
@@ -1693,9 +1722,10 @@ class _SerialCountModalState extends ConsumerState<_SerialCountModal> {
                                     children: [
                                       Text(
                                         s.serialNumber,
-                                        style: AppTextStyles.bodyMedium.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                                        style: AppTextStyles.bodyMedium
+                                            .copyWith(
+                                              fontWeight: FontWeight.bold,
+                                            ),
                                       ),
                                       Text(
                                         status,

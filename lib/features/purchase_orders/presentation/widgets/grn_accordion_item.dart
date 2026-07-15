@@ -558,7 +558,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
             children: grn.lineItems.map((li) {
               return Container(
                 margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: AppColors.card,
                   borderRadius: BorderRadius.circular(12),
@@ -585,7 +585,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                         TrackingTypeBadge(trackingType: li.trackingType),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 6),
                     Wrap(
                       alignment: WrapAlignment.spaceBetween,
                       crossAxisAlignment: WrapCrossAlignment.center,
@@ -637,13 +637,17 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                                 ),
                               )
                             else ...[
-                              TextButton.icon(
-                                icon: const Icon(Icons.edit_outlined, size: 18),
-                                label: const Text("Edit"),
+                              IconButton(
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                icon: const Icon(Icons.edit_outlined, size: 20, color: AppColors.primary),
+                                tooltip: "Edit",
                                 onPressed: _loadingAction != null ? null : () => _showInwardedItemDetailsModal(li, isEditing: true),
                               ),
-                              const SizedBox(width: 4),
+                              const SizedBox(width: 8),
                               IconButton(
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
                                   icon: const Icon(Icons.delete_outline, color: AppColors.error, size: 20),
                                   tooltip: "Remove Line Item",
                                   onPressed: _loadingAction != null ? null : () => _confirmDeleteLineItem(li),

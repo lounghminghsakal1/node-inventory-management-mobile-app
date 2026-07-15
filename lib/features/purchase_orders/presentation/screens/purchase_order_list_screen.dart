@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:node_management_app/core/widgets/back_to_home_scope.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../providers/purchase_order_provider.dart';
@@ -51,274 +52,276 @@ class _PurchaseOrderListScreenState
     final state = ref.watch(purchaseOrderListProvider);
     final allPos = state.purchaseOrders;
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: Column(
-        children: [
-          // ── Search + Tabs ──────────────────────────────────────────────────
-          Container(
-            color: AppColors.surface,
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _searchCtrl,
-                          style: AppTextStyles.bodyMedium,
-                          cursorColor: AppColors.primary,
-                          decoration: InputDecoration(
-                            hintText: 'Search by PO number or vendor...',
-                            hintStyle: AppTextStyles.bodySmall,
-                            prefixIcon: const Icon(
-                              Icons.search_rounded,
-                              size: 20,
-                            ),
-                            isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 10,
-                            ),
-                            fillColor: AppColors.card,
-                            filled: true,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(
-                                color: AppColors.cardBorder,
+    return BackToHomeScope(
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        body: Column(
+          children: [
+            // ── Search + Tabs ──────────────────────────────────────────────────
+            Container(
+              color: AppColors.surface,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _searchCtrl,
+                            style: AppTextStyles.bodyMedium,
+                            cursorColor: AppColors.primary,
+                            decoration: InputDecoration(
+                              hintText: 'Search by PO number or vendor...',
+                              hintStyle: AppTextStyles.bodySmall,
+                              prefixIcon: const Icon(
+                                Icons.search_rounded,
+                                size: 20,
+                              ),
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 10,
+                              ),
+                              fillColor: AppColors.card,
+                              filled: true,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(
+                                  color: AppColors.cardBorder,
+                                ),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(
+                                  color: AppColors.cardBorder,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(
+                                  color: AppColors.primary,
+                                  width: 1.5,
+                                ),
                               ),
                             ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(
-                                color: AppColors.cardBorder,
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(
-                                color: AppColors.primary,
-                                width: 1.5,
-                              ),
-                            ),
+                            onChanged: (v) {
+                              setState(() => _search = v);
+                              if (_debounce?.isActive ?? false)
+                                _debounce!.cancel();
+                              _debounce = Timer(
+                                const Duration(milliseconds: 500),
+                                () {
+                                  ref
+                                      .read(purchaseOrderListProvider.notifier)
+                                      .updateFilters(
+                                        byStatus: _tabs[_tabCtrl.index].$2,
+                                        byPoNumber: v.trim().isEmpty
+                                            ? null
+                                            : v.trim(),
+                                        fromDate: state.fromDate,
+                                        toDate: state.toDate,
+                                      );
+                                },
+                              );
+                            },
                           ),
-                          onChanged: (v) {
-                            setState(() => _search = v);
-                            if (_debounce?.isActive ?? false)
-                              _debounce!.cancel();
-                            _debounce = Timer(
-                              const Duration(milliseconds: 500),
-                              () {
-                                ref
-                                    .read(purchaseOrderListProvider.notifier)
-                                    .updateFilters(
-                                      byStatus: _tabs[_tabCtrl.index].$2,
-                                      byPoNumber: v.trim().isEmpty
-                                          ? null
-                                          : v.trim(),
-                                      fromDate: state.fromDate,
-                                      toDate: state.toDate,
-                                    );
+                        ),
+                        const SizedBox(width: 12),
+                        Builder(
+                          builder: (ctx) {
+                            final hasFilters =
+                                state.byPoNumber != null ||
+                                state.fromDate != null ||
+                                state.toDate != null;
+                            return InkWell(
+                              onTap: () {
+                                showModalBottomSheet(
+                                  context: context,
+                                  isScrollControlled: true,
+                                  backgroundColor: AppColors.card,
+                                  shape: const RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.vertical(
+                                      top: Radius.circular(20),
+                                    ),
+                                  ),
+                                  builder: (ctx) => _PoFilterSheet(
+                                    initialPoNum: state.byPoNumber,
+                                    initialFromDate: state.fromDate,
+                                    initialToDate: state.toDate,
+                                    onApply: (poNum, fromDate, toDate) {
+                                      ref
+                                          .read(
+                                            purchaseOrderListProvider.notifier,
+                                          )
+                                          .updateFilters(
+                                            byStatus: _tabs[_tabCtrl.index].$2,
+                                            byPoNumber: poNum,
+                                            fromDate: fromDate,
+                                            toDate: toDate,
+                                          );
+                                    },
+                                    onReset: () {
+                                      _searchCtrl.clear();
+                                      setState(() => _search = '');
+                                      ref
+                                          .read(
+                                            purchaseOrderListProvider.notifier,
+                                          )
+                                          .clearFilters();
+                                    },
+                                  ),
+                                );
                               },
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                height: 42,
+                                width: 42,
+                                decoration: BoxDecoration(
+                                  color: hasFilters
+                                      ? AppColors.primary
+                                      : AppColors.card,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: hasFilters
+                                        ? AppColors.primary
+                                        : AppColors.cardBorder,
+                                  ),
+                                ),
+                                child: Icon(
+                                  Icons.tune_rounded,
+                                  color: hasFilters
+                                      ? Colors.white
+                                      : AppColors.primary,
+                                  size: 20,
+                                ),
+                              ),
                             );
                           },
                         ),
+                      ],
+                    ),
+                  ),
+                  TabBar(
+                    controller: _tabCtrl,
+                    isScrollable: true,
+                    tabAlignment: TabAlignment.start,
+                    labelColor: AppColors.primary,
+                    unselectedLabelColor: AppColors.textMuted,
+                    indicatorColor: AppColors.primary,
+                    indicatorSize: TabBarIndicatorSize.label,
+                    dividerColor: AppColors.cardBorder,
+                    labelStyle: AppTextStyles.labelSmall.copyWith(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    tabs: _tabs.map((t) => Tab(text: t.$1)).toList(),
+                  ),
+                ],
+              ),
+            ),
+      
+            // ── PO List ────────────────────────────────────────────────────────
+            Expanded(
+              child: Builder(
+                builder: (context) {
+                  if (state.isLoading && !state.isMoreLoading) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+      
+                  if (state.error != null && allPos.isEmpty) {
+                    return Center(
+                      child: Text(
+                        'Failed to load purchase orders\n${state.error}',
+                        textAlign: TextAlign.center,
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: AppColors.error,
+                        ),
                       ),
-                      const SizedBox(width: 12),
-                      Builder(
-                        builder: (ctx) {
-                          final hasFilters =
-                              state.byPoNumber != null ||
-                              state.fromDate != null ||
-                              state.toDate != null;
-                          return InkWell(
-                            onTap: () {
-                              showModalBottomSheet(
-                                context: context,
-                                isScrollControlled: true,
-                                backgroundColor: AppColors.card,
-                                shape: const RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.vertical(
-                                    top: Radius.circular(20),
-                                  ),
-                                ),
-                                builder: (ctx) => _PoFilterSheet(
-                                  initialPoNum: state.byPoNumber,
-                                  initialFromDate: state.fromDate,
-                                  initialToDate: state.toDate,
-                                  onApply: (poNum, fromDate, toDate) {
-                                    ref
-                                        .read(
-                                          purchaseOrderListProvider.notifier,
-                                        )
-                                        .updateFilters(
-                                          byStatus: _tabs[_tabCtrl.index].$2,
-                                          byPoNumber: poNum,
-                                          fromDate: fromDate,
-                                          toDate: toDate,
-                                        );
-                                  },
-                                  onReset: () {
-                                    _searchCtrl.clear();
-                                    setState(() => _search = '');
-                                    ref
-                                        .read(
-                                          purchaseOrderListProvider.notifier,
-                                        )
-                                        .clearFilters();
-                                  },
-                                ),
-                              );
-                            },
-                            borderRadius: BorderRadius.circular(10),
-                            child: Container(
-                              height: 42,
-                              width: 42,
-                              decoration: BoxDecoration(
-                                color: hasFilters
-                                    ? AppColors.primary
-                                    : AppColors.card,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: hasFilters
-                                      ? AppColors.primary
-                                      : AppColors.cardBorder,
-                                ),
-                              ),
-                              child: Icon(
-                                Icons.tune_rounded,
-                                color: hasFilters
-                                    ? Colors.white
-                                    : AppColors.primary,
-                                size: 20,
-                              ),
+                    );
+                  }
+      
+                  final statusFilter = _tabs[_tabCtrl.index].$2;
+                  final filtered = allPos.where((po) {
+                    if (statusFilter != null &&
+                        po.status.toLowerCase() != statusFilter) {
+                      return false;
+                    }
+                    return true;
+                  }).toList();
+      
+                  if (filtered.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.receipt_long_outlined,
+                            size: 48,
+                            color: AppColors.textMuted,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            _search.isNotEmpty
+                                ? 'No purchase orders matching "$_search"'
+                                : 'No purchase orders found',
+                            style: AppTextStyles.bodyMedium.copyWith(
+                              color: AppColors.textSecondary,
                             ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+      
+                  return NotificationListener<ScrollNotification>(
+                    onNotification: (notification) {
+                      if (notification is ScrollEndNotification ||
+                          notification is ScrollUpdateNotification) {
+                        if (notification.metrics.extentAfter < 200) {
+                          ref
+                              .read(purchaseOrderListProvider.notifier)
+                              .loadNextPage();
+                        }
+                      }
+                      return false;
+                    },
+                    child: RefreshIndicator(
+                      onRefresh: () async => ref
+                          .read(purchaseOrderListProvider.notifier)
+                          .load(page: 1, byStatus: _tabs[_tabCtrl.index].$2),
+                      color: AppColors.primary,
+                      child: ListView.separated(
+                        padding: const EdgeInsets.all(16),
+                        itemCount:
+                            filtered.length + (state.isMoreLoading ? 1 : 0),
+                        separatorBuilder: (_, _) => const SizedBox(height: 12),
+                        itemBuilder: (context, i) {
+                          if (i == filtered.length) {
+                            return const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 16),
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            );
+                          }
+                          final po = filtered[i];
+                          return PurchaseOrderCard(
+                            po: po,
+                            onTap: () =>
+                                context.push('/purchase-orders/${po.id}'),
                           );
                         },
                       ),
-                    ],
-                  ),
-                ),
-                TabBar(
-                  controller: _tabCtrl,
-                  isScrollable: true,
-                  tabAlignment: TabAlignment.start,
-                  labelColor: AppColors.primary,
-                  unselectedLabelColor: AppColors.textMuted,
-                  indicatorColor: AppColors.primary,
-                  indicatorSize: TabBarIndicatorSize.label,
-                  dividerColor: AppColors.cardBorder,
-                  labelStyle: AppTextStyles.labelSmall.copyWith(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  tabs: _tabs.map((t) => Tab(text: t.$1)).toList(),
-                ),
-              ],
-            ),
-          ),
-
-          // ── PO List ────────────────────────────────────────────────────────
-          Expanded(
-            child: Builder(
-              builder: (context) {
-                if (state.isLoading && !state.isMoreLoading) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                if (state.error != null && allPos.isEmpty) {
-                  return Center(
-                    child: Text(
-                      'Failed to load purchase orders\n${state.error}',
-                      textAlign: TextAlign.center,
-                      style: AppTextStyles.bodySmall.copyWith(
-                        color: AppColors.error,
-                      ),
                     ),
                   );
-                }
-
-                final statusFilter = _tabs[_tabCtrl.index].$2;
-                final filtered = allPos.where((po) {
-                  if (statusFilter != null &&
-                      po.status.toLowerCase() != statusFilter) {
-                    return false;
-                  }
-                  return true;
-                }).toList();
-
-                if (filtered.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.receipt_long_outlined,
-                          size: 48,
-                          color: AppColors.textMuted,
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          _search.isNotEmpty
-                              ? 'No purchase orders matching "$_search"'
-                              : 'No purchase orders found',
-                          style: AppTextStyles.bodyMedium.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                return NotificationListener<ScrollNotification>(
-                  onNotification: (notification) {
-                    if (notification is ScrollEndNotification ||
-                        notification is ScrollUpdateNotification) {
-                      if (notification.metrics.extentAfter < 200) {
-                        ref
-                            .read(purchaseOrderListProvider.notifier)
-                            .loadNextPage();
-                      }
-                    }
-                    return false;
-                  },
-                  child: RefreshIndicator(
-                    onRefresh: () async => ref
-                        .read(purchaseOrderListProvider.notifier)
-                        .load(page: 1, byStatus: _tabs[_tabCtrl.index].$2),
-                    color: AppColors.primary,
-                    child: ListView.separated(
-                      padding: const EdgeInsets.all(16),
-                      itemCount:
-                          filtered.length + (state.isMoreLoading ? 1 : 0),
-                      separatorBuilder: (_, _) => const SizedBox(height: 12),
-                      itemBuilder: (context, i) {
-                        if (i == filtered.length) {
-                          return const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 16),
-                            child: Center(
-                              child: CircularProgressIndicator(
-                                color: AppColors.primary,
-                              ),
-                            ),
-                          );
-                        }
-                        final po = filtered[i];
-                        return PurchaseOrderCard(
-                          po: po,
-                          onTap: () =>
-                              context.push('/purchase-orders/${po.id}'),
-                        );
-                      },
-                    ),
-                  ),
-                );
-              },
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

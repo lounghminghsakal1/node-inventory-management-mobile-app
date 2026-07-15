@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:node_management_app/core/utils/helper_functions.dart';
+import 'package:node_management_app/core/widgets/back_to_home_scope.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../features/audit/data/models/stock_audit.dart';
@@ -53,70 +55,72 @@ class _AuditScreenState extends ConsumerState<AuditScreen>
   Widget build(BuildContext context) {
     final state = ref.watch(stockAuditsProvider);
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: Column(
-        children: [
-          // ── Toggles & Filters ──────────────────────────────────────
-          // Padding(
-          //   padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-          //   child: Row(
-          //     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          //     children: [
-          //       Text(
-          //         "Show today's audits on top",
-          //         style: AppTextStyles.bodyMedium.copyWith(
-          //           color: AppColors.textSecondary,
-          //         ),
-          //       ),
-          //       Switch(
-          //         value: _showTodayOnTop,
-          //         onChanged: (val) {
-          //           setState(() {
-          //             _showTodayOnTop = val;
-          //           });
-          //         },
-          //         activeColor: AppColors.primary,
-          //       ),
-          //     ],
-          //   ),
-          // ),
-          const SizedBox(height: 10),
-
-          TabBar(
-            controller: _statusTabCtrl,
-            isScrollable: true,
-            tabAlignment: TabAlignment.start,
-            labelColor: AppColors.primary,
-            unselectedLabelColor: AppColors.textMuted,
-            indicatorColor: AppColors.primary,
-            indicatorSize: TabBarIndicatorSize.label,
-            dividerColor: AppColors.cardBorder,
-            labelStyle: AppTextStyles.labelSmall.copyWith(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-            tabs: const [
-              Tab(text: 'Ongoing'),
-              Tab(text: 'Assigned'),
-              Tab(text: 'Sent for Review'),
-              Tab(text: 'All'),
-            ],
-          ),
-
-          // ── Content ────────────────────────────────────────────────
-          Expanded(
-            child: TabBarView(
+    return BackToHomeScope(
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        body: Column(
+          children: [
+            // ── Toggles & Filters ──────────────────────────────────────
+            // Padding(
+            //   padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+            //   child: Row(
+            //     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            //     children: [
+            //       Text(
+            //         "Show today's audits on top",
+            //         style: AppTextStyles.bodyMedium.copyWith(
+            //           color: AppColors.textSecondary,
+            //         ),
+            //       ),
+            //       Switch(
+            //         value: _showTodayOnTop,
+            //         onChanged: (val) {
+            //           setState(() {
+            //             _showTodayOnTop = val;
+            //           });
+            //         },
+            //         activeColor: AppColors.primary,
+            //       ),
+            //     ],
+            //   ),
+            // ),
+            const SizedBox(height: 10),
+      
+            TabBar(
               controller: _statusTabCtrl,
-              children: [
-                _buildTabContent(state, 'initiated_auditing'),
-                _buildTabContent(state, 'assigned'),
-                _buildTabContent(state, 'sent_for_review'),
-                _buildTabContent(state, ''),
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
+              labelColor: AppColors.primary,
+              unselectedLabelColor: AppColors.textMuted,
+              indicatorColor: AppColors.primary,
+              indicatorSize: TabBarIndicatorSize.label,
+              dividerColor: AppColors.cardBorder,
+              labelStyle: AppTextStyles.labelSmall.copyWith(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+              tabs: const [
+                Tab(text: 'Ongoing'),
+                Tab(text: 'Assigned'),
+                Tab(text: 'Sent for Review'),
+                Tab(text: 'All'),
               ],
             ),
-          ),
-        ],
+      
+            // ── Content ────────────────────────────────────────────────
+            Expanded(
+              child: TabBarView(
+                controller: _statusTabCtrl,
+                children: [
+                  _buildTabContent(state, 'initiated_auditing'),
+                  _buildTabContent(state, 'assigned'),
+                  _buildTabContent(state, 'sent_for_review'),
+                  _buildTabContent(state, ''),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -431,7 +435,7 @@ class _AuditCard extends StatelessWidget {
                             color: AppColors.textMuted,
                           ),
                           Text(
-                            'Scheduled: ${audit.scheduledDate}',
+                            'Scheduled: ${HelperFunctions.formatDate(DateTime.parse(audit.scheduledDate), hasTime: false)}',
                             style: AppTextStyles.caption.copyWith(
                               color: AppColors.textSecondary,
                             ),

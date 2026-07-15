@@ -12,10 +12,12 @@ class SerialInventoryListView extends ConsumerStatefulWidget {
   const SerialInventoryListView({super.key});
 
   @override
-  ConsumerState<SerialInventoryListView> createState() => _SerialInventoryListViewState();
+  ConsumerState<SerialInventoryListView> createState() =>
+      _SerialInventoryListViewState();
 }
 
-class _SerialInventoryListViewState extends ConsumerState<SerialInventoryListView> {
+class _SerialInventoryListViewState
+    extends ConsumerState<SerialInventoryListView> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
 
@@ -43,14 +45,18 @@ class _SerialInventoryListViewState extends ConsumerState<SerialInventoryListVie
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.card,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (ctx) => _SerialFilterSheet(
         initialSerialNum: state.bySkuItemNumber,
         initialSkuName: state.bySkuName,
         initialSkuCode: state.bySkuCode,
         initialStatus: state.byStatus,
         onApply: (serialNum, skuName, skuCode, status) {
-          ref.read(serialInventoryListProvider.notifier).updateFilters(
+          ref
+              .read(serialInventoryListProvider.notifier)
+              .updateFilters(
                 bySkuItemNumber: serialNum,
                 bySkuName: skuName,
                 bySkuCode: skuCode,
@@ -81,20 +87,38 @@ class _SerialInventoryListViewState extends ConsumerState<SerialInventoryListVie
                   controller: _searchController,
                   decoration: InputDecoration(
                     hintText: "Search serial number or SKU...",
-                    hintStyle: AppTextStyles.caption.copyWith(color: AppColors.textMuted),
-                    prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textMuted, size: 20),
+                    hintStyle: AppTextStyles.caption.copyWith(
+                      color: AppColors.textMuted,
+                    ),
+                    prefixIcon: const Icon(
+                      Icons.search_rounded,
+                      color: AppColors.textMuted,
+                      size: 20,
+                    ),
                     suffixIcon: _searchController.text.isNotEmpty
                         ? IconButton(
-                            icon: const Icon(Icons.clear, size: 18, color: AppColors.textMuted),
+                            icon: const Icon(
+                              Icons.clear,
+                              size: 18,
+                              color: AppColors.textMuted,
+                            ),
                             onPressed: () {
                               _searchController.clear();
-                              ref.read(serialInventoryListProvider.notifier).updateFilters(bySkuItemNumber: '', bySkuName: '');
+                              ref
+                                  .read(serialInventoryListProvider.notifier)
+                                  .updateFilters(
+                                    bySkuItemNumber: '',
+                                    bySkuName: '',
+                                  );
                             },
                           )
                         : null,
                     filled: true,
                     fillColor: AppColors.surface,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
                       borderSide: const BorderSide(color: AppColors.cardBorder),
@@ -109,7 +133,9 @@ class _SerialInventoryListViewState extends ConsumerState<SerialInventoryListVie
                     ),
                   ),
                   onSubmitted: (val) {
-                    ref.read(serialInventoryListProvider.notifier).updateFilters(bySkuItemNumber: val.trim());
+                    ref
+                        .read(serialInventoryListProvider.notifier)
+                        .updateFilters(bySkuItemNumber: val.trim());
                   },
                 ),
               ),
@@ -120,12 +146,18 @@ class _SerialInventoryListViewState extends ConsumerState<SerialInventoryListVie
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: (state.byStatus != 'all' || state.bySkuCode != null || state.bySkuName != null)
+                    color:
+                        (state.byStatus != 'all' ||
+                            state.bySkuCode != null ||
+                            state.bySkuName != null)
                         ? AppColors.primary
                         : AppColors.surface,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: (state.byStatus != 'all' || state.bySkuCode != null || state.bySkuName != null)
+                      color:
+                          (state.byStatus != 'all' ||
+                              state.bySkuCode != null ||
+                              state.bySkuName != null)
                           ? AppColors.primary
                           : AppColors.cardBorder,
                       width: 1,
@@ -133,7 +165,10 @@ class _SerialInventoryListViewState extends ConsumerState<SerialInventoryListVie
                   ),
                   child: Icon(
                     Icons.filter_list_rounded,
-                    color: (state.byStatus != 'all' || state.bySkuCode != null || state.bySkuName != null)
+                    color:
+                        (state.byStatus != 'all' ||
+                            state.bySkuCode != null ||
+                            state.bySkuName != null)
                         ? Colors.white
                         : AppColors.textMuted,
                     size: 22,
@@ -144,81 +179,119 @@ class _SerialInventoryListViewState extends ConsumerState<SerialInventoryListVie
           ),
         ),
 
-
-
         // ── List View ────────────────────────────────────────────────────────
         Expanded(
           child: RefreshIndicator(
             onRefresh: () async {
-              await ref.read(serialInventoryListProvider.notifier).fetchInitial();
+              await ref
+                  .read(serialInventoryListProvider.notifier)
+                  .fetchInitial();
             },
             color: AppColors.primary,
             child: state.isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : state.errorMessage != null && state.items.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.error_outline_rounded, size: 48, color: AppColors.error),
-                            const SizedBox(height: 12),
-                            Text("Failed to load serial inventory", style: AppTextStyles.headingMedium),
-                            const SizedBox(height: 6),
-                            Text(state.errorMessage!, style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
-                            const SizedBox(height: 16),
-                            ElevatedButton.icon(
-                              onPressed: () => ref.read(serialInventoryListProvider.notifier).fetchInitial(),
-                              icon: const Icon(Icons.refresh, size: 18),
-                              label: const Text("Retry"),
-                            ),
-                          ],
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.error_outline_rounded,
+                          size: 48,
+                          color: AppColors.error,
                         ),
-                      )
-                    : state.items.isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(Icons.qr_code_2_rounded, size: 56, color: AppColors.textMuted),
-                                const SizedBox(height: 12),
-                                Text("No serial items found", style: AppTextStyles.headingMedium),
-                                const SizedBox(height: 6),
-                                Text("Try adjusting your search or status filter",
-                                    style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
-                              ],
-                            ),
-                          )
-                        : ListView.builder(
-                            controller: _scrollController,
-                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
-                            itemCount: state.items.length + (state.isLoadingMore ? 1 : 0),
-                            itemBuilder: (context, index) {
-                              if (index == state.items.length) {
-                                return const Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 20),
-                                  child: Center(child: CircularProgressIndicator(strokeWidth: 2.5)),
-                                );
-                              }
-                              final item = state.items[index];
-                              return _SerialCard(
-                                item: item,
-                                onTap: () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) => SerialInventoryDetailScreen(serialItemId: item.id.toString()),
-                                    ),
-                                  );
-                                },
-                              );
-                            },
+                        const SizedBox(height: 12),
+                        Text(
+                          "Failed to load serial inventory",
+                          style: AppTextStyles.headingMedium,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          state.errorMessage!,
+                          style: AppTextStyles.caption.copyWith(
+                            color: AppColors.textMuted,
                           ),
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton.icon(
+                          onPressed: () => ref
+                              .read(serialInventoryListProvider.notifier)
+                              .fetchInitial(),
+                          icon: const Icon(Icons.refresh, size: 18),
+                          label: const Text("Retry"),
+                        ),
+                      ],
+                    ),
+                  )
+                : state.items.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.qr_code_2_rounded,
+                          size: 56,
+                          color: AppColors.textMuted,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          "No serial items found",
+                          style: AppTextStyles.headingMedium,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          "Try adjusting your search or status filter",
+                          style: AppTextStyles.caption.copyWith(
+                            color: AppColors.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
+                    itemCount:
+                        state.items.length + (state.isLoadingMore ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (!state.isLoadingMore &&
+                          state.hasMore &&
+                          index >= state.items.length - 3) {
+                        Future.microtask(() {
+                          ref
+                              .read(serialInventoryListProvider.notifier)
+                              .fetchNextPage();
+                        });
+                      }
+                      if (index == state.items.length) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 20),
+                          child: Center(
+                            child: CircularProgressIndicator(strokeWidth: 2.5),
+                          ),
+                        );
+                      }
+                      final item = state.items[index];
+                      return _SerialCard(
+                        item: item,
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => SerialInventoryDetailScreen(
+                                serialItemId: item.id.toString(),
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
           ),
         ),
       ],
     );
   }
 }
-
 
 class _SerialCard extends StatelessWidget {
   final SerialInventoryModel item;
@@ -270,24 +343,39 @@ class _SerialCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.qr_code_2_rounded, size: 20, color: AppColors.primary),
+                    const Icon(
+                      Icons.qr_code_2_rounded,
+                      size: 20,
+                      color: AppColors.primary,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       item.skuItemNumber,
-                      style: AppTextStyles.headingMedium.copyWith(fontSize: 16, color: AppColors.primary),
+                      style: AppTextStyles.headingMedium.copyWith(
+                        fontSize: 16,
+                        color: AppColors.primary,
+                      ),
                     ),
                   ],
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: statusColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: statusColor.withValues(alpha: 0.3)),
+                    border: Border.all(
+                      color: statusColor.withValues(alpha: 0.3),
+                    ),
                   ),
                   child: Text(
                     item.status.replaceAll('_', ' ').toUpperCase(),
-                    style: AppTextStyles.caption.copyWith(color: statusColor, fontWeight: FontWeight.bold),
+                    style: AppTextStyles.caption.copyWith(
+                      color: statusColor,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ],
@@ -297,18 +385,20 @@ class _SerialCard extends StatelessWidget {
             // SKU Info
             Text(
               item.productSku?.skuName ?? 'Unknown SKU',
-              style: AppTextStyles.labelMedium.copyWith(fontWeight: FontWeight.w600),
+              style: AppTextStyles.labelMedium.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
             ),
             const SizedBox(height: 4),
             Text.rich(
               TextSpan(
                 children: [
-                  TextSpan(
-                    text: "SKU: ${item.productSku?.skuCode ?? 'N/A'}",
-                  ),
+                  TextSpan(text: "SKU: ${item.productSku?.skuCode ?? 'N/A'}"),
                   if (item.currentTransaction != null)
                     TextSpan(
-                      text: item.currentTransaction!.transactionReferenceType == 'GoodsReceivedNote'
+                      text:
+                          item.currentTransaction!.transactionReferenceType ==
+                              'GoodsReceivedNote'
                           ? "  •  Ref: GRN - ${item.currentTransaction!.transactionReferenceId ?? 'N/A'}"
                           : "  •  Ref: ${item.currentTransaction!.transactionReferenceType} - ${item.currentTransaction!.transactionReferenceId ?? 'N/A'}",
                     ),
@@ -328,7 +418,13 @@ class _SerialFilterSheet extends StatefulWidget {
   final String? initialSkuName;
   final String? initialSkuCode;
   final String initialStatus;
-  final Function(String? serialNum, String? skuName, String? skuCode, String status) onApply;
+  final Function(
+    String? serialNum,
+    String? skuName,
+    String? skuCode,
+    String status,
+  )
+  onApply;
   final VoidCallback onReset;
 
   const _SerialFilterSheet({
@@ -350,7 +446,14 @@ class _SerialFilterSheetState extends State<_SerialFilterSheet> {
   late TextEditingController _skuCodeCtrl;
   late String _status;
 
-  final List<String> _statuses = ['all', 'in_stock', 'dispatched', 'in_transit', 'allocated', 'damaged'];
+  final List<String> _statuses = [
+    'all',
+    'in_stock',
+    'dispatched',
+    'in_transit',
+    'allocated',
+    'damaged',
+  ];
 
   @override
   void initState() {
@@ -372,7 +475,12 @@ class _SerialFilterSheetState extends State<_SerialFilterSheet> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, 16, 20, MediaQuery.of(context).viewInsets.bottom + 20),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        16,
+        20,
+        MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -380,16 +488,34 @@ class _SerialFilterSheetState extends State<_SerialFilterSheet> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text("Filter Serial Inventory", style: AppTextStyles.headingLarge),
-              IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+              Text(
+                "Filter Serial Inventory",
+                style: AppTextStyles.headingLarge,
+              ),
+              IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.pop(context),
+              ),
             ],
           ),
           const SizedBox(height: 16),
-          AppTextField(label: "Serial Number", controller: _serialCtrl, hint: "Enter exact/partial serial number..."),
+          AppTextField(
+            label: "Serial Number",
+            controller: _serialCtrl,
+            hint: "Enter exact/partial serial number...",
+          ),
           const SizedBox(height: 12),
-          AppTextField(label: "SKU Name", controller: _skuNameCtrl, hint: "Enter SKU name..."),
+          AppTextField(
+            label: "SKU Name",
+            controller: _skuNameCtrl,
+            hint: "Enter SKU name...",
+          ),
           const SizedBox(height: 12),
-          AppTextField(label: "SKU Code", controller: _skuCodeCtrl, hint: "Enter SKU code..."),
+          AppTextField(
+            label: "SKU Code",
+            controller: _skuCodeCtrl,
+            hint: "Enter SKU code...",
+          ),
           const SizedBox(height: 16),
           Text("Status", style: AppTextStyles.labelMedium),
           const SizedBox(height: 8),
@@ -406,7 +532,9 @@ class _SerialFilterSheetState extends State<_SerialFilterSheet> {
                     selectedColor: AppColors.primary,
                     labelStyle: AppTextStyles.caption.copyWith(
                       color: isSelected ? Colors.white : AppColors.textPrimary,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      fontWeight: isSelected
+                          ? FontWeight.bold
+                          : FontWeight.normal,
                     ),
                     backgroundColor: AppColors.surface,
                     onSelected: (selected) {
@@ -425,7 +553,9 @@ class _SerialFilterSheetState extends State<_SerialFilterSheet> {
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     side: const BorderSide(color: AppColors.cardBorder),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                   onPressed: () {
                     widget.onReset();

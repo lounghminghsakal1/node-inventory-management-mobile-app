@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:node_management_app/core/utils/helper_functions.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/widgets/app_button.dart';
@@ -102,7 +103,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                         Text(grn.grnNumber, style: AppTextStyles.labelLarge),
                         const SizedBox(height: 4),
                         Text(
-                          'Received: ${grn.receivedDate ?? "N/A"}', //• Items: ${grn.lineItems.length}
+                          'Received: ${grn.receivedDate != null ? HelperFunctions.formatDate(DateTime.parse(grn.receivedDate!), hasTime: false ) : "N/A"}', //• Items: ${grn.lineItems.length}
                           style: AppTextStyles.caption.copyWith(color: AppColors.textMuted),
                         ),
                       ],
@@ -1342,9 +1343,9 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
         children: [
           _buildMetadataRow("Invoice No", grn.vendorInvoiceNo ?? "N/A"),
           const SizedBox(height: 8),
-          _buildMetadataRow("Invoice Date", grn.vendorInvoiceDate ?? "N/A"),
+          _buildMetadataRow("Invoice Date",  grn.vendorInvoiceDate != null ?  HelperFunctions.formatDate(DateTime.parse(grn.vendorInvoiceDate!), hasTime: false)  : "N/A"),
           const SizedBox(height: 8),
-          _buildMetadataRow("Received Date", grn.receivedDate ?? "N/A"),
+          _buildMetadataRow("GRN Received Date", grn.receivedDate != null ?  HelperFunctions.formatDate(DateTime.parse(grn.receivedDate!), hasTime: false) : "N/A"),
           if (grn.remarks != null && grn.remarks!.isNotEmpty) ...[
             const SizedBox(height: 12),
             const Divider(height: 1),
@@ -1497,7 +1498,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                                   Text("Batch: ${b.batchCode}", style: AppTextStyles.labelMedium),
                                   const SizedBox(height: 4),
                                   Text(
-                                    "Mfg: ${b.manufactureDate ?? 'N/A'} | Exp: ${b.expiryDate ?? 'N/A'}",
+                                    "Mfg: ${b.manufactureDate != null ? HelperFunctions.formatDate(DateTime.parse(b.manufactureDate.toString())) : 'N/A'} | Exp: ${b.expiryDate != null ? HelperFunctions.formatDate(DateTime.parse(b.expiryDate.toString())) : 'N/A'}",
                                     style: AppTextStyles.caption.copyWith(color: AppColors.textMuted),
                                   ),
                                 ],
@@ -2123,9 +2124,18 @@ class _BatchInputModalState extends State<_BatchInputModal> {
   }
 
   Future<void> _selectDate(BuildContext context, int index, bool isMfg) async {
+    final batch = _batches[index];
+    final dateStr = isMfg ? batch.manufactureDate : batch.expiryDate;
+    DateTime initialDate = DateTime.now();
+    if (dateStr != null && dateStr.isNotEmpty && dateStr != "Select") {
+      try {
+        initialDate = DateTime.parse(dateStr);
+      } catch (_) {}
+    }
+
     final picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
+      initialDate: initialDate,
       firstDate: DateTime(2020),
       lastDate: DateTime(2030),
     );
@@ -2179,22 +2189,13 @@ class _BatchInputModalState extends State<_BatchInputModal> {
                   child: Column(
                     children: [
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                            flex: 2,
                             child: TextFormField(
                               initialValue: batch.batchCode,
                               decoration: const InputDecoration(labelText: "Batch Code *", hintText: "e.g., BH-1"),
                               onChanged: (val) => _batches[idx] = _batches[idx].copyWith(batchCode: val),
-                            ),
-                          ),
-                          const SizedBox(width: 9),
-                          Expanded(
-                            child: TextFormField(
-                              initialValue: batch.quantity > 0 ? batch.quantity.toString() : '',
-                              decoration: const InputDecoration(labelText: "Qty *", ),
-                              keyboardType: TextInputType.number,
-                              onChanged: (val) => setState(() => _batches[idx] = _batches[idx].copyWith(quantity: int.tryParse(val) ?? 0)),
                             ),
                           ),
                           IconButton(
@@ -2204,6 +2205,13 @@ class _BatchInputModalState extends State<_BatchInputModal> {
                             onPressed: () => setState(() => _batches.removeAt(idx)),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 10),
+                      TextFormField(
+                        initialValue: batch.quantity > 0 ? batch.quantity.toString() : '',
+                        decoration: const InputDecoration(labelText: "Qty *"),
+                        keyboardType: TextInputType.number,
+                        onChanged: (val) => setState(() => _batches[idx] = _batches[idx].copyWith(quantity: int.tryParse(val) ?? 0)),
                       ),
                       const SizedBox(height: 10),
                       Row(

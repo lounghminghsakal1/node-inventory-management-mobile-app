@@ -72,7 +72,7 @@ class _PurchaseOrderListScreenState
                             style: AppTextStyles.bodyMedium,
                             cursorColor: AppColors.primary,
                             decoration: InputDecoration(
-                              hintText: 'Search by PO number or vendor...',
+                              hintText: 'Search by PO number...',
                               hintStyle: AppTextStyles.bodySmall,
                               prefixIcon: const Icon(
                                 Icons.search_rounded,
@@ -220,7 +220,7 @@ class _PurchaseOrderListScreenState
                 ],
               ),
             ),
-      
+
             // ── PO List ────────────────────────────────────────────────────────
             Expanded(
               child: Builder(
@@ -228,7 +228,7 @@ class _PurchaseOrderListScreenState
                   if (state.isLoading && !state.isMoreLoading) {
                     return const Center(child: CircularProgressIndicator());
                   }
-      
+
                   if (state.error != null && allPos.isEmpty) {
                     return Center(
                       child: Text(
@@ -240,7 +240,7 @@ class _PurchaseOrderListScreenState
                       ),
                     );
                   }
-      
+
                   final statusFilter = _tabs[_tabCtrl.index].$2;
                   final filtered = allPos.where((po) {
                     if (statusFilter != null &&
@@ -249,72 +249,97 @@ class _PurchaseOrderListScreenState
                     }
                     return true;
                   }).toList();
-      
-                  if (filtered.isEmpty) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(
-                            Icons.receipt_long_outlined,
-                            size: 48,
-                            color: AppColors.textMuted,
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            _search.isNotEmpty
-                                ? 'No purchase orders matching "$_search"'
-                                : 'No purchase orders found',
-                            style: AppTextStyles.bodyMedium.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-      
-                  return NotificationListener<ScrollNotification>(
-                    onNotification: (notification) {
-                      if (notification is ScrollEndNotification ||
-                          notification is ScrollUpdateNotification) {
-                        if (notification.metrics.extentAfter < 200) {
-                          ref
-                              .read(purchaseOrderListProvider.notifier)
-                              .loadNextPage();
-                        }
-                      }
-                      return false;
-                    },
-                    child: RefreshIndicator(
-                      onRefresh: () async => ref
+
+                  return RefreshIndicator(
+                    onRefresh: () async {
+                      await ref
                           .read(purchaseOrderListProvider.notifier)
-                          .load(page: 1, byStatus: _tabs[_tabCtrl.index].$2),
-                      color: AppColors.primary,
-                      child: ListView.separated(
-                        padding: const EdgeInsets.all(16),
-                        itemCount:
-                            filtered.length + (state.isMoreLoading ? 1 : 0),
-                        separatorBuilder: (_, _) => const SizedBox(height: 12),
-                        itemBuilder: (context, i) {
-                          if (i == filtered.length) {
-                            return const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 16),
-                              child: Center(
-                                child: CircularProgressIndicator(
-                                  color: AppColors.primary,
-                                ),
-                              ),
-                            );
+                          .load(page: 1, byStatus: _tabs[_tabCtrl.index].$2);
+                    },
+                    color: AppColors.primary,
+                    child: NotificationListener<ScrollNotification>(
+                      onNotification: (notification) {
+                        if (filtered.isNotEmpty &&
+                            (notification is ScrollEndNotification ||
+                                notification is ScrollUpdateNotification)) {
+                          if (notification.metrics.extentAfter < 200) {
+                            ref
+                                .read(purchaseOrderListProvider.notifier)
+                                .loadNextPage();
                           }
-                          final po = filtered[i];
-                          return PurchaseOrderCard(
-                            po: po,
-                            onTap: () =>
-                                context.push('/purchase-orders/${po.id}'),
-                          );
-                        },
-                      ),
+                        }
+                        return false;
+                      },
+                      child: filtered.isEmpty
+                          ? ListView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              children: [
+                                SizedBox(
+                                  height:
+                                      MediaQuery.of(context).size.height * 0.6,
+                                  child: Center(
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(
+                                          Icons.receipt_long_outlined,
+                                          size: 48,
+                                          color: AppColors.textMuted,
+                                        ),
+                                        const SizedBox(height: 12),
+                                        Text(
+                                          _search.isNotEmpty
+                                              ? 'No purchase orders matching "$_search"'
+                                              : 'No purchase orders found',
+                                          style: AppTextStyles.bodyMedium
+                                              .copyWith(
+                                                color: AppColors.textSecondary,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            )
+                          : ListView.separated(
+                              padding: const EdgeInsets.all(16),
+                              itemCount:
+                                  filtered.length +
+                                  (state.isMoreLoading ? 1 : 0),
+                              separatorBuilder: (_, _) =>
+                                  const SizedBox(height: 12),
+                              itemBuilder: (context, i) {
+                                if (!state.isMoreLoading &&
+                                    i >= filtered.length - 5 &&
+                                    state.currentPage < state.totalPages) {
+                                  Future.microtask(() {
+                                    ref
+                                        .read(purchaseOrderListProvider.notifier)
+                                        .loadNextPage();
+                                  });
+                                }
+
+                                if (i == filtered.length) {
+                                  return const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 16),
+                                    child: Center(
+                                      child: CircularProgressIndicator(
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                  );
+                                }
+
+                                final po = filtered[i];
+                                return PurchaseOrderCard(
+                                  po: po,
+                                  onTap: () =>
+                                      context.push('/purchase-orders/${po.id}'),
+                                );
+                              },
+                            ),
                     ),
                   );
                 },

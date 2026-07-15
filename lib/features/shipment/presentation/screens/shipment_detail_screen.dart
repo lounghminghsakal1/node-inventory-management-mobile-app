@@ -19,6 +19,7 @@ import '../../../../core/widgets/app_text_field.dart';
 import '../../data/repositories/shipment_repository.dart';
 import 'package:node_management_app/core/utils/snackbar_utils.dart';
 import "../../../../core/utils/helper_functions.dart";
+import "../../../../core/utils/media_picker_service.dart";
 
 class _KeyValuePair {
   final keyCtrl = TextEditingController();
@@ -1956,21 +1957,14 @@ class _DeliverShipmentModalState extends ConsumerState<_DeliverShipmentModal> {
 
   Future<void> _pickAndUploadFile() async {
     try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['jpg', 'jpeg', 'png', 'webp', 'pdf'],
-      );
-      if (result != null && result.files.single.path != null) {
+      final result = await MediaPickerService.showMediaPicker(context);
+      if (result != null && result.path.isNotEmpty) {
         setState(() => _isUploadingMedia = true);
-        final filePath = result.files.single.path!;
-        final fileName = result.files.single.name;
-        final url = await ref
-            .read(shipmentRepositoryProvider)
-            .uploadMedia(
+        final url = await ref.read(shipmentRepositoryProvider).uploadMedia(
               shipmentId: widget.shipment.id,
               actionType: 'delivered',
-              filePath: filePath,
-              fileName: fileName,
+              filePath: result.path,
+              fileName: result.name,
             );
         setState(() {
           _uploadedMedia.add(_MediaItem(url));
@@ -2290,7 +2284,7 @@ class _DeliverShipmentModalState extends ConsumerState<_DeliverShipmentModal> {
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-                    child: _isLoading
+                    child: (_isLoading || _isUploadingMedia)
                         ? const SizedBox(
                             width: 16,
                             height: 16,

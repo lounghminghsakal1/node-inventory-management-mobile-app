@@ -65,10 +65,14 @@ class StockAuditsNotifier extends StateNotifier<StockAuditsState> {
     load();
   }
 
-  Future<void> load({int page = 1}) async {
+  Future<void> load({int page = 1, bool isRefresh = false}) async {
     if (!mounted) return;
     if (page == 1) {
-      state = state.copyWith(isLoading: true, error: null, audits: []);
+      if (isRefresh) {
+        state = state.copyWith(error: null);
+      } else {
+        state = state.copyWith(isLoading: true, error: null, audits: []);
+      }
     } else {
       if (state.isLoading || state.isMoreLoading || state.currentPage >= state.totalPages) return;
       state = state.copyWith(isMoreLoading: true, error: null);

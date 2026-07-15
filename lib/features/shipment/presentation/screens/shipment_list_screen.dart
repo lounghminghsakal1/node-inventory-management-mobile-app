@@ -347,71 +347,95 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
                     );
                   }
 
-                  if (filtered.isEmpty) {
-                    return Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.local_shipping_outlined,
-                            size: 56,
-                            color: AppColors.textMuted,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'No shipments found',
-                            style: AppTextStyles.headingMedium.copyWith(
-                              color: AppColors.textMuted,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-
-                  return NotificationListener<ScrollNotification>(
-                    onNotification: (notification) {
-                      if (notification is ScrollEndNotification ||
-                          notification is ScrollUpdateNotification) {
-                        if (notification.metrics.extentAfter < 200) {
-                          ref
-                              .read(shipmentListProvider.notifier)
-                              .loadNextPage();
-                        }
-                      }
-                      return false;
-                    },
-                    child: RefreshIndicator(
-                      color: AppColors.primary,
-                      backgroundColor: AppColors.card,
-                      onRefresh: () async => ref
+                  return RefreshIndicator(
+                    color: AppColors.primary,
+                    backgroundColor: AppColors.card,
+                    onRefresh: () async {
+                      await ref
                           .read(shipmentListProvider.notifier)
-                          .load(page: 1, byShipmentType: _shipmentType),
-                      child: ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount:
-                            filtered.length + (state.isMoreLoading ? 1 : 0),
-                        itemBuilder: (_, i) {
-                          if (i == filtered.length) {
-                            return const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 16),
-                              child: Center(
-                                child: CircularProgressIndicator(
-                                  color: AppColors.primary,
-                                ),
-                              ),
-                            );
+                          .load(page: 1, byShipmentType: _shipmentType);
+                    },
+                    child: NotificationListener<ScrollNotification>(
+                      onNotification: (notification) {
+                        if (!filtered.isEmpty &&
+                            (notification is ScrollEndNotification ||
+                                notification is ScrollUpdateNotification)) {
+                          if (notification.metrics.extentAfter < 200) {
+                            ref
+                                .read(shipmentListProvider.notifier)
+                                .loadNextPage();
                           }
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: ShipmentCard(
-                              shipment: filtered[i],
-                              onTap: () =>
-                                  context.push('/shipments/${filtered[i].id}'),
+                        }
+                        return false;
+                      },
+                      child: filtered.isEmpty
+                          ? ListView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              children: [
+                                SizedBox(
+                                  height:
+                                      MediaQuery.of(context).size.height * 0.6,
+                                  child: Center(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.local_shipping_outlined,
+                                          size: 56,
+                                          color: AppColors.textMuted,
+                                        ),
+                                        const SizedBox(height: 16),
+                                        Text(
+                                          'No shipments found',
+                                          style: AppTextStyles.headingMedium
+                                              .copyWith(
+                                                color: AppColors.textMuted,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            )
+                          : ListView.builder(
+                              padding: const EdgeInsets.all(16),
+                              itemCount:
+                                  filtered.length +
+                                  (state.isMoreLoading ? 1 : 0),
+                              itemBuilder: (_, i) {
+                                if (!state.isMoreLoading &&
+                                    i >= filtered.length - 5 &&
+                                    state.currentPage < state.totalPages) {
+                                  Future.microtask(() {
+                                    ref
+                                        .read(shipmentListProvider.notifier)
+                                        .loadNextPage();
+                                  });
+                                }
+
+                                if (i == filtered.length) {
+                                  return const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 16),
+                                    child: Center(
+                                      child: CircularProgressIndicator(
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                  );
+                                }
+
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: ShipmentCard(
+                                    shipment: filtered[i],
+                                    onTap: () => context.push(
+                                      '/shipments/${filtered[i].id}',
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
-                          );
-                        },
-                      ),
                     ),
                   );
                 }).toList(),

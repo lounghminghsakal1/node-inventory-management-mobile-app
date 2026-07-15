@@ -11,7 +11,8 @@ class NodeInventoryListView extends ConsumerStatefulWidget {
   const NodeInventoryListView({super.key});
 
   @override
-  ConsumerState<NodeInventoryListView> createState() => _NodeInventoryListViewState();
+  ConsumerState<NodeInventoryListView> createState() =>
+      _NodeInventoryListViewState();
 }
 
 class _NodeInventoryListViewState extends ConsumerState<NodeInventoryListView> {
@@ -51,7 +52,9 @@ class _NodeInventoryListViewState extends ConsumerState<NodeInventoryListView> {
         initialSkuId: state.bySkuId,
         initialAvailableOnly: state.availableOnly,
         onApply: (skuName, skuCode, skuId, availOnly) {
-          ref.read(nodeInventoryListProvider.notifier).updateFilters(
+          ref
+              .read(nodeInventoryListProvider.notifier)
+              .updateFilters(
                 bySkuName: skuName,
                 bySkuCode: skuCode,
                 bySkuId: skuId,
@@ -82,20 +85,35 @@ class _NodeInventoryListViewState extends ConsumerState<NodeInventoryListView> {
                   controller: _searchController,
                   decoration: InputDecoration(
                     hintText: "Search by SKU Name or Code...",
-                    hintStyle: AppTextStyles.caption.copyWith(color: AppColors.textMuted),
-                    prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textMuted, size: 20),
+                    hintStyle: AppTextStyles.caption.copyWith(
+                      color: AppColors.textMuted,
+                    ),
+                    prefixIcon: const Icon(
+                      Icons.search_rounded,
+                      color: AppColors.textMuted,
+                      size: 20,
+                    ),
                     suffixIcon: _searchController.text.isNotEmpty
                         ? IconButton(
-                            icon: const Icon(Icons.clear, size: 18, color: AppColors.textMuted),
+                            icon: const Icon(
+                              Icons.clear,
+                              size: 18,
+                              color: AppColors.textMuted,
+                            ),
                             onPressed: () {
                               _searchController.clear();
-                              ref.read(nodeInventoryListProvider.notifier).updateFilters(bySkuName: '', bySkuCode: '');
+                              ref
+                                  .read(nodeInventoryListProvider.notifier)
+                                  .updateFilters(bySkuName: '', bySkuCode: '');
                             },
                           )
                         : null,
                     filled: true,
                     fillColor: AppColors.surface,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
                       borderSide: const BorderSide(color: AppColors.cardBorder),
@@ -110,7 +128,9 @@ class _NodeInventoryListViewState extends ConsumerState<NodeInventoryListView> {
                     ),
                   ),
                   onSubmitted: (val) {
-                    ref.read(nodeInventoryListProvider.notifier).updateFilters(bySkuName: val.trim());
+                    ref
+                        .read(nodeInventoryListProvider.notifier)
+                        .updateFilters(bySkuName: val.trim());
                   },
                 ),
               ),
@@ -121,12 +141,18 @@ class _NodeInventoryListViewState extends ConsumerState<NodeInventoryListView> {
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: (state.bySkuCode != null || state.bySkuId != null || !state.availableOnly)
+                    color:
+                        (state.bySkuCode != null ||
+                            state.bySkuId != null ||
+                            !state.availableOnly)
                         ? AppColors.primary
                         : AppColors.surface,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: (state.bySkuCode != null || state.bySkuId != null || !state.availableOnly)
+                      color:
+                          (state.bySkuCode != null ||
+                              state.bySkuId != null ||
+                              !state.availableOnly)
                           ? AppColors.primary
                           : AppColors.cardBorder,
                       width: 1,
@@ -134,7 +160,10 @@ class _NodeInventoryListViewState extends ConsumerState<NodeInventoryListView> {
                   ),
                   child: Icon(
                     Icons.filter_list_rounded,
-                    color: (state.bySkuCode != null || state.bySkuId != null || !state.availableOnly)
+                    color:
+                        (state.bySkuCode != null ||
+                            state.bySkuId != null ||
+                            !state.availableOnly)
                         ? Colors.white
                         : AppColors.textMuted,
                     size: 22,
@@ -145,67 +174,98 @@ class _NodeInventoryListViewState extends ConsumerState<NodeInventoryListView> {
           ),
         ),
 
-
-
         // ── List View ─────────────────────────────────────────────────────────
         Expanded(
           child: state.isLoading && state.items.isEmpty
-              ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+              ? const Center(
+                  child: CircularProgressIndicator(color: AppColors.primary),
+                )
               : state.errorMessage != null && state.items.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.error_outline, size: 48, color: AppColors.error),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Failed to load node inventory',
-                            style: AppTextStyles.bodyLarge.copyWith(color: AppColors.textSecondary),
-                          ),
-                          const SizedBox(height: 12),
-                          ElevatedButton.icon(
-                            onPressed: () => ref.read(nodeInventoryListProvider.notifier).fetchInitial(),
-                            icon: const Icon(Icons.refresh, size: 18),
-                            label: const Text('Retry'),
-                          ),
-                        ],
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        size: 48,
+                        color: AppColors.error,
                       ),
-                    )
-                  : state.items.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.inventory_2_outlined, size: 54, color: AppColors.textMuted.withValues(alpha: 0.5)),
-                              const SizedBox(height: 16),
-                              Text(
-                                'No inventories found',
-                                style: AppTextStyles.headingMedium.copyWith(color: AppColors.textSecondary),
-                              ),
-                            ],
-                          ),
-                        )
-                      : RefreshIndicator(
-                          onRefresh: () async {
-                            await ref.read(nodeInventoryListProvider.notifier).fetchInitial();
-                          },
-                          color: AppColors.primary,
-                          child: ListView.builder(
-                            controller: _scrollController,
-                            padding: const EdgeInsets.all(16),
-                            itemCount: state.items.length + (state.isLoadingMore ? 1 : 0),
-                            itemBuilder: (context, index) {
-                              if (index == state.items.length) {
-                                return const Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 16),
-                                  child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary)),
-                                );
-                              }
-                              final item = state.items[index];
-                              return _buildInventoryCard(item);
-                            },
-                          ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Failed to load node inventory',
+                        style: AppTextStyles.bodyLarge.copyWith(
+                          color: AppColors.textSecondary,
                         ),
+                      ),
+                      const SizedBox(height: 12),
+                      ElevatedButton.icon(
+                        onPressed: () => ref
+                            .read(nodeInventoryListProvider.notifier)
+                            .fetchInitial(),
+                        icon: const Icon(Icons.refresh, size: 18),
+                        label: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                )
+              : state.items.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.inventory_2_outlined,
+                        size: 54,
+                        color: AppColors.textMuted.withValues(alpha: 0.5),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No inventories found',
+                        style: AppTextStyles.headingMedium.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : RefreshIndicator(
+                  onRefresh: () async {
+                    await ref
+                        .read(nodeInventoryListProvider.notifier)
+                        .fetchInitial();
+                  },
+                  color: AppColors.primary,
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.all(16),
+                    itemCount:
+                        state.items.length + (state.isLoadingMore ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (!state.isLoadingMore &&
+                          state.hasMore &&
+                          index >= state.items.length - 3) {
+                        Future.microtask(() {
+                          ref
+                              .read(nodeInventoryListProvider.notifier)
+                              .fetchNextPage();
+                        });
+                      }
+                      if (index == state.items.length) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        );
+                      }
+                      final item = state.items[index];
+                      return _buildInventoryCard(item);
+                    },
+                  ),
+                ),
         ),
       ],
     );
@@ -219,7 +279,8 @@ class _NodeInventoryListViewState extends ConsumerState<NodeInventoryListView> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => NodeInventoryDetailScreen(inventoryId: item.id.toString()),
+            builder: (_) =>
+                NodeInventoryDetailScreen(inventoryId: item.id.toString()),
           ),
         );
       },
@@ -253,12 +314,16 @@ class _NodeInventoryListViewState extends ConsumerState<NodeInventoryListView> {
                       children: [
                         Text(
                           item.skuName,
-                          style: AppTextStyles.headingMedium.copyWith(fontWeight: FontWeight.bold),
+                          style: AppTextStyles.headingMedium.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           'SKU Code: ${item.skuCode}',
-                          style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+                          style: AppTextStyles.bodySmall.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
                         ),
                       ],
                     ),
@@ -271,15 +336,29 @@ class _NodeInventoryListViewState extends ConsumerState<NodeInventoryListView> {
               Row(
                 children: [
                   Expanded(
-                    child: _buildQtyBox('Total', item.totalQuantity, AppColors.textPrimary, isBold: true),
+                    child: _buildQtyBox(
+                      'Total',
+                      item.totalQuantity,
+                      AppColors.textPrimary,
+                      isBold: true,
+                    ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: _buildQtyBox('Available', item.availableQuantity, AppColors.success, isBold: true),
+                    child: _buildQtyBox(
+                      'Available',
+                      item.availableQuantity,
+                      AppColors.success,
+                      isBold: true,
+                    ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: _buildQtyBox('Blocked', item.blockedQuantity, AppColors.warning),
+                    child: _buildQtyBox(
+                      'Blocked',
+                      item.blockedQuantity,
+                      AppColors.warning,
+                    ),
                   ),
                 ],
               ),
@@ -287,22 +366,37 @@ class _NodeInventoryListViewState extends ConsumerState<NodeInventoryListView> {
               Row(
                 children: [
                   Expanded(
-                    child: _buildQtyBox('In Transit', item.inTransitQuantity, AppColors.secondary),
+                    child: _buildQtyBox(
+                      'In Transit',
+                      item.inTransitQuantity,
+                      AppColors.secondary,
+                    ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: _buildQtyBox('Damaged', item.damagedQuantity, AppColors.error),
+                    child: _buildQtyBox(
+                      'Damaged',
+                      item.damagedQuantity,
+                      AppColors.error,
+                    ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: _buildQtyBox('Missing', item.missingQuantity, AppColors.error),
+                    child: _buildQtyBox(
+                      'Missing',
+                      item.missingQuantity,
+                      AppColors.error,
+                    ),
                   ),
                 ],
               ),
 
               if (trackingType == 'batch' || trackingType == 'serial') ...[
                 const SizedBox(height: 16),
-                Divider(color: AppColors.cardBorder.withValues(alpha: 0.5), height: 1),
+                Divider(
+                  color: AppColors.cardBorder.withValues(alpha: 0.5),
+                  height: 1,
+                ),
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -310,22 +404,34 @@ class _NodeInventoryListViewState extends ConsumerState<NodeInventoryListView> {
                       child: ElevatedButton.icon(
                         onPressed: () {
                           if (trackingType == 'batch') {
-                            ref.read(batchInventoryListProvider.notifier).updateFilters(bySkuCode: item.skuCode);
+                            ref
+                                .read(batchInventoryListProvider.notifier)
+                                .updateFilters(bySkuCode: item.skuCode);
                             DefaultTabController.of(context).animateTo(1);
                           } else if (trackingType == 'serial') {
-                            ref.read(serialInventoryListProvider.notifier).updateFilters(bySkuCode: item.skuCode);
+                            ref
+                                .read(serialInventoryListProvider.notifier)
+                                .updateFilters(bySkuCode: item.skuCode);
                             DefaultTabController.of(context).animateTo(2);
                           }
                         },
                         icon: Icon(
-                          trackingType == 'batch' ? Icons.layers_outlined : Icons.qr_code_2_outlined,
+                          trackingType == 'batch'
+                              ? Icons.layers_outlined
+                              : Icons.qr_code_2_outlined,
                           size: 18,
                         ),
-                        label: Text(trackingType == 'batch' ? 'Batches' : 'Serials'),
+                        label: Text(
+                          trackingType == 'batch' ? 'Batches' : 'Serials',
+                        ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.getTrackingTextColor(trackingType),
+                          backgroundColor: AppColors.getTrackingTextColor(
+                            trackingType,
+                          ),
                           foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                           padding: const EdgeInsets.symmetric(vertical: 10),
                         ),
                       ),
@@ -340,7 +446,12 @@ class _NodeInventoryListViewState extends ConsumerState<NodeInventoryListView> {
     );
   }
 
-  Widget _buildQtyBox(String label, int value, Color color, {bool isBold = false}) {
+  Widget _buildQtyBox(
+    String label,
+    int value,
+    Color color, {
+    bool isBold = false,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
       decoration: BoxDecoration(
@@ -360,7 +471,10 @@ class _NodeInventoryListViewState extends ConsumerState<NodeInventoryListView> {
           const SizedBox(height: 2),
           Text(
             label,
-            style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary, fontSize: 11),
+            style: AppTextStyles.caption.copyWith(
+              color: AppColors.textSecondary,
+              fontSize: 11,
+            ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -370,13 +484,18 @@ class _NodeInventoryListViewState extends ConsumerState<NodeInventoryListView> {
   }
 }
 
-
 class _NodeInventoryFilterSheet extends StatefulWidget {
   final String? initialSkuName;
   final String? initialSkuCode;
   final String? initialSkuId;
   final bool initialAvailableOnly;
-  final Function(String? skuName, String? skuCode, String? skuId, bool availableOnly) onApply;
+  final Function(
+    String? skuName,
+    String? skuCode,
+    String? skuId,
+    bool availableOnly,
+  )
+  onApply;
   final VoidCallback onReset;
 
   const _NodeInventoryFilterSheet({
@@ -389,7 +508,8 @@ class _NodeInventoryFilterSheet extends StatefulWidget {
   });
 
   @override
-  State<_NodeInventoryFilterSheet> createState() => _NodeInventoryFilterSheetState();
+  State<_NodeInventoryFilterSheet> createState() =>
+      _NodeInventoryFilterSheetState();
 }
 
 class _NodeInventoryFilterSheetState extends State<_NodeInventoryFilterSheet> {
@@ -418,7 +538,12 @@ class _NodeInventoryFilterSheetState extends State<_NodeInventoryFilterSheet> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, 16, 20, MediaQuery.of(context).viewInsets.bottom + 20),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        16,
+        20,
+        MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -427,18 +552,36 @@ class _NodeInventoryFilterSheetState extends State<_NodeInventoryFilterSheet> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text("Filter Node Inventory", style: AppTextStyles.headingLarge),
-              IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+              IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.pop(context),
+              ),
             ],
           ),
           const SizedBox(height: 16),
-          AppTextField(label: "SKU Name", controller: _skuNameCtrl, hint: "Enter SKU name..."),
+          AppTextField(
+            label: "SKU Name",
+            controller: _skuNameCtrl,
+            hint: "Enter SKU name...",
+          ),
           const SizedBox(height: 12),
-          AppTextField(label: "SKU Code", controller: _skuCodeCtrl, hint: "Enter SKU code..."),
+          AppTextField(
+            label: "SKU Code",
+            controller: _skuCodeCtrl,
+            hint: "Enter SKU code...",
+          ),
           const SizedBox(height: 12),
-          AppTextField(label: "SKU ID", controller: _skuIdCtrl, hint: "Enter SKU ID..."),
+          AppTextField(
+            label: "SKU ID",
+            controller: _skuIdCtrl,
+            hint: "Enter SKU ID...",
+          ),
           const SizedBox(height: 16),
           SwitchListTile(
-            title: Text("Available Inventory Only", style: AppTextStyles.bodyMedium),
+            title: Text(
+              "Available Inventory Only",
+              style: AppTextStyles.bodyMedium,
+            ),
             value: _availableOnly,
             activeThumbColor: AppColors.primary,
             contentPadding: EdgeInsets.zero,
@@ -455,7 +598,9 @@ class _NodeInventoryFilterSheetState extends State<_NodeInventoryFilterSheet> {
                   },
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                   child: Text("Reset", style: AppTextStyles.labelLarge),
                 ),
@@ -465,9 +610,15 @@ class _NodeInventoryFilterSheetState extends State<_NodeInventoryFilterSheet> {
                 child: ElevatedButton(
                   onPressed: () {
                     widget.onApply(
-                      _skuNameCtrl.text.trim().isEmpty ? null : _skuNameCtrl.text.trim(),
-                      _skuCodeCtrl.text.trim().isEmpty ? null : _skuCodeCtrl.text.trim(),
-                      _skuIdCtrl.text.trim().isEmpty ? null : _skuIdCtrl.text.trim(),
+                      _skuNameCtrl.text.trim().isEmpty
+                          ? null
+                          : _skuNameCtrl.text.trim(),
+                      _skuCodeCtrl.text.trim().isEmpty
+                          ? null
+                          : _skuCodeCtrl.text.trim(),
+                      _skuIdCtrl.text.trim().isEmpty
+                          ? null
+                          : _skuIdCtrl.text.trim(),
                       _availableOnly,
                     );
                     Navigator.pop(context);
@@ -476,9 +627,16 @@ class _NodeInventoryFilterSheetState extends State<_NodeInventoryFilterSheet> {
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
-                  child: Text("Apply Filters", style: AppTextStyles.labelLarge.copyWith(color: Colors.white)),
+                  child: Text(
+                    "Apply Filters",
+                    style: AppTextStyles.labelLarge.copyWith(
+                      color: Colors.white,
+                    ),
+                  ),
                 ),
               ),
             ],

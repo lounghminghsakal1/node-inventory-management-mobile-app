@@ -20,16 +20,16 @@ final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
-void _showGlobalErrorSnackBar(String message) {
-  if (message.isEmpty) return;
-  Future.microtask(() {
-    showTopSnackBarFromNavigatorKey(
-      rootNavigatorKey,
-      message,
-      isError: true,
-    );
-  });
-}
+// void _showGlobalErrorSnackBar(String message) {
+//   if (message.isEmpty) return;
+//   Future.microtask(() {
+//     showTopSnackBarFromNavigatorKey(
+//       rootNavigatorKey,
+//       message,
+//       isError: true,
+//     );
+//   });
+// }
 
 final dioProvider = Provider<Dio>((ref) {
   final storage = ref.read(secureStorageProvider);
@@ -120,7 +120,7 @@ Dio _buildDio(FlutterSecureStorage storage) {
             final errorMsg =
                 ApiException.extractErrorMessage(response.data) ??
                 'Something went wrong';
-            _showGlobalErrorSnackBar(errorMsg);
+            // _showGlobalErrorSnackBar(errorMsg);
             return handler.reject(
               DioException(
                 requestOptions: response.requestOptions,
@@ -163,14 +163,14 @@ Dio _buildDio(FlutterSecureStorage storage) {
               ?.toString()
               .toLowerCase();
           if (status == 'failure' || status == 'error') {
-            _showGlobalErrorSnackBar(extractedMsg);
+            // _showGlobalErrorSnackBar(extractedMsg);
           } else if (error.response?.data['message'] != null ||
               error.response?.data['error'] != null ||
               error.response?.data['errors'] != null) {
-            _showGlobalErrorSnackBar(extractedMsg);
+            // _showGlobalErrorSnackBar(extractedMsg);
           }
         } else if (error.type == DioExceptionType.badResponse) {
-          _showGlobalErrorSnackBar(extractedMsg);
+          // _showGlobalErrorSnackBar(extractedMsg);
         }
 
         final modifiedError = error.copyWith(

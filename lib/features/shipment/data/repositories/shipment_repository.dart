@@ -190,24 +190,6 @@ class ShipmentRepository {
     }
   }
 
-  Future<void> updateAllocationTypeApi({
-    required String shipmentId,
-    required String allocationType,
-  }) async {
-    final dummyUrl = ApiEndpoints.updateAllocationType(shipmentId);
-    try {
-      await _dio.patch(
-        dummyUrl,
-        data: {
-          "selection_type": allocationType,
-        },
-      );
-    } catch (e) {
-      // Dummy URL: ignore error so UI flow continues smoothly
-      debugPrint('Dummy API call to $dummyUrl: $e');
-    }
-  }
-
   Future<Shipment> createShipment({
     required Order order,
     required List<({Product product, int qty})> selectedItems,

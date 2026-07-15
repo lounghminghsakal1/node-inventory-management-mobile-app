@@ -52,11 +52,48 @@ class _CreateGrnScreenState extends ConsumerState<CreateGrnScreen> {
   }
 
   Future<void> _selectDate(BuildContext context, bool isInvoiceDate) async {
+    final now = DateTime.now();
+    DateTime firstDate = DateTime(2020);
+    DateTime lastDate = now;
+    DateTime initialDate = now;
+
+    if (!isInvoiceDate) {
+      if (_invoiceDate != null) {
+        final invoiceDt = DateTime.parse(_invoiceDate!);
+        firstDate = invoiceDt;
+        if (now.isBefore(firstDate)) {
+            // Should theoretically never happen as invoiceDate cannot be in future, 
+            // but just in case, clamp lastDate and initialDate
+            lastDate = firstDate;
+            initialDate = firstDate;
+        } else {
+            // If the current received date is valid, use it as initial
+            if (_receivedDate != null) {
+               final recDt = DateTime.parse(_receivedDate!);
+               if (!recDt.isBefore(firstDate) && !recDt.isAfter(lastDate)) {
+                   initialDate = recDt;
+               } else {
+                   initialDate = firstDate;
+               }
+            } else {
+               initialDate = now;
+            }
+        }
+      }
+    } else {
+        if (_invoiceDate != null) {
+             final invDt = DateTime.parse(_invoiceDate!);
+             if (!invDt.isAfter(lastDate)) {
+                 initialDate = invDt;
+             }
+        }
+    }
+
     final picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
+      initialDate: initialDate,
+      firstDate: firstDate,
+      lastDate: lastDate,
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -77,6 +114,15 @@ class _CreateGrnScreenState extends ConsumerState<CreateGrnScreen> {
       setState(() {
         if (isInvoiceDate) {
           _invoiceDate = formatted;
+          // Auto-adjust received date if it is before the new invoice date
+          if (_receivedDate != null) {
+            final recDt = DateTime.parse(_receivedDate!);
+            if (recDt.isBefore(picked)) {
+              _receivedDate = formatted;
+            }
+          } else {
+            _receivedDate = formatted;
+          }
         } else {
           _receivedDate = formatted;
         }

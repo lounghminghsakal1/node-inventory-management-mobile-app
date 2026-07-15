@@ -33,6 +33,8 @@ class BatchInventoryListState {
     this.availableOnly = true,
   });
 
+  bool get hasMore => currentPage < totalPages;
+
   BatchInventoryListState copyWith({
     List<BatchInventoryModel>? items,
     bool? isLoading,
@@ -191,6 +193,8 @@ class SerialInventoryListState {
     this.bySkuCode,
     this.byStatus = 'all',
   });
+
+  bool get hasMore => currentPage < totalPages;
 
   SerialInventoryListState copyWith({
     List<SerialInventoryModel>? items,
@@ -462,6 +466,8 @@ class NodeInventoryListState {
     this.bySkuId,
     this.availableOnly = true,
   });
+
+  bool get hasMore => currentPage < totalPages;
 
   NodeInventoryListState copyWith({
     List<NodeInventoryModel>? items,

@@ -386,7 +386,7 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
                       child: AppButton(
                         label: 'Dispatch Shipment',
                         icon: Icons.local_shipping_rounded,
-                        isLoading: _isLoading,
+                        isLoading: _isLoading || _isUploadingMedia,
                         gradient: const LinearGradient(
                           colors: [Color(0xFFF59E0B), Color(0xFFEF4444)],
                         ),

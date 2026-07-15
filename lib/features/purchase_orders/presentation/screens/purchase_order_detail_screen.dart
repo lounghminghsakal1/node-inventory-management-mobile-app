@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:node_management_app/core/utils/helper_functions.dart';
 import '../../../home/providers/home_provider.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
@@ -97,8 +98,8 @@ class _PurchaseOrderDetailScreenState
                 const SizedBox(height: 24),
 
                 // -- Vendor Details Card -------------------------------------
-                _buildVendorCard(po.vendor),
-                const SizedBox(height: 24),
+                // _buildVendorCard(po.vendor),
+                // const SizedBox(height: 24),
 
                 // -- PO Line Items Section -----------------------------------
                 _buildLineItemsSection(po.lineItems),
@@ -156,14 +157,28 @@ class _PurchaseOrderDetailScreenState
           _infoRow(
             Icons.calendar_today_outlined,
             'Delivery Date',
-            po.deliveryDate ?? 'N/A',
+            po.deliveryDate != null ? HelperFunctions.formatDate(DateTime.parse(po.deliveryDate!), hasTime: false) : 'N/A',
             AppColors.textPrimary,
           ),
           const SizedBox(height: 10),
           _infoRow(
             Icons.event_busy_outlined,
             'Expiry Date',
-            po.expiryDate ?? 'No Expiry',
+            po.expiryDate != null ? HelperFunctions.formatDate(DateTime.parse(po.expiryDate!), hasTime: false) : 'No Expiry',
+            AppColors.textSecondary,
+          ),
+          const SizedBox(height: 10),
+          _infoRow(
+            Icons.business_outlined,
+            'Firm Name',
+            po.vendor.firmName,
+            AppColors.textPrimary,
+          ),
+          const SizedBox(height: 8),
+          _infoRow(
+            Icons.tag_outlined,
+            'Vendor Code',
+            po.vendor.code,
             AppColors.textSecondary,
           ),
         ],

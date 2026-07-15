@@ -30,7 +30,6 @@ class ApiEndpoints {
   static String shippableLineItems(String nodeId, String orderId) =>
       '/shipments/shippable_line_items?node_id=$nodeId&order_id=$orderId';
   static String shipmentDetail(String id) => '/shipments/$id';
-  static String updateAllocationType(String shipmentId) => '/shipments/$shipmentId/allocation_type';
   static String shipmentAllocate(String id) => '/shipments/$id/allocate';
   static String shipmentAutoAllocate(String id) => '/shipments/$id/auto-allocate';
   static String shipmentPack(String id) => '/shipments/$id/pack';

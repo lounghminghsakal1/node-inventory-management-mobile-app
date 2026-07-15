@@ -85,7 +85,7 @@ class _AuditScreenState extends ConsumerState<AuditScreen>
             //   ),
             // ),
             const SizedBox(height: 10),
-      
+
             TabBar(
               controller: _statusTabCtrl,
               isScrollable: true,
@@ -106,144 +106,145 @@ class _AuditScreenState extends ConsumerState<AuditScreen>
                 Tab(text: 'All'),
               ],
             ),
-      
+
             // ── Content ────────────────────────────────────────────────
             Expanded(
-              child: TabBarView(
-                controller: _statusTabCtrl,
-                children: [
-                  _buildTabContent(state, 'initiated_auditing'),
-                  _buildTabContent(state, 'assigned'),
-                  _buildTabContent(state, 'sent_for_review'),
-                  _buildTabContent(state, ''),
-                ],
+              child: Builder(
+                builder: (context) {
+                  if (state.isLoading && !state.isMoreLoading) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  if (state.error != null && state.audits.isEmpty) {
+                    return CustomScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      slivers: [
+                        SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: _buildError(ref, state.error!),
+                        ),
+                      ],
+                    );
+                  }
+
+                  return RefreshIndicator(
+                    color: AppColors.primary,
+                    backgroundColor: AppColors.card,
+                    onRefresh: () async {
+                      await ref
+                          .read(stockAuditsProvider.notifier)
+                          .load(page: 1, isRefresh: true);
+                    },
+                    child: NotificationListener<ScrollNotification>(
+                      onNotification: (notification) {
+                        if (state.audits.isNotEmpty &&
+                            (notification is ScrollEndNotification ||
+                                notification is ScrollUpdateNotification)) {
+                          if (notification.metrics.extentAfter < 200) {
+                            ref
+                                .read(stockAuditsProvider.notifier)
+                                .loadNextPage();
+                          }
+                        }
+                        return false;
+                      },
+                      child: state.audits.isEmpty
+                          ? ListView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              children: [
+                                SizedBox(
+                                  height:
+                                      MediaQuery.of(context).size.height * 0.6,
+                                  child: _buildEmpty(),
+                                ),
+                              ],
+                            )
+                          : Builder(
+                              builder: (context) {
+                                List<StockAuditDetail> displayAudits =
+                                    List.from(state.audits);
+                                if (_showTodayOnTop) {
+                                  final today = DateTime.now();
+                                  final todayStr =
+                                      '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+                                  displayAudits.sort((a, b) {
+                                    final aIsToday =
+                                        a.scheduledDate == todayStr;
+                                    final bIsToday =
+                                        b.scheduledDate == todayStr;
+                                    if (aIsToday && !bIsToday) return -1;
+                                    if (!aIsToday && bIsToday) return 1;
+                                    return 0;
+                                  });
+                                }
+
+                                return ListView.builder(
+                                  padding: const EdgeInsets.all(20),
+                                  itemCount:
+                                      displayAudits.length +
+                                      (state.isMoreLoading ? 1 : 0),
+                                  itemBuilder: (context, i) {
+                                    if (!state.isMoreLoading &&
+                                        state.currentPage < state.totalPages &&
+                                        i >= displayAudits.length - 3) {
+                                      Future.microtask(() {
+                                        ref
+                                            .read(stockAuditsProvider.notifier)
+                                            .loadNextPage();
+                                      });
+                                    }
+                                    if (i == 0) {
+                                      // Inject the "Audits Found" header at the top
+                                      return Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Text(
+                                                '${state.totalCount} Audit${state.totalCount == 1 ? '' : 's'} Found',
+                                                style: AppTextStyles.labelMedium
+                                                    .copyWith(
+                                                      color: AppColors
+                                                          .textSecondary,
+                                                    ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 12),
+                                          _AuditCard(audit: displayAudits[i]),
+                                        ],
+                                      );
+                                    }
+
+                                    if (i == displayAudits.length) {
+                                      return const Padding(
+                                        padding: EdgeInsets.symmetric(
+                                          vertical: 16,
+                                        ),
+                                        child: Center(
+                                          child: CircularProgressIndicator(
+                                            color: AppColors.primary,
+                                          ),
+                                        ),
+                                      );
+                                    }
+
+                                    return _AuditCard(audit: displayAudits[i]);
+                                  },
+                                );
+                              },
+                            ),
+                    ),
+                  );
+                },
               ),
             ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildTabContent(StockAuditsState state, String? tabStatus) {
-    if (state.filterStatus != tabStatus) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(48),
-          child: CircularProgressIndicator(),
-        ),
-      );
-    }
-
-    Widget content;
-    if (state.error != null && state.audits.isEmpty) {
-      content = CustomScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: _buildError(ref, state.error!),
-          ),
-        ],
-      );
-    } else if (state.isLoading && state.audits.isEmpty) {
-      content = CustomScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: const Center(
-              child: Padding(
-                padding: EdgeInsets.all(48),
-                child: CircularProgressIndicator(),
-              ),
-            ),
-          ),
-        ],
-      );
-    } else if (state.audits.isEmpty) {
-      content = CustomScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          SliverFillRemaining(hasScrollBody: false, child: _buildEmpty()),
-        ],
-      );
-    } else {
-      List<StockAuditDetail> displayAudits = List.from(state.audits);
-      if (_showTodayOnTop) {
-        final today = DateTime.now();
-        final todayStr =
-            '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
-        displayAudits.sort((a, b) {
-          final aIsToday = a.scheduledDate == todayStr;
-          final bIsToday = b.scheduledDate == todayStr;
-          if (aIsToday && !bIsToday) return -1;
-          if (!aIsToday && bIsToday) return 1;
-          return 0;
-        });
-      }
-
-      content = NotificationListener<ScrollNotification>(
-        onNotification: (n) {
-          if (n is ScrollEndNotification || n is ScrollUpdateNotification) {
-            if (n.metrics.extentAfter < 200) {
-              ref.read(stockAuditsProvider.notifier).loadNextPage();
-            }
-          }
-          return false;
-        },
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverPadding(
-              padding: const EdgeInsets.all(20),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '${state.totalCount} Audit${state.totalCount == 1 ? '' : 's'} Found',
-                        style: AppTextStyles.labelMedium.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount:
-                        displayAudits.length + (state.isMoreLoading ? 1 : 0),
-                    itemBuilder: (_, i) {
-                      if (i >= displayAudits.length) {
-                        return const Padding(
-                          padding: EdgeInsets.all(12),
-                          child: Center(
-                            child: SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                          ),
-                        );
-                      }
-                      return _AuditCard(audit: displayAudits[i]);
-                    },
-                  ),
-                ]),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return RefreshIndicator(
-      color: AppColors.primary,
-      onRefresh: () => ref.read(stockAuditsProvider.notifier).load(),
-      child: content,
     );
   }
 
@@ -312,7 +313,9 @@ class _AuditCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isSpot = audit.auditType.toLowerCase() == 'spot';
-    final typeBadgeColor = isSpot ? AppColors.warning : const Color.fromARGB(255, 2, 30, 189);
+    final typeBadgeColor = isSpot
+        ? AppColors.warning
+        : const Color.fromARGB(255, 2, 30, 189);
 
     Color statusBadgeColor;
     String statusLabel = audit.status.label.toUpperCase();
@@ -408,7 +411,7 @@ class _AuditCard extends StatelessWidget {
                           const SizedBox(width: 6),
                         ],
                       ),
-                      SizedBox(height: 4,),
+                      SizedBox(height: 4),
                       Row(
                         children: [
                           Text(

@@ -631,14 +631,6 @@ class _AllocationCardState extends ConsumerState<_AllocationCard> {
                                         setState(() {
                                           _allocationType = val;
                                         });
-                                        if (val == 'manual') {
-                                          ref
-                                              .read(shipmentRepositoryProvider)
-                                              .updateAllocationTypeApi(
-                                                shipmentId: widget.item.id,
-                                                allocationType: val,
-                                              );
-                                        }
                                         if (val == 'lifo' || val == 'fifo') {
                                           _save(isAllocated: true);
                                         } else {

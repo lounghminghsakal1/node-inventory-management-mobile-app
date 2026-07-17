@@ -14,6 +14,9 @@ import '../../../home/providers/home_provider.dart';
 import '../../data/models/purchase_order_model.dart';
 import '../../providers/purchase_order_provider.dart';
 import 'package:node_management_app/core/utils/snackbar_utils.dart';
+import '../../../../core/utils/media_picker_service.dart';
+import '../../../shipment/data/repositories/shipment_repository.dart';
+import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
 class GrnAccordionItem extends ConsumerStatefulWidget {
   final GrnModel grn;
@@ -46,6 +49,11 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
   bool _showAddLineItemsBlock = false;
   bool isAllLineItemsChecked = false;
 
+  final Map<int, List<String>> _inwardPhotos = {};
+  final Map<int, List<String>> _qcPhotos = {};
+  final Map<int, bool> _isUploadingPhoto = {};
+  bool _qcPhotosInitialized = false;
+
   @override
   void dispose() {
     for (final c in _skuQtyControllers.values) {
@@ -62,13 +70,17 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
       _qcModifiedItems.clear();
       _inwardBlocks = [null];
       _showAddLineItemsBlock = false;
+      _inwardPhotos.clear();
+      _qcPhotos.clear();
+      _isUploadingPhoto.clear();
+      _qcPhotosInitialized = false;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final grn = widget.grn;
-
+    
     return Container(
       decoration: BoxDecoration(
         color: AppColors.card,
@@ -151,6 +163,17 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
 
   Widget _buildExpandedBody(GrnModel grn) {
     final statusLower = grn.status.toLowerCase();
+
+    // Initialize QC photos if needed from the detailed GRN
+    if (statusLower == 'qc_pending' &&
+        !_qcPhotosInitialized &&
+        grn.lineItems.isNotEmpty) {
+      for (final item in grn.lineItems) {
+        _qcPhotos[item.id] = List.from(item.photoUrls);
+      }
+      _qcPhotosInitialized = true;
+    }
+
     if (statusLower == 'created') {
       return _buildCreatedStatusView(grn);
     } else if (statusLower == 'qc_pending' ||
@@ -159,6 +182,326 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
     } else {
       return _buildCompletedStatusView(grn);
     }
+  }
+
+  Future<void> _uploadLineItemPhoto(int itemId, bool isQc) async {
+    try {
+      final result = await MediaPickerService.showMediaPicker(context);
+      if (result != null) {
+        setState(() => _isUploadingPhoto[itemId] = true);
+        final url = await ref
+            .read(grnControllerProvider.notifier)
+            .uploadGrnDocument(result.path, result.name);
+
+        if (url != null) {
+          setState(() {
+            if (isQc) {
+              _qcPhotos[itemId] = [...(_qcPhotos[itemId] ?? []), url];
+            } else {
+              _inwardPhotos[itemId] = [...(_inwardPhotos[itemId] ?? []), url];
+            }
+            _isUploadingPhoto[itemId] = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isUploadingPhoto[itemId] = false);
+        showTopErrorSnackBar(context, 'Media upload failed: ${e.toString()}');
+      }
+    }
+  }
+
+  void _showLineItemImagePopup(BuildContext context, String title, String url) {
+    showDialog(
+      context: context,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16),
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: AppTextStyles.headingSmall,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: url.toLowerCase().endsWith('.pdf')
+                    ? SizedBox(
+                        height: 400,
+                        width: double.infinity,
+                        child: SfPdfViewer.network(
+                          url,
+                          canShowScrollHead: false,
+                          canShowScrollStatus: false,
+                        ),
+                      )
+                    : Image.network(
+                        url,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => const Center(
+                          child: Icon(
+                            Icons.broken_image,
+                            size: 40,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQcPhotoSection(int lineItemId) {
+    final splash = ref.watch(splashDataProvider).valueOrNull;
+    final bool isLineItemLevelPhotoEnabled =
+        splash?.captureGrnLineItemPhotos ?? false;
+    if (!isLineItemLevelPhotoEnabled) return const SizedBox.shrink();
+
+    final photos = _qcPhotos[lineItemId] ?? [];
+    final isUploading = _isUploadingPhoto[lineItemId] ?? false;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 12),
+        const Divider(height: 1),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              "QC Line Item Photos *",
+              style: AppTextStyles.labelMedium.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            if (isUploading)
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            else if (photos.isEmpty)
+              TextButton.icon(
+                onPressed: () => _uploadLineItemPhoto(lineItemId, true),
+                icon: const Icon(Icons.add_a_photo, size: 16),
+                label: const Text("Add Photo"),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+          ],
+        ),
+        if (photos.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: photos.map((url) {
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  GestureDetector(
+                    onTap: () =>
+                        _showLineItemImagePopup(context, "QC Photo", url),
+                    child: Container(
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.cardBorder),
+                        image: url.toLowerCase().endsWith('.pdf')
+                            ? null
+                            : DecorationImage(
+                                image: NetworkImage(url),
+                                fit: BoxFit.cover,
+                              ),
+                      ),
+                      child: url.toLowerCase().endsWith('.pdf')
+                          ? const Center(
+                              child: Icon(
+                                Icons.picture_as_pdf,
+                                color: AppColors.error,
+                              ),
+                            )
+                          : const Center(
+                              child: Icon(
+                                Icons.remove_red_eye,
+                                color: Colors.white70,
+                                size: 24,
+                              ),
+                            ),
+                    ),
+                  ),
+                  Positioned(
+                    top: -8,
+                    right: -8,
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _qcPhotos[lineItemId]?.remove(url);
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: const BoxDecoration(
+                          color: AppColors.error,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.close,
+                          size: 12,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }).toList(),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildInwardPhotoSection(int skuId) {
+    final splash = ref.watch(splashDataProvider).valueOrNull;
+    final bool isLineItemLevelPhotoEnabled =
+        splash?.captureGrnLineItemPhotos ?? false;
+    if (!isLineItemLevelPhotoEnabled) return const SizedBox.shrink();
+
+    final photos = _inwardPhotos[skuId] ?? [];
+    final isUploading = _isUploadingPhoto[skuId] ?? false;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              "Line Item Photos",
+              style: AppTextStyles.labelMedium.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            if (isUploading)
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            else
+              TextButton.icon(
+                onPressed: () => _uploadLineItemPhoto(skuId, false),
+                icon: const Icon(Icons.add_a_photo, size: 16),
+                label: const Text("Add Photo"),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+          ],
+        ),
+        if (photos.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: photos.map((url) {
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  GestureDetector(
+                    onTap: () => _showLineItemImagePopup(context, "Photo", url),
+                    child: Container(
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.cardBorder),
+                        image: url.toLowerCase().endsWith('.pdf')
+                            ? null
+                            : DecorationImage(
+                                image: NetworkImage(url),
+                                fit: BoxFit.cover,
+                              ),
+                      ),
+                      child: url.toLowerCase().endsWith('.pdf')
+                          ? const Center(
+                              child: Icon(
+                                Icons.picture_as_pdf,
+                                color: AppColors.error,
+                              ),
+                            )
+                          : null,
+                    ),
+                  ),
+                  Positioned(
+                    top: -8,
+                    right: -8,
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _inwardPhotos[skuId]?.remove(url);
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: const BoxDecoration(
+                          color: AppColors.error,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.close,
+                          size: 12,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }).toList(),
+          ),
+        ],
+      ],
+    );
   }
 
   // ===========================================================================
@@ -723,6 +1066,10 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                                                         ),
                                                   ),
                                                 ],
+                                                const SizedBox(height: 12),
+                                                _buildInwardPhotoSection(
+                                                  poLi.productSkuId,
+                                                ),
                                               ],
                                             );
                                           },
@@ -1142,6 +1489,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
           acceptedSerials: [],
           rejectedBatches: [],
           rejectedSerials: [],
+          photoUrls: _inwardPhotos[poLi.productSkuId] ?? [],
         ),
       );
     }
@@ -1529,6 +1877,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                       ),
                     ),
                   ],
+                  if (canUpdateGrn) _buildQcPhotoSection(activeItem.id),
                 ],
               ),
             );
@@ -1672,6 +2021,28 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
   }
 
   Future<void> _submitQc() async {
+    final splash = ref.read(splashDataProvider).valueOrNull;
+    final bool isLineItemLevelPhotoEnabled =
+        splash?.captureGrnLineItemPhotos ?? false;
+
+    final currentLineItems =
+        ref.read(grnDetailProvider(widget.grn.id)).value?.lineItems ??
+        widget.grn.lineItems;
+
+    if (isLineItemLevelPhotoEnabled) {
+      bool missingPhotos = currentLineItems.any(
+        (li) => (_qcPhotos[li.id] ?? []).isEmpty,
+      );
+      debugPrint("missingPhotos $missingPhotos");
+      if (missingPhotos) {
+        showTopErrorSnackBar(
+          context,
+          "Please upload photos for all QC line items before submitting.",
+        );
+        return;
+      }
+    }
+
     if (!isAllLineItemsChecked) {
       showTopErrorSnackBar(
         context,
@@ -1681,13 +2052,20 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
     }
     setState(() => _loadingAction = 'submit_qc');
 
-    final currentLineItems =
-        ref.read(grnDetailProvider(widget.grn.id)).value?.lineItems ??
-        widget.grn.lineItems;
     final allItems = currentLineItems
         .map((li) => _qcModifiedItems[li.id] ?? li)
         .toList();
     try {
+      if (isLineItemLevelPhotoEnabled) {
+        final photoPayload = currentLineItems
+            .map((li) => {"id": li.id, "photo_urls": _qcPhotos[li.id] ?? []})
+            .toList();
+
+        await ref
+            .read(purchaseOrderRepoProvider)
+            .uploadGrnLineItemPhotos(widget.grn.id, photoPayload);
+      }
+
       await ref
           .read(grnControllerProvider.notifier)
           .submitQc(widget.grn.id, widget.grn.purchaseOrderId, allItems);
@@ -1781,6 +2159,55 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                       ),
                     ],
                   ),
+                  if (li.photoUrls.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      "Media",
+                      style: AppTextStyles.labelSmall.copyWith(
+                        color: AppColors.textMuted,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: li.photoUrls.map((url) {
+                        return GestureDetector(
+                          onTap: () =>
+                              _showLineItemImagePopup(context, "Media", url),
+                          child: Container(
+                            width: 60,
+                            height: 60,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AppColors.cardBorder),
+                              image: url.toLowerCase().endsWith('.pdf')
+                                  ? null
+                                  : DecorationImage(
+                                      image: NetworkImage(url),
+                                      fit: BoxFit.cover,
+                                    ),
+                            ),
+                            child: url.toLowerCase().endsWith('.pdf')
+                                ? const Center(
+                                    child: Icon(
+                                      Icons.picture_as_pdf,
+                                      color: AppColors.error,
+                                    ),
+                                  )
+                                : const Center(
+                                    child: Icon(
+                                      Icons.remove_red_eye,
+                                      color: Colors.white70,
+                                      size: 24,
+                                    ),
+                                  ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
                 ],
               ),
             );
@@ -3849,13 +4276,8 @@ class _QcSerialModalState extends State<_QcSerialModal> {
     _reasonController = TextEditingController(
       text: widget.item.rejectionReason ?? "",
     );
-    if (widget.item.acceptedSerials != null ||
-        widget.item.rejectedSerials != null) {
-      _acceptedSerials = Set.from(widget.item.acceptedSerials ?? []);
-    } else {
-      // Checkboxes checked by default (meaning all are good qty)
-      _acceptedSerials = Set.from(widget.item.receivedSerials);
-    }
+    // Checkboxes checked by default (meaning all are good qty)
+    _acceptedSerials = Set.from(widget.item.receivedSerials);
   }
 
   @override
@@ -3893,7 +4315,7 @@ class _QcSerialModalState extends State<_QcSerialModal> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                "All serial numbers are checked by default (Good Qty). Uncheck any serials that failed inspection (Bad Qty).",
+                "All serial numbers are checked by default (Good Qty). Uncheck any serials that failed inspection (Bad Qty). \n If atleast one quantity is selected as bad then you have to provide reason below. ",
                 style: AppTextStyles.caption.copyWith(
                   color: AppColors.textMuted,
                 ),

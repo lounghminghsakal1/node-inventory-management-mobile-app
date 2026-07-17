@@ -187,6 +187,24 @@ class AuthRepository {
     }
   }
 
+  /// Fetch node stats for dashboard
+  Future<NodeStats> getNodeStats() async {
+    try {
+      final response = await _dio.get(ApiEndpoints.nodeStats);
+      if (response.data is Map && response.data['status'] == 'failure') {
+        throw ApiException.fromResponseData(response.data, response.statusCode);
+      }
+      final data = (response.data['data'] ?? {}) as Map<String, dynamic>;
+      return NodeStats.fromJson(data);
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException(e.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
+
   /// Persist the selected node.
   Future<void> saveNode(String nodeId, {String? nodeAdminId}) async {
     await _storage.saveNodeId(nodeId);

@@ -7,3 +7,9 @@ final splashDataProvider = FutureProvider<SplashData>((ref) async {
   final authRepo = ref.read(authRepositoryProvider);
   return await authRepo.getSplashData();
 });
+
+final nodeStatsProvider = FutureProvider<NodeStats>((ref) async {
+  ref.watch(authProvider.select((s) => s.node?.id));
+  final authRepo = ref.read(authRepositoryProvider);
+  return await authRepo.getNodeStats();
+});

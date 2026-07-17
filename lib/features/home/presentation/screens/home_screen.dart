@@ -62,7 +62,19 @@ class HomeScreen extends ConsumerWidget {
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
                   // ── Overview Section ───────────────────────────────────────
-                  _buildSectionLabel('Overview'),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _buildSectionLabel('Overview'),
+                      IconButton(
+                        icon: const Icon(Icons.refresh_rounded, color: AppColors.primary),
+                        onPressed: () {
+                          ref.refresh(splashDataProvider.future);
+                          ref.refresh(nodeStatsProvider.future);
+                        },
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 12),
                   splashAsync.when(
                     data: (splash) => _buildStatsRow(context, ref, splash),
@@ -113,85 +125,8 @@ class HomeScreen extends ConsumerWidget {
                     orElse: () => const SizedBox.shrink(),
                   ),
 
-                  // ── Quick Actions ──────────────────────────────────────────
-                  _buildSectionLabel('Quick Actions'),
-                  const SizedBox(height: 12),
-                  GridView.count(
-                    crossAxisCount: 3,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                    childAspectRatio: 1.0,
-                    children: [
-                      QuickActionTile(
-                        label: 'Shipments',
-                        icon: Icons.local_shipping_rounded,
-                        color: AppColors.primary,
-                        onTap: () => _navigateWithPermission(
-                          context,
-                          ref,
-                          '/shipments',
-                          'Shipments',
-                          'Shipment',
-                        ),
-                      ),
-                      QuickActionTile(
-                        label: 'Purchase Orders',
-                        icon: Icons.shopping_bag_rounded,
-                        color: AppColors.secondary,
-                        onTap: () => _navigateWithPermission(
-                          context,
-                          ref,
-                          '/purchase-orders',
-                          'Purchase Orders',
-                          'PurchaseOrder',
-                        ),
-                      ),
-                      QuickActionTile(
-                        label: 'Inventory',
-                        icon: Icons.inventory_2_rounded,
-                        color: AppColors.accentGreen,
-                        onTap: () => _navigateWithPermission(
-                          context,
-                          ref,
-                          '/inventory',
-                          'Inventory',
-                          'Inventory',
-                        ),
-                      ),
-                      QuickActionTile(
-                        label: 'Audit',
-                        icon: Icons.fact_check_rounded,
-                        color: AppColors.warning,
-                        onTap: () => _navigateWithPermission(
-                          context,
-                          ref,
-                          '/audit',
-                          'Stock Audit',
-                          'StockAudit',
-                        ),
-                      ),
-                      QuickActionTile(
-                        label: 'GRN',
-                        icon: Icons.receipt_long_rounded,
-                        color: AppColors.accent,
-                        onTap: () => _navigateWithPermission(
-                          context,
-                          ref,
-                          '/purchase-orders',
-                          'Purchase Orders',
-                          'PurchaseOrder',
-                        ),
-                      ),
-                      QuickActionTile(
-                        label: 'Refresh',
-                        icon: Icons.refresh_rounded,
-                        color: AppColors.textSecondary,
-                        onTap: () => ref.refresh(splashDataProvider.future),
-                      ),
-                    ],
-                  ),
+                  // ── Node Stats ─────────────────────────────────────────────
+                  _buildNodeStatsSection(context, ref),
                   const SizedBox(height: 28),
                 ]),
               ),
@@ -495,6 +430,106 @@ class HomeScreen extends ConsumerWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildNodeStatsSection(BuildContext context, WidgetRef ref) {
+    final statsAsync = ref.watch(nodeStatsProvider);
+
+    return statsAsync.when(
+      data: (stats) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionLabel('Pending Actions'),
+          const SizedBox(height: 12),
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 2.2,
+            children: [
+              _buildSimpleStatCard('To Pack', stats.pendingActions.toPack, Icons.inventory_2_outlined, AppColors.primary),
+              _buildSimpleStatCard('To Dispatch', stats.pendingActions.toDispatch, Icons.local_shipping_outlined, AppColors.secondary),
+              _buildSimpleStatCard('Unallocated', stats.pendingActions.unallocated, Icons.warning_amber_rounded, AppColors.warning),
+              _buildSimpleStatCard('Returns', stats.pendingActions.returnsPending, Icons.keyboard_return_rounded, AppColors.error),
+              _buildSimpleStatCard('GRN QC', stats.pendingActions.grnQcPending, Icons.fact_check_outlined, AppColors.accent),
+            ],
+          ),
+          const SizedBox(height: 24),
+          _buildSectionLabel("Today's Summary"),
+          const SizedBox(height: 12),
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 2.2,
+            children: [
+              _buildSimpleStatCard('Dispatched', stats.todaySummary.dispatchedToday, Icons.check_circle_outline, AppColors.success),
+              _buildSimpleStatCard('Delivered', stats.todaySummary.deliveredToday, Icons.done_all_rounded, AppColors.accentGreen),
+              _buildSimpleStatCard('Returns Comp.', stats.todaySummary.returnsCompletedToday, Icons.assignment_return_outlined, AppColors.textSecondary),
+              _buildSimpleStatCard('GRNs Comp.', stats.todaySummary.grnsCompletedToday, Icons.receipt_long_rounded, Colors.cyan),
+              _buildSimpleStatCard('Items Recv.', stats.todaySummary.itemsReceivedToday, Icons.move_to_inbox_rounded, AppColors.primary),
+            ],
+          ),
+        ],
+      ),
+      loading: () => const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24.0),
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
+      ),
+      error: (err, _) => _buildErrorStatsRow(context, ref, err.toString()),
+    );
+  }
+
+  Widget _buildSimpleStatCard(String title, int value, IconData icon, Color color) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  value.toString(),
+                  style: AppTextStyles.headingMedium.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  title,
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

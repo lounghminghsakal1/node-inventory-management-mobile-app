@@ -594,6 +594,38 @@ class ShipmentRepository {
     }
   }
 
+  Future<SerialAvailabilityModel> verifyScannedSerial({
+    required String shipmentId,
+    required String skuId,
+    required String serialNumber,
+  }) async {
+    try {
+      final response = await _dio.get(
+        ApiEndpoints.verifySerialAvailability(shipmentId, skuId, serialNumber),
+      );
+      if (response.data is Map && response.data['status'] == 'failure') {
+        throw ApiException.fromResponseData(response.data, response.statusCode);
+      }
+      final responseData = response.data['data'];
+      if (responseData == null) {
+        throw ApiException("Serial not found");
+      }
+      return SerialAvailabilityModel.fromJson(responseData);
+    } on DioException catch (e) {
+      if (e.response != null) {
+        // Handle 400, 404 explicitly if they come as standard errors
+        if (e.response!.statusCode == 404) {
+          throw ApiException("Serial not found in node");
+        } else if (e.response!.statusCode == 400) {
+          throw ApiException("Bad Request: Serial missing or invalid");
+        }
+      }
+      throw ApiException.fromDioException(e);
+    } catch (e) {
+      throw ApiException(e.toString());
+    }
+  }
+
   Future<void> completeReturn({
     required String shipmentId,
     required Map<String, dynamic> payload,

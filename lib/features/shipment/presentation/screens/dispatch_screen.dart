@@ -11,6 +11,8 @@ import '../../../../core/utils/media_picker_service.dart';
 import '../../data/repositories/shipment_repository.dart';
 import '../../providers/shipment_provider.dart';
 import 'package:node_management_app/core/utils/snackbar_utils.dart';
+import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
+import '../../../home/providers/home_provider.dart';
 
 class _KeyValuePair {
   final keyCtrl = TextEditingController();
@@ -52,6 +54,8 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
   bool _isLoading = false;
   final List<_MediaItem> _uploadedMedia = [];
   bool _isUploadingMedia = false;
+  final Map<String, List<String>> _lineItemPhotos = {};
+  final Map<String, bool> _isUploadingLineItemPhoto = {};
 
   @override
   void dispose() {
@@ -70,6 +74,11 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final asyncShipment = ref.watch(shipmentByIdProvider(widget.shipmentId));
+    final shipment = asyncShipment.valueOrNull;
+    final splash = ref.watch(splashDataProvider).valueOrNull;
+    final bool isLineItemLevelPhotoEnabled = splash?.captureShipmentLineItemPhotos ?? false;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: const NodeOpsAppBar(showBack: true, title: 'Dispatch Shipment'),
@@ -134,6 +143,117 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (isLineItemLevelPhotoEnabled &&
+                        shipment != null &&
+                        shipment.lineItems.isNotEmpty) ...[
+                      Text(
+                        'Line Items Photos (Required)',
+                        style: AppTextStyles.headingMedium,
+                      ),
+                      const SizedBox(height: 16),
+                      ...shipment.lineItems.map((item) {
+                        final photos = _lineItemPhotos[item.id] ?? [];
+                        final isUploading =
+                            _isUploadingLineItemPhoto[item.id] ?? false;
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 16),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: AppColors.card,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.cardBorder),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      item.product.name,
+                                      style: AppTextStyles.labelLarge,
+                                    ),
+                                    if (item.product.sku.isNotEmpty) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'SKU: ${item.product.sku}',
+                                        style: AppTextStyles.bodySmall.copyWith(
+                                          color: AppColors.textMuted,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              if (photos.isNotEmpty)
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    InkWell(
+                                      onTap: () => _showLineItemImagePopup(context, item.product.name, photos.first),
+                                      child: Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.primary.withValues(alpha: 0.1),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: const Icon(Icons.remove_red_eye_outlined, color: AppColors.primary),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    InkWell(
+                                      onTap: () {
+                                        setState(() {
+                                          _lineItemPhotos[item.id]!.clear();
+                                        });
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.error.withValues(alpha: 0.1),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: const Icon(Icons.delete_outline, color: AppColors.error),
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              else if (isUploading)
+                                const Padding(
+                                  padding: EdgeInsets.all(8.0),
+                                  child: CircularProgressIndicator(),
+                                )
+                              else
+                                OutlinedButton.icon(
+                                  onPressed: () =>
+                                      _pickAndUploadLineItemFile(item.id),
+                                  icon: const Icon(
+                                    Icons.camera_alt_outlined,
+                                    color: AppColors.primary,
+                                    size: 20,
+                                  ),
+                                  label: const Text(
+                                    'Add',
+                                    style: TextStyle(color: AppColors.primary),
+                                  ),
+                                  style: OutlinedButton.styleFrom(
+                                    side: const BorderSide(
+                                      color: AppColors.primary,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        );
+                      }),
+                      const SizedBox(height: 28),
+                    ],
+
                     Text(
                       'Driver Information',
                       style: AppTextStyles.headingMedium,
@@ -444,6 +564,126 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
     );
   }
 
+  Future<void> _pickAndUploadLineItemFile(String itemId) async {
+    try {
+      final result = await MediaPickerService.showMediaPicker(context);
+      if (result != null) {
+        setState(() => _isUploadingLineItemPhoto[itemId] = true);
+        final filePath = result.path;
+        final fileName = result.name;
+        final url = await ref
+            .read(shipmentRepositoryProvider)
+            .uploadMedia(
+              shipmentId: widget.shipmentId,
+              actionType: 'dispatch',
+              filePath: filePath,
+              fileName: fileName,
+            );
+        setState(() {
+          _lineItemPhotos[itemId] = [...(_lineItemPhotos[itemId] ?? []), url];
+          _isUploadingLineItemPhoto[itemId] = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isUploadingLineItemPhoto[itemId] = false);
+        showTopErrorSnackBar(context, 'Media upload failed: ${e.toString()}');
+      }
+    }
+  }
+
+  void _showLineItemImagePopup(BuildContext context, String title, String url) {
+    showDialog(
+      context: context,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16),
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: AppTextStyles.headingSmall,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: url.toLowerCase().endsWith('.pdf')
+                    ? SizedBox(
+                        height: 400,
+                        width: double.infinity,
+                        child: SfPdfViewer.network(
+                          url,
+                          canShowScrollHead: false,
+                          canShowScrollStatus: false,
+                        ),
+                      )
+                    : Image.network(
+                        url,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.broken_image,
+                                    size: 40,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                  SizedBox(height: 8),
+                                  Text(
+                                    'Unable to preview this file type.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: AppColors.textSecondary,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(32),
+                              child: CircularProgressIndicator(),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _pickAndUploadFile() async {
     try {
       final result = await MediaPickerService.showMediaPicker(context);
@@ -510,6 +750,23 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
       final payload = <String, dynamic>{
         "shipment_dispatch_details": detailsMap,
       };
+
+      final splash = ref.read(splashDataProvider).valueOrNull;
+      final bool isLineItemLevelPhotoEnabled = splash?.captureShipmentLineItemPhotos ?? false;
+      if (isLineItemLevelPhotoEnabled && _lineItemPhotos.isNotEmpty) {
+        final lineItemsPayload = _lineItemPhotos.entries
+            .where((e) => e.value.isNotEmpty)
+            .map(
+              (e) => {
+                "id": int.tryParse(e.key) ?? e.key,
+                "photo_urls": e.value,
+              },
+            )
+            .toList();
+        if (lineItemsPayload.isNotEmpty) {
+          payload["shipment_line_items"] = lineItemsPayload;
+        }
+      }
 
       await ref
           .read(shipmentRepositoryProvider)

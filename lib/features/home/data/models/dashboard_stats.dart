@@ -107,6 +107,7 @@ class SplashData {
   final int returnInitiatedShipmentsCount;
   final List<StockAudit> stockAudits;
   final Map<String, Map<String, bool>> permissions;
+  final Map<String, dynamic> configurations;
 
   const SplashData({
     required this.nodeAdminId,
@@ -119,11 +120,18 @@ class SplashData {
     this.returnInitiatedShipmentsCount = 0,
     this.stockAudits = const [],
     this.permissions = const {},
+    this.configurations = const {},
   });
 
   bool hasPermission(String feature, String action) {
     return permissions[feature]?[action] ?? false;
   }
+
+  bool get captureGrnLineItemPhotos => 
+      configurations['capture_line_item_photos']?['grn'] == true;
+
+  bool get captureShipmentLineItemPhotos => 
+      configurations['capture_line_item_photos']?['shipment'] == true;
 
   factory SplashData.fromJson(Map<String, dynamic> json) {
     final admin = json['node_admin'] as Map<String, dynamic>? ?? {};
@@ -160,6 +168,7 @@ class SplashData {
           json['return_initiated_shipments_count'] ?? 0,
       stockAudits: audits,
       permissions: parsedPermissions,
+      configurations: json['configurations'] as Map<String, dynamic>? ?? {},
     );
   }
 
@@ -230,3 +239,75 @@ const List<ActivityItem> dummyActivity = [
     type: ActivityType.shipment,
   ),
 ];
+
+// -- Node Stats API models ----------------------------------------------------
+
+class NodeStatsPendingActions {
+  final int toPack;
+  final int toDispatch;
+  final int unallocated;
+  final int returnsPending;
+  final int grnQcPending;
+
+  const NodeStatsPendingActions({
+    required this.toPack,
+    required this.toDispatch,
+    required this.unallocated,
+    required this.returnsPending,
+    required this.grnQcPending,
+  });
+
+  factory NodeStatsPendingActions.fromJson(Map<String, dynamic> json) =>
+      NodeStatsPendingActions(
+        toPack: json['to_pack'] ?? 0,
+        toDispatch: json['to_dispatch'] ?? 0,
+        unallocated: json['unallocated'] ?? 0,
+        returnsPending: json['returns_pending'] ?? 0,
+        grnQcPending: json['grn_qc_pending'] ?? 0,
+      );
+}
+
+class NodeStatsTodaySummary {
+  final int dispatchedToday;
+  final int deliveredToday;
+  final int returnsCompletedToday;
+  final int grnsCompletedToday;
+  final int itemsReceivedToday;
+
+  const NodeStatsTodaySummary({
+    required this.dispatchedToday,
+    required this.deliveredToday,
+    required this.returnsCompletedToday,
+    required this.grnsCompletedToday,
+    required this.itemsReceivedToday,
+  });
+
+  factory NodeStatsTodaySummary.fromJson(Map<String, dynamic> json) =>
+      NodeStatsTodaySummary(
+        dispatchedToday: json['dispatched_today'] ?? 0,
+        deliveredToday: json['delivered_today'] ?? 0,
+        returnsCompletedToday: json['returns_completed_today'] ?? 0,
+        grnsCompletedToday: json['grns_completed_today'] ?? 0,
+        itemsReceivedToday: json['items_received_today'] ?? 0,
+      );
+}
+
+class NodeStats {
+  final NodeStatsPendingActions pendingActions;
+  final NodeStatsTodaySummary todaySummary;
+
+  const NodeStats({
+    required this.pendingActions,
+    required this.todaySummary,
+  });
+
+  factory NodeStats.fromJson(Map<String, dynamic> json) {
+    return NodeStats(
+      pendingActions: NodeStatsPendingActions.fromJson(
+          json['pending_actions'] as Map<String, dynamic>? ?? {}),
+      todaySummary: NodeStatsTodaySummary.fromJson(
+          json['today_summary'] as Map<String, dynamic>? ?? {}),
+    );
+  }
+}
+

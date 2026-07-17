@@ -238,6 +238,7 @@ class PurchaseOrderModel {
   final VendorModel vendor;
   final List<PurchaseOrderLineItemModel> lineItems;
   final List<GrnModel> goodsReceivedNotes;
+  final String? createdByName;
 
   const PurchaseOrderModel({
     required this.id,
@@ -252,9 +253,11 @@ class PurchaseOrderModel {
     required this.vendor,
     this.lineItems = const [],
     this.goodsReceivedNotes = const [],
+    this.createdByName,
   });
 
   factory PurchaseOrderModel.fromJson(Map<String, dynamic> json) {
+    final creatorObj = json['created_by'] as Map<String, dynamic>? ?? {};
     return PurchaseOrderModel(
       id: json['id'] ?? 0,
       purchaseOrderNumber: json['purchase_order_number'] ?? '',
@@ -266,6 +269,7 @@ class PurchaseOrderModel {
       totalUnits: json['total_units'] ?? 0,
       grnCount: json['grn_count'] ?? 0,
       vendor: VendorModel.fromJson(json['vendor'] ?? {}),
+      createdByName: creatorObj['name'] ?? creatorObj['created_by_name'],
       lineItems: ((json['purchase_order_line_items'] ?? json['line_items']) as List?)
               ?.map((e) => PurchaseOrderLineItemModel.fromJson(e as Map<String, dynamic>))
               .toList() ??
@@ -355,6 +359,7 @@ class GrnLineItemModel {
   final List<String> rejectedSerials;
   final String? rejectionReason;
   final bool isQcCompleted;
+  final List<String> photoUrls;
 
   const GrnLineItemModel({
     required this.id,
@@ -384,6 +389,7 @@ class GrnLineItemModel {
     required this.rejectedSerials,
     this.rejectionReason,
     this.isQcCompleted = false,
+    this.photoUrls = const [],
   });
 
   static List<GrnBatchModel> _parseBatches(dynamic jsonVal) {
@@ -449,6 +455,7 @@ class GrnLineItemModel {
       rejectedSerials: _parseSerials(json['rejected_serials'] ?? json['rejected_serial_codes']),
       rejectionReason: json['rejection_reason']?.toString(),
       isQcCompleted: json['is_qc_completed'] ?? false,
+      photoUrls: (json['photo_urls'] as List?)?.map((e) => e.toString()).toList() ?? [],
     );
   }
 
@@ -479,6 +486,7 @@ class GrnLineItemModel {
       'accepted_serials': acceptedSerials.isEmpty ? null : acceptedSerials,
       'rejected_batches': rejectedBatches.isEmpty ? null : rejectedBatches.map((b) => b.toJson()).toList(),
       'rejected_serials': rejectedSerials.isEmpty ? null : rejectedSerials,
+      'photo_urls': photoUrls.isEmpty ? null : photoUrls,
     };
   }
 
@@ -508,6 +516,7 @@ class GrnLineItemModel {
     List<GrnBatchModel>? rejectedBatches,
     List<String>? rejectedSerials,
     String? rejectionReason,
+    List<String>? photoUrls,
   }) {
     return GrnLineItemModel(
       id: id ?? this.id,
@@ -535,6 +544,7 @@ class GrnLineItemModel {
       rejectedBatches: rejectedBatches ?? this.rejectedBatches,
       rejectedSerials: rejectedSerials ?? this.rejectedSerials,
       rejectionReason: rejectionReason ?? this.rejectionReason,
+      photoUrls: photoUrls ?? this.photoUrls,
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:node_management_app/core/utils/helper_functions.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/widgets/status_badge.dart';
@@ -91,8 +92,8 @@ class ShipmentCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                Text(
-                  _formatDate(shipment.createdAt),
+                if(shipment.createdAt != null) Text(
+                  HelperFunctions.formatDate(DateTime.parse(shipment.createdAt!.toString())),
                   style: AppTextStyles.caption.copyWith(
                     color: AppColors.textMuted,
                   ),

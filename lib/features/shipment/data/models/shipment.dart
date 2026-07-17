@@ -541,6 +541,26 @@ extension ShipmentStatusX on ShipmentStatus {
 }
 
 
+class ShipmentStatusTimeline {
+  final String? fromStatus;
+  final String toStatus;
+  final DateTime changedAt;
+
+  const ShipmentStatusTimeline({
+    this.fromStatus,
+    required this.toStatus,
+    required this.changedAt,
+  });
+
+  factory ShipmentStatusTimeline.fromJson(Map<String, dynamic> json) {
+    return ShipmentStatusTimeline(
+      fromStatus: json['from_status']?.toString(),
+      toStatus: json['to_status']?.toString() ?? '',
+      changedAt: DateTime.tryParse(json['changed_at']?.toString() ?? '') ?? DateTime.now(),
+    );
+  }
+}
+
 // ── Shipment ──────────────────────────────────────────────────────────────────
 class Shipment {
   final String id;
@@ -550,7 +570,7 @@ class Shipment {
   final String customerName;
   final ShipmentStatus status;
   final List<ShipmentLineItem>? _lineItems;
-  final DateTime createdAt;
+  final DateTime? createdAt;
   final DriverDetails? driverDetails;
   final DeliveryDetails? deliveryDetails;
   final String? nodeId;
@@ -563,6 +583,7 @@ class Shipment {
   final String? customerId;
   final String? shipmentType;
   final String? parentShipmentNumber;
+  final List<ShipmentStatusTimeline> statusTimeline;
   final int? reviewRating;
   final String? customerCode;
   final int? lineItemsCount;
@@ -600,6 +621,7 @@ class Shipment {
     this.customerId,
     this.shipmentType,
     this.parentShipmentNumber,
+    this.statusTimeline = const [],
     this.reviewRating,
     this.customerCode,
     this.lineItemsCount,
@@ -627,6 +649,7 @@ class Shipment {
     String? customerId,
     String? shipmentType,
     String? parentShipmentNumber,
+    List<ShipmentStatusTimeline>? statusTimeline,
     int? reviewRating,
     String? customerCode,
     int? lineItemsCount,
@@ -662,6 +685,7 @@ class Shipment {
       customerId: customerId ?? this.customerId,
       shipmentType: shipmentType ?? this.shipmentType,
       parentShipmentNumber: parentShipmentNumber ?? this.parentShipmentNumber,
+      statusTimeline: statusTimeline ?? this.statusTimeline,
       reviewRating: reviewRating ?? this.reviewRating,
       customerCode: customerCode ?? this.customerCode,
       lineItemsCount: lineItemsCount ?? this.lineItemsCount,
@@ -874,6 +898,14 @@ class Shipment {
     final customerCodeStr = customerMap['code']?.toString() ?? json['customer_code']?.toString() ?? customerIdStr;
     final lineItemsCountVal = int.tryParse(json['line_items_count']?.toString() ?? '') ?? (items.isNotEmpty ? items.length : null);
 
+    List<ShipmentStatusTimeline> parsedTimeline = [];
+    if (json['status_timeline'] is List) {
+      parsedTimeline = (json['status_timeline'] as List)
+          .whereType<Map>()
+          .map((m) => ShipmentStatusTimeline.fromJson(Map<String, dynamic>.from(m)))
+          .toList();
+    }
+
     return Shipment(
       id: json['id']?.toString() ?? '',
       shipmentNumber: json['shipment_number']?.toString() ?? '',
@@ -885,7 +917,7 @@ class Shipment {
       fullyAllocated: fullyAllocated,
       lineItems: items,
       createdAt:
-          DateTime.tryParse(json['created_at']?.toString() ?? '') ?? DateTime.now(),
+          DateTime.tryParse(json['created_at']?.toString() ?? '') ?? null,
       nodeId: nodeMap['id']?.toString(),
       nodeName: json['node_name']?.toString() ?? nodeMap['name']?.toString(),
       billingAddress: json['billing_address']?.toString(),
@@ -896,6 +928,7 @@ class Shipment {
       customerId: customerIdStr,
       shipmentType: shipmentTypeStr,
       parentShipmentNumber: parentNumber,
+      statusTimeline: parsedTimeline,
       reviewRating: rating,
       customerCode: customerCodeStr,
       lineItemsCount: lineItemsCountVal,

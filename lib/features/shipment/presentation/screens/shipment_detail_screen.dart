@@ -219,10 +219,10 @@ class ShipmentDetailScreen extends ConsumerWidget {
                         'Customer Code / ID',
                         shipment.customerCode ?? shipment.customerId ?? '-',
                       ),
-                      _infoTile(
+                      if(shipment.createdAt != null) _infoTile(
                         Icons.calendar_today_outlined,
                         'Created',
-                        HelperFunctions.formatDate(shipment.createdAt),
+                        HelperFunctions.formatDate(shipment.createdAt!),
                       ),
                       if (shipment.invoiceCode != null &&
                           shipment.invoiceCode!.isNotEmpty)
@@ -860,6 +860,26 @@ class _ShipmentTimeline extends StatelessWidget {
           final stage = stages[i];
           final isDone = i <= currentIdx && currentIdx != -1;
           final isCurrent = i == currentIdx;
+          
+          DateTime? stageDate;
+          final statusStr = stage.$2.toString().split('.').last;
+          if (statusStr != 'allocated') {
+            final match = shipment.statusTimeline.where((t) => t.toStatus == statusStr).toList();
+            if (match.isNotEmpty) {
+              stageDate = match.last.changedAt;
+            }
+          }
+
+          String formatStageDate(DateTime dt) {
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            final day = dt.day.toString().padLeft(2, '0');
+            final month = months[dt.month - 1];
+            final year = dt.year.toString();
+            final hour = dt.hour.toString().padLeft(2, '0');
+            final min = dt.minute.toString().padLeft(2, '0');
+            return '$day $month $year\n$hour:$min';
+          }
+
           return Expanded(
             child: Column(
               children: [
@@ -923,6 +943,17 @@ class _ShipmentTimeline extends StatelessWidget {
                   ),
                   textAlign: TextAlign.center,
                 ),
+                if (stageDate != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    formatStageDate(stageDate.toLocal()),
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.textSecondary,
+                      fontSize: 8,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ],
             ),
           );

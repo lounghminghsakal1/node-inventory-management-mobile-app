@@ -30,7 +30,7 @@ class PurchaseOrderCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    po.purchaseOrderNumber,
+                "Po.No: ${po.purchaseOrderNumber}",
                     style: AppTextStyles.headingMedium,
                   ),
                 ),
@@ -44,14 +44,18 @@ class PurchaseOrderCard extends StatelessWidget {
             // Vendor Info
             Row(
               children: [
-                const Icon(Icons.storefront_outlined,
-                    size: 14, color: AppColors.textMuted),
+                const Icon(
+                  Icons.storefront_outlined,
+                  size: 14,
+                  color: AppColors.textMuted,
+                ),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     '${po.vendor.firmName} (${po.vendor.code})',
-                    style: AppTextStyles.bodySmall
-                        .copyWith(color: AppColors.textPrimary),
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: AppColors.textPrimary,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -64,8 +68,10 @@ class PurchaseOrderCard extends StatelessWidget {
             Row(
               children: [
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(6),
@@ -73,26 +79,58 @@ class PurchaseOrderCard extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.inventory_2_outlined,
-                          size: 12, color: AppColors.primary),
+                      const Icon(
+                        Icons.inventory_2_outlined,
+                        size: 12,
+                        color: AppColors.primary,
+                      ),
                       const SizedBox(width: 4),
-                      Text('${po.totalUnits} units',
-                          style: AppTextStyles.caption.copyWith(
-                              color: AppColors.primary, fontSize: 11)),
+                      Text(
+                        '${po.totalUnits} units',
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.primary,
+                          fontSize: 11,
+                        ),
+                      ),
                     ],
                   ),
                 ),
                 const Spacer(),
-                if (po.deliveryDate != null)
-                  Row(
+                if (po.deliveryDate != null && po.createdDate != null)
+                  Column(
                     children: [
-                      const Icon(Icons.calendar_today_outlined,
-                          size: 12, color: AppColors.textMuted),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Delivery: ${HelperFunctions.formatDate(DateTime.parse(po.deliveryDate!), hasTime: false)}',
-                        style: AppTextStyles.caption
-                            .copyWith(color: AppColors.textSecondary),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.calendar_today_outlined,
+                            size: 12,
+                            color: AppColors.textMuted,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Created: ${HelperFunctions.formatDate(DateTime.parse(po.createdDate!), hasTime: false)}',
+                            style: AppTextStyles.caption.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.calendar_today_outlined,
+                            size: 12,
+                            color: AppColors.textMuted,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Delivery: ${HelperFunctions.formatDate(DateTime.parse(po.deliveryDate!), hasTime: false)}',
+                            style: AppTextStyles.caption.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),

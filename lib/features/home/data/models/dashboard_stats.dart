@@ -27,25 +27,73 @@ class DashboardStats {
 
 // -- Splash / Dashboard API models --------------------------------------------
 
+enum StockAuditStatus {
+  draft,
+  assigned,
+  initiatedAuditing,
+  sentForReview,
+  rejected,
+  approved;
+
+  static StockAuditStatus fromString(String s) {
+    switch (s) {
+      case 'draft':
+        return StockAuditStatus.draft;
+      case 'assigned':
+        return StockAuditStatus.assigned;
+      case 'initiated_auditing':
+        return StockAuditStatus.initiatedAuditing;
+      case 'sent_for_review':
+        return StockAuditStatus.sentForReview;
+      case 'rejected':
+        return StockAuditStatus.rejected;
+      case 'approved':
+        return StockAuditStatus.approved;
+      default:
+        return StockAuditStatus.draft;
+    }
+  }
+
+  String get label {
+    switch (this) {
+      case StockAuditStatus.draft:
+        return 'Draft';
+      case StockAuditStatus.assigned:
+        return 'Assigned';
+      case StockAuditStatus.initiatedAuditing:
+        return 'In Progress';
+      case StockAuditStatus.sentForReview:
+        return 'Sent for Review';
+      case StockAuditStatus.rejected:
+        return 'Rejected';
+      case StockAuditStatus.approved:
+        return 'Approved';
+    }
+  }
+}
+
 class StockAudit {
   final int id;
   final String stockAuditNumber;
   final String auditType;
+  final StockAuditStatus status;
   final String scheduledDate;
 
   const StockAudit({
     required this.id,
     required this.stockAuditNumber,
     required this.auditType,
+    required this.status,
     required this.scheduledDate,
   });
 
   factory StockAudit.fromJson(Map<String, dynamic> json) => StockAudit(
-        id: json['id'] ?? 0,
-        stockAuditNumber: json['stock_audit_number'] ?? '',
-        auditType: json['audit_type'] ?? '',
-        scheduledDate: json['scheduled_date'] ?? '',
-      );
+    id: json['id'] ?? 0,
+    stockAuditNumber: json['stock_audit_number'] ?? '',
+    auditType: json['audit_type'] ?? '',
+    status: StockAuditStatus.fromString(json['status']?.toString() ?? ''),
+    scheduledDate: json['scheduled_date'] ?? '',
+  );
 }
 
 class SplashData {
@@ -80,22 +128,25 @@ class SplashData {
   factory SplashData.fromJson(Map<String, dynamic> json) {
     final admin = json['node_admin'] as Map<String, dynamic>? ?? {};
     final node = admin['node'] as Map<String, dynamic>? ?? {};
-    final audits = (json['stock_audits'] as List?)
+    final audits =
+        (json['stock_audits'] as List?)
             ?.map((e) => StockAudit.fromJson(e as Map<String, dynamic>))
             .toList() ??
         [];
-        
+
     final Map<String, Map<String, bool>> parsedPermissions = {};
     if (json['permissions'] is Map) {
       final perms = json['permissions'] as Map;
       for (final key in perms.keys) {
         if (perms[key] is Map) {
           final actions = perms[key] as Map;
-          parsedPermissions[key.toString()] = actions.map((k, v) => MapEntry(k.toString(), v == true));
+          parsedPermissions[key.toString()] = actions.map(
+            (k, v) => MapEntry(k.toString(), v == true),
+          );
         }
       }
     }
-        
+
     return SplashData(
       nodeAdminId: admin['id'] ?? 0,
       nodeAdminName: admin['name'] ?? '',
@@ -113,13 +164,13 @@ class SplashData {
   }
 
   static SplashData get empty => const SplashData(
-        nodeAdminId: 0,
-        nodeAdminName: '',
-        nodeAdminEmail: '',
-        nodeId: 0,
-        nodeName: '',
-        nodeType: '',
-      );
+    nodeAdminId: 0,
+    nodeAdminName: '',
+    nodeAdminEmail: '',
+    nodeId: 0,
+    nodeName: '',
+    nodeType: '',
+  );
 }
 
 // -- Activity feed (static / placeholder) -------------------------------------

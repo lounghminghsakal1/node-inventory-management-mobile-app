@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_text_styles.dart';
 
@@ -35,7 +36,8 @@ class _MediaPickerBottomSheet extends StatefulWidget {
   const _MediaPickerBottomSheet({Key? key}) : super(key: key);
 
   @override
-  State<_MediaPickerBottomSheet> createState() => _MediaPickerBottomSheetState();
+  State<_MediaPickerBottomSheet> createState() =>
+      _MediaPickerBottomSheetState();
 }
 
 class _MediaPickerBottomSheetState extends State<_MediaPickerBottomSheet> {
@@ -48,7 +50,9 @@ class _MediaPickerBottomSheetState extends State<_MediaPickerBottomSheet> {
         allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'webp'],
         withData: false,
       );
-      if (result != null && result.files.isNotEmpty && result.files.single.path != null) {
+      if (result != null &&
+          result.files.isNotEmpty &&
+          result.files.single.path != null) {
         if (!mounted) return;
         Navigator.pop(
           context,
@@ -78,7 +82,7 @@ class _MediaPickerBottomSheetState extends State<_MediaPickerBottomSheet> {
         captureMore = false;
         break;
       }
-      
+
       capturedImages.add(photo);
 
       if (!mounted) return;
@@ -97,14 +101,22 @@ class _MediaPickerBottomSheetState extends State<_MediaPickerBottomSheet> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogCtx, false),
-              child: Text("Finish", style: AppTextStyles.labelMedium.copyWith(color: AppColors.textSecondary)),
+              child: Text(
+                "Finish",
+                style: AppTextStyles.labelMedium.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
               ),
               onPressed: () => Navigator.pop(dialogCtx, true),
-              child: Text("Capture Another", style: AppTextStyles.labelMedium.copyWith(color: Colors.white)),
+              child: Text(
+                "Capture Another",
+                style: AppTextStyles.labelMedium.copyWith(color: Colors.white),
+              ),
             ),
           ],
         ),
@@ -131,10 +143,7 @@ class _MediaPickerBottomSheetState extends State<_MediaPickerBottomSheet> {
         if (mounted) {
           Navigator.pop(
             context,
-            MediaSelection(
-              path: singleImage.path,
-              name: singleImage.name,
-            ),
+            MediaSelection(path: singleImage.path, name: singleImage.name),
           );
         }
       } else {
@@ -142,7 +151,16 @@ class _MediaPickerBottomSheetState extends State<_MediaPickerBottomSheet> {
         final pdf = pw.Document();
         for (final img in capturedImages) {
           final imageBytes = await img.readAsBytes();
-          final pdfImage = pw.MemoryImage(imageBytes);
+
+          // Compress the image before adding to PDF
+          final compressedBytes = await FlutterImageCompress.compressWithList(
+            imageBytes,
+            minWidth: 1080,
+            minHeight: 1080,
+            quality: 70,
+          );
+
+          final pdfImage = pw.MemoryImage(compressedBytes);
           pdf.addPage(
             pw.Page(
               pageFormat: PdfPageFormat.a4,
@@ -165,10 +183,7 @@ class _MediaPickerBottomSheetState extends State<_MediaPickerBottomSheet> {
         if (mounted) {
           Navigator.pop(
             context,
-            MediaSelection(
-              path: file.path,
-              name: fileName,
-            ),
+            MediaSelection(path: file.path, name: fileName),
           );
         }
       }
@@ -190,16 +205,28 @@ class _MediaPickerBottomSheetState extends State<_MediaPickerBottomSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+            const Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            ),
             const SizedBox(height: 16),
-            Center(child: Text("Processing images...", style: AppTextStyles.bodyMedium)),
+            Center(
+              child: Text(
+                "Processing images...",
+                style: AppTextStyles.bodyMedium,
+              ),
+            ),
           ],
         ),
       );
     }
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, 16, 20, MediaQuery.of(context).viewInsets.bottom + 20),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        16,
+        20,
+        MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -208,7 +235,10 @@ class _MediaPickerBottomSheetState extends State<_MediaPickerBottomSheet> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text("Upload Media", style: AppTextStyles.headingLarge),
-              IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+              IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.pop(context),
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -216,11 +246,20 @@ class _MediaPickerBottomSheetState extends State<_MediaPickerBottomSheet> {
             contentPadding: EdgeInsets.zero,
             leading: Container(
               padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(8)),
-              child: const Icon(Icons.folder_outlined, color: AppColors.primary),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.folder_outlined,
+                color: AppColors.primary,
+              ),
             ),
             title: Text("Pick from Files", style: AppTextStyles.labelMedium),
-            subtitle: Text("Upload a photo or PDF from your device", style: AppTextStyles.bodySmall),
+            subtitle: Text(
+              "Upload a photo or PDF from your device",
+              style: AppTextStyles.bodySmall,
+            ),
             onTap: () => _pickFromFileSystem(context),
           ),
           const SizedBox(height: 8),
@@ -228,11 +267,20 @@ class _MediaPickerBottomSheetState extends State<_MediaPickerBottomSheet> {
             contentPadding: EdgeInsets.zero,
             leading: Container(
               padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(8)),
-              child: const Icon(Icons.camera_alt_outlined, color: AppColors.primary),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.camera_alt_outlined,
+                color: AppColors.primary,
+              ),
             ),
             title: Text("Take Photo", style: AppTextStyles.labelMedium),
-            subtitle: Text("Use camera to capture documents", style: AppTextStyles.bodySmall),
+            subtitle: Text(
+              "Use camera to capture documents",
+              style: AppTextStyles.bodySmall,
+            ),
             onTap: () => _takePhoto(context),
           ),
           const SizedBox(height: 10),

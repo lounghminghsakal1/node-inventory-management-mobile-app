@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart' show SystemNavigator;
 import 'package:go_router/go_router.dart';
@@ -7,6 +7,7 @@ import '../../core/network/dio_client.dart';
 import '../../core/widgets/app_shell.dart';
 import '../../features/auth/providers/auth_provider.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
+import '../../features/auth/presentation/screens/splash_screen.dart';
 import '../../features/node_selection/presentation/screens/node_selection_screen.dart';
 import '../../features/home/presentation/screens/home_screen.dart';
 import '../../features/shipment/presentation/screens/shipment_list_screen.dart';
@@ -48,9 +49,9 @@ String? _appRedirect(BuildContext context, GoRouterState state, Ref ref) {
   final auth = ref.read(authProvider);
   final loc = state.matchedLocation;
 
-  // Still checking stored session - don't redirect yet
+  // Still checking stored session - show splash
   if (auth.status == AuthStatus.initial || auth.status == AuthStatus.checking) {
-    return null;
+    return loc == '/splash' ? null : '/splash';
   }
 
   // Not authenticated -> send to login
@@ -66,8 +67,8 @@ String? _appRedirect(BuildContext context, GoRouterState state, Ref ref) {
 
   // Fully authenticated
   if (auth.status == AuthStatus.authenticated) {
-    // Redirect away from login / mandatory node-select
-    if (loc == '/login') return '/home';
+    // Redirect away from login / splash / mandatory node-select
+    if (loc == '/login' || loc == '/splash') return '/home';
     if (loc == '/node-select' && state.uri.queryParameters['back'] != 'true') {
       return '/home';
     }
@@ -83,9 +84,16 @@ final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     navigatorKey: rootNavigatorKey,
     refreshListenable: notifier,
-    initialLocation: '/login',
+    initialLocation: '/splash',
     redirect: (context, state) => _appRedirect(context, state, ref),
     routes: [
+      // -- Splash ------------------------------------------------------------
+      GoRoute(
+        path: '/splash',
+        name: 'splash',
+        builder: (context, _) => const SplashScreen(),
+      ),
+
       // -- Auth --------------------------------------------------------------
       GoRoute(
         path: '/login',

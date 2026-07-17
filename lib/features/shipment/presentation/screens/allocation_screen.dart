@@ -1008,7 +1008,7 @@ class _BatchAllocationModalState extends ConsumerState<BatchAllocationModal> {
                                               ? row.code
                                               : null,
                                           hint: Text(
-                                            'Select Batch',
+                                            'Select Batch * ',
                                             style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted),
                                           ),
                                           dropdownColor: AppColors.card,
@@ -1081,7 +1081,7 @@ class _BatchAllocationModalState extends ConsumerState<BatchAllocationModal> {
                                       keyboardType: TextInputType.number,
                                       textAlign: TextAlign.center,
                                       decoration: InputDecoration(
-                                        labelText: 'Qty',
+                                        labelText: 'Qty * ',
                                         isDense: true,
                                         contentPadding:
                                             const EdgeInsets.symmetric(

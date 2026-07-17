@@ -438,7 +438,7 @@ class _AuditCard extends StatelessWidget {
                             color: AppColors.textMuted,
                           ),
                           Text(
-                            'Scheduled: ${HelperFunctions.formatDate(DateTime.parse(audit.scheduledDate), hasTime: false)}',
+                            'Audit Date: ${HelperFunctions.formatDate(DateTime.parse(audit.scheduledDate), hasTime: false)}',
                             style: AppTextStyles.caption.copyWith(
                               color: AppColors.textSecondary,
                             ),

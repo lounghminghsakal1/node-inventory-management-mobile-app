@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -276,6 +276,15 @@ class _StockAuditDetailScreenState
                         lineItemsState.items.length +
                         (lineItemsState.isMoreLoading ? 1 : 0),
                     itemBuilder: (_, i) {
+                      if (!lineItemsState.isMoreLoading &&
+                          lineItemsState.currentPage < lineItemsState.totalPages &&
+                          i >= lineItemsState.items.length - 10) {
+                        Future.microtask(() {
+                          ref
+                              .read(auditLineItemsProvider(widget.auditId).notifier)
+                              .loadNextPage();
+                        });
+                      }
                       if (i >= lineItemsState.items.length) {
                         return const Padding(
                           padding: EdgeInsets.all(12),

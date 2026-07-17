@@ -25,9 +25,10 @@ class HomeScreen extends ConsumerWidget {
 
     bool hasAccess = false;
     if (module == 'Inventory') {
-      hasAccess = splash.hasPermission('NodeInventory', 'read') ||
-                  splash.hasPermission('BatchInventory', 'read') ||
-                  splash.hasPermission('SkuItem', 'read');
+      hasAccess =
+          splash.hasPermission('NodeInventory', 'read') ||
+          splash.hasPermission('BatchInventory', 'read') ||
+          splash.hasPermission('SkuItem', 'read');
     } else {
       hasAccess = splash.hasPermission(module, 'read');
     }
@@ -35,7 +36,10 @@ class HomeScreen extends ConsumerWidget {
     if (hasAccess) {
       context.go(route);
     } else {
-      showTopErrorSnackBar(context, 'You are not authorised to see $featureName');
+      showTopErrorSnackBar(
+        context,
+        'You are not authorised to see $featureName',
+      );
     }
   }
 
@@ -63,14 +67,16 @@ class HomeScreen extends ConsumerWidget {
                   splashAsync.when(
                     data: (splash) => _buildStatsRow(context, ref, splash),
                     loading: () => _buildLoadingStatsRow(context, ref),
-                    error: (err, _) => _buildErrorStatsRow(context, ref, err.toString()),
+                    error: (err, _) =>
+                        _buildErrorStatsRow(context, ref, err.toString()),
                   ),
                   const SizedBox(height: 24),
 
                   // ── Stock Audits Section (From Splash API) ────────────────
                   splashAsync.maybeWhen(
                     data: (splash) {
-                      if (splash.stockAudits.isEmpty) return const SizedBox.shrink();
+                      if (splash.stockAudits.isEmpty)
+                        return const SizedBox.shrink();
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -79,16 +85,27 @@ class HomeScreen extends ConsumerWidget {
                             children: [
                               _buildSectionLabel('Pending Stock Audits'),
                               TextButton(
-                                onPressed: () => _navigateWithPermission(context, ref, '/audit', 'Stock Audit', 'StockAudit'),
+                                onPressed: () => _navigateWithPermission(
+                                  context,
+                                  ref,
+                                  '/audit',
+                                  'Stock Audit',
+                                  'StockAudit',
+                                ),
                                 child: Text(
                                   'View All',
-                                  style: AppTextStyles.labelMedium.copyWith(color: AppColors.primary),
+                                  style: AppTextStyles.labelMedium.copyWith(
+                                    color: AppColors.primary,
+                                  ),
                                 ),
                               ),
                             ],
                           ),
                           const SizedBox(height: 8),
-                          ...splash.stockAudits.map((audit) => _buildStockAuditCard(context, ref, audit)),
+                          ...splash.stockAudits.map(
+                            (audit) =>
+                                _buildStockAuditCard(context, ref, audit),
+                          ),
                           const SizedBox(height: 24),
                         ],
                       );
@@ -111,31 +128,61 @@ class HomeScreen extends ConsumerWidget {
                         label: 'Shipments',
                         icon: Icons.local_shipping_rounded,
                         color: AppColors.primary,
-                        onTap: () => _navigateWithPermission(context, ref, '/shipments', 'Shipments', 'Shipment'),
+                        onTap: () => _navigateWithPermission(
+                          context,
+                          ref,
+                          '/shipments',
+                          'Shipments',
+                          'Shipment',
+                        ),
                       ),
                       QuickActionTile(
                         label: 'Purchase Orders',
                         icon: Icons.shopping_bag_rounded,
                         color: AppColors.secondary,
-                        onTap: () => _navigateWithPermission(context, ref, '/purchase-orders', 'Purchase Orders', 'PurchaseOrder'),
+                        onTap: () => _navigateWithPermission(
+                          context,
+                          ref,
+                          '/purchase-orders',
+                          'Purchase Orders',
+                          'PurchaseOrder',
+                        ),
                       ),
                       QuickActionTile(
                         label: 'Inventory',
                         icon: Icons.inventory_2_rounded,
                         color: AppColors.accentGreen,
-                        onTap: () => _navigateWithPermission(context, ref, '/inventory', 'Inventory', 'Inventory'),
+                        onTap: () => _navigateWithPermission(
+                          context,
+                          ref,
+                          '/inventory',
+                          'Inventory',
+                          'Inventory',
+                        ),
                       ),
                       QuickActionTile(
                         label: 'Audit',
                         icon: Icons.fact_check_rounded,
                         color: AppColors.warning,
-                        onTap: () => _navigateWithPermission(context, ref, '/audit', 'Stock Audit', 'StockAudit'),
+                        onTap: () => _navigateWithPermission(
+                          context,
+                          ref,
+                          '/audit',
+                          'Stock Audit',
+                          'StockAudit',
+                        ),
                       ),
                       QuickActionTile(
                         label: 'GRN',
                         icon: Icons.receipt_long_rounded,
                         color: AppColors.accent,
-                        onTap: () => _navigateWithPermission(context, ref, '/purchase-orders', 'Purchase Orders', 'PurchaseOrder'),
+                        onTap: () => _navigateWithPermission(
+                          context,
+                          ref,
+                          '/purchase-orders',
+                          'Purchase Orders',
+                          'PurchaseOrder',
+                        ),
                       ),
                       QuickActionTile(
                         label: 'Refresh',
@@ -155,8 +202,11 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-
-  Widget _buildStatsRow(BuildContext context, WidgetRef ref, SplashData splash) {
+  Widget _buildStatsRow(
+    BuildContext context,
+    WidgetRef ref,
+    SplashData splash,
+  ) {
     return Row(
       children: [
         Expanded(
@@ -165,7 +215,13 @@ class HomeScreen extends ConsumerWidget {
             value: '${splash.pendingForwardShipmentsCount}',
             icon: Icons.local_shipping_outlined,
             gradient: AppColors.primaryGradient,
-            onTap: () => _navigateWithPermission(context, ref, '/shipments', 'Shipments', 'Shipment'),
+            onTap: () => _navigateWithPermission(
+              context,
+              ref,
+              '/shipments',
+              'Shipments',
+              'Shipment',
+            ),
           ),
         ),
         const SizedBox(width: 12),
@@ -175,7 +231,13 @@ class HomeScreen extends ConsumerWidget {
             value: '${splash.returnInitiatedShipmentsCount}',
             icon: Icons.assignment_return_outlined,
             gradient: AppColors.warningGradient,
-            onTap: () => _navigateWithPermission(context, ref, '/shipments', 'Shipments', 'Shipment'),
+            onTap: () => _navigateWithPermission(
+              context,
+              ref,
+              '/shipments',
+              'Shipments',
+              'Shipment',
+            ),
           ),
         ),
         const SizedBox(width: 12),
@@ -185,7 +247,13 @@ class HomeScreen extends ConsumerWidget {
             value: '${splash.stockAudits.length}',
             icon: Icons.fact_check_outlined,
             gradient: AppColors.cyanGradient,
-            onTap: () => _navigateWithPermission(context, ref, '/audit', 'Stock Audit', 'StockAudit'),
+            onTap: () => _navigateWithPermission(
+              context,
+              ref,
+              '/audit',
+              'Stock Audit',
+              'StockAudit',
+            ),
           ),
         ),
       ],
@@ -201,7 +269,13 @@ class HomeScreen extends ConsumerWidget {
             value: '...',
             icon: Icons.local_shipping_outlined,
             gradient: AppColors.primaryGradient,
-            onTap: () => _navigateWithPermission(context, ref, '/shipments', 'Shipments', 'Shipment'),
+            onTap: () => _navigateWithPermission(
+              context,
+              ref,
+              '/shipments',
+              'Shipments',
+              'Shipment',
+            ),
           ),
         ),
         const SizedBox(width: 12),
@@ -211,7 +285,13 @@ class HomeScreen extends ConsumerWidget {
             value: '...',
             icon: Icons.assignment_return_outlined,
             gradient: AppColors.warningGradient,
-            onTap: () => _navigateWithPermission(context, ref, '/shipments', 'Shipments', 'Shipment'),
+            onTap: () => _navigateWithPermission(
+              context,
+              ref,
+              '/shipments',
+              'Shipments',
+              'Shipment',
+            ),
           ),
         ),
         const SizedBox(width: 12),
@@ -221,14 +301,24 @@ class HomeScreen extends ConsumerWidget {
             value: '...',
             icon: Icons.fact_check_outlined,
             gradient: AppColors.cyanGradient,
-            onTap: () => _navigateWithPermission(context, ref, '/audit', 'Stock Audit', 'StockAudit'),
+            onTap: () => _navigateWithPermission(
+              context,
+              ref,
+              '/audit',
+              'Stock Audit',
+              'StockAudit',
+            ),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildErrorStatsRow(BuildContext context, WidgetRef ref, String error) {
+  Widget _buildErrorStatsRow(
+    BuildContext context,
+    WidgetRef ref,
+    String error,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -240,7 +330,10 @@ class HomeScreen extends ConsumerWidget {
         children: [
           Text(
             'Failed to load overview data',
-            style: AppTextStyles.bodyMedium.copyWith(color: AppColors.error, fontWeight: FontWeight.bold),
+            style: AppTextStyles.bodyMedium.copyWith(
+              color: AppColors.error,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 8),
           TextButton.icon(
@@ -253,9 +346,45 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildStockAuditCard(BuildContext context, WidgetRef ref, StockAudit audit) {
+  Widget _buildStockAuditCard(
+    BuildContext context,
+    WidgetRef ref,
+    StockAudit audit,
+  ) {
     final isSpot = audit.auditType.toLowerCase() == 'spot';
-    final badgeColor = isSpot ? AppColors.warning : AppColors.primary;
+    final typeBadgeColor = isSpot
+        ? AppColors.warning
+        : const Color.fromARGB(255, 2, 30, 189);
+    bool showStatus = true ? true : false;
+
+    Color statusBadgeColor;
+    String statusLabel = audit.status.label.toUpperCase();
+    switch (audit.status) {
+      case StockAuditStatus.assigned:
+        statusBadgeColor = AppColors.primary;
+        break;
+      case StockAuditStatus.initiatedAuditing:
+        statusBadgeColor = AppColors.warning;
+        statusLabel = 'PENDING';
+        break;
+      case StockAuditStatus.sentForReview:
+        statusBadgeColor = AppColors.secondary;
+        break;
+      case StockAuditStatus.approved:
+        statusBadgeColor = AppColors.success;
+        break;
+      case StockAuditStatus.rejected:
+        statusBadgeColor = AppColors.error;
+        break;
+      default:
+        statusBadgeColor = AppColors.textMuted;
+    }
+
+    // Determine if scheduled date is today
+    final today = DateTime.now();
+    final todayStr =
+        '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+    final isToday = audit.scheduledDate == todayStr;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -268,21 +397,29 @@ class HomeScreen extends ConsumerWidget {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
-          onTap: () => _navigateWithPermission(context, ref, '/audit/${audit.id}', 'Stock Audit', 'StockAudit'),
+          onTap: () => _navigateWithPermission(
+            context,
+            ref,
+            '/audit/${audit.id}',
+            'Stock Audit',
+            'StockAudit',
+          ),
           child: Padding(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(16),
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: badgeColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
+                    color: statusBadgeColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
-                    isSpot ? Icons.flash_on_rounded : Icons.calendar_today_rounded,
-                    color: badgeColor,
-                    size: 22,
+                    isSpot
+                        ? Icons.flash_on_rounded
+                        : Icons.calendar_today_rounded,
+                    color: statusBadgeColor,
+                    size: 24,
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -294,41 +431,66 @@ class HomeScreen extends ConsumerWidget {
                         children: [
                           Text(
                             'Audit #${audit.stockAuditNumber}',
-                            style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.bold),
+                            style: AppTextStyles.bodyMedium.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: badgeColor.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(4),
+                          if (showStatus) _TypeBadge(
+                              label: statusLabel,
+                              color: statusBadgeColor,
+                              size: 11,
                             ),
-                            child: Text(
-                              audit.auditType.toUpperCase(),
-                              style: AppTextStyles.caption.copyWith(
-                                color: badgeColor,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 9,
-                              ),
+                          if (showStatus) const SizedBox(width: 6),
+                        ],
+                      ),
+                      SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Text(
+                            "Audit Type: ",
+                            style: AppTextStyles.caption.copyWith(
+                              color: AppColors.textSecondary,
                             ),
+                          ),
+                          _TypeBadge(
+                            label: audit.auditType.toUpperCase(),
+                            color: typeBadgeColor,
                           ),
                         ],
                       ),
-                      const SizedBox(height: 4),
-                      Row(
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          const Icon(Icons.access_time_rounded, size: 13, color: AppColors.textMuted),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Scheduled:  ${HelperFunctions.formatDate(DateTime.parse(audit.scheduledDate), hasTime: false)}',
-                            style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
+                          const Icon(
+                            Icons.calendar_month_outlined,
+                            size: 13,
+                            color: AppColors.textMuted,
                           ),
+                          Text(
+                            'Audit Date: ${HelperFunctions.formatDate(DateTime.parse(audit.scheduledDate), hasTime: false)}',
+                            style: AppTextStyles.caption.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          if (isToday)
+                            _TypeBadge(
+                              label: 'TODAY',
+                              color: AppColors.success,
+                            ),
                         ],
                       ),
                     ],
                   ),
                 ),
-                const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.textMuted,
+                ),
               ],
             ),
           ),
@@ -340,7 +502,35 @@ class HomeScreen extends ConsumerWidget {
   Widget _buildSectionLabel(String label) {
     return Text(
       label,
-      style: AppTextStyles.headingMedium.copyWith(color: AppColors.textSecondary),
+      style: AppTextStyles.headingMedium.copyWith(
+        color: AppColors.textSecondary,
+      ),
+    );
+  }
+}
+
+class _TypeBadge extends StatelessWidget {
+  final String label;
+  final Color color;
+  final double size;
+  const _TypeBadge({required this.label, required this.color, this.size = 9});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        label,
+        style: AppTextStyles.caption.copyWith(
+          color: color,
+          fontWeight: FontWeight.bold,
+          fontSize: size,
+        ),
+      ),
     );
   }
 }

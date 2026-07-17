@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:node_management_app/core/utils/helper_functions.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../data/models/batch_inventory_model.dart';
@@ -61,7 +62,10 @@ class _BatchInventoryDetailScreenState
     );
 
     return Scaffold(
-      appBar: const NodeOpsAppBar(title: "Batch Inventory Detail", hideLogoutButton: true, ),
+      appBar: const NodeOpsAppBar(
+        title: "Batch Inventory Detail",
+        hideLogoutButton: true,
+      ),
       body: detailAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(
@@ -172,14 +176,22 @@ class _BatchInventoryDetailScreenState
                             Expanded(
                               child: _InfoTile(
                                 label: "Mfg Date",
-                                value: detail.batch!.manufacturingDate!,
+                                value: HelperFunctions.formatDate(
+                                  DateTime.parse(
+                                    detail.batch!.manufacturingDate!,
+                                  ),
+                                  hasTime: false,
+                                ),
                               ),
                             ),
                           if (detail.batch?.expiryDate != null)
                             Expanded(
                               child: _InfoTile(
                                 label: "Expiry Date",
-                                value: detail.batch!.expiryDate!,
+                                value: HelperFunctions.formatDate(
+                                  DateTime.parse(detail.batch!.expiryDate!),
+                                  hasTime: false,
+                                ),
                               ),
                             ),
                         ],
@@ -291,7 +303,8 @@ class _BatchInventoryDetailScreenState
                   )
                 else
                   ...txState.transactions.map(
-                    (tx) => _TransactionCard(tx: tx, formatTxType: _formatTxType),
+                    (tx) =>
+                        _TransactionCard(tx: tx, formatTxType: _formatTxType),
                   ),
 
                 if (txState.isLoadingMore)
@@ -391,7 +404,8 @@ class _TransactionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final details = tx.transactionDetails;
     final txType = details['transaction_type']?.toString() ?? 'Adjustment';
-    final shipmentType = details['shipment_type']?.toString().toLowerCase() ?? '';
+    final shipmentType =
+        details['shipment_type']?.toString().toLowerCase() ?? '';
     final adj = tx.adjustmentType.toLowerCase();
 
     bool isPositive;
@@ -436,10 +450,23 @@ class _TransactionCard extends StatelessWidget {
       refText = 'Ref #${tx.id}';
     }
 
-    final sourceName = tx.sourceDetails?['vendor_name'] ?? tx.sourceDetails?['node_name'] ?? tx.sourceDetails?['business_partner_name'] ?? tx.sourceDetails?['customer_name'] ?? tx.sourceDetails?['name'];
-    final destName = tx.destinationDetails?['node_name'] ?? tx.destinationDetails?['vendor_name'] ?? tx.destinationDetails?['business_partner_name'] ?? tx.destinationDetails?['customer_name'] ?? tx.destinationDetails?['name'];
+    final sourceName =
+        tx.sourceDetails?['vendor_name'] ??
+        tx.sourceDetails?['node_name'] ??
+        tx.sourceDetails?['business_partner_name'] ??
+        tx.sourceDetails?['customer_name'] ??
+        tx.sourceDetails?['name'];
+    final destName =
+        tx.destinationDetails?['node_name'] ??
+        tx.destinationDetails?['vendor_name'] ??
+        tx.destinationDetails?['business_partner_name'] ??
+        tx.destinationDetails?['customer_name'] ??
+        tx.destinationDetails?['name'];
     String partyInfo = '';
-    if (sourceName != null && sourceName.toString().isNotEmpty && destName != null && destName.toString().isNotEmpty) {
+    if (sourceName != null &&
+        sourceName.toString().isNotEmpty &&
+        destName != null &&
+        destName.toString().isNotEmpty) {
       partyInfo = '$sourceName → $destName';
     } else if (sourceName != null && sourceName.toString().isNotEmpty) {
       partyInfo = 'From: $sourceName';
@@ -447,7 +474,16 @@ class _TransactionCard extends StatelessWidget {
       partyInfo = 'To: $destName';
     }
 
-    final dateText = (details['completed_date'] ?? details['delivered_date'] ?? details['returned_date'] ?? details['created_at'] ?? '').toString();
+    final dateText = HelperFunctions.formatDate(
+      DateTime.parse(
+        details['completed_date'] ??
+            details['delivered_date'] ??
+            details['returned_date'] ??
+            details['created_at'] ??
+            '',
+      ),
+      hasTime: false,
+    );
 
     final prevQty = details['prev_quantity'] ?? details['previous_quantity'];
     final newQty = details['new_quantity'];

@@ -72,10 +72,7 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: const NodeOpsAppBar(
-        showBack: true,
-        title: 'Dispatch Shipment',
-      ),
+      appBar: const NodeOpsAppBar(showBack: true, title: 'Dispatch Shipment'),
       body: SingleChildScrollView(
         child: Column(
           children: [
@@ -86,7 +83,8 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
               decoration: BoxDecoration(
                 gradient: AppColors.cardGradient,
                 border: const Border(
-                    bottom: BorderSide(color: AppColors.cardBorder)),
+                  bottom: BorderSide(color: AppColors.cardBorder),
+                ),
               ),
               child: Column(
                 children: [
@@ -100,15 +98,20 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFFF59E0B).withValues(alpha: 0.35),
+                          color: const Color(
+                            0xFFF59E0B,
+                          ).withValues(alpha: 0.35),
                           blurRadius: 20,
                           offset: const Offset(0, 6),
                         ),
                       ],
                     ),
                     child: const Center(
-                      child: Icon(Icons.local_shipping_rounded,
-                          size: 36, color: Colors.white),
+                      child: Icon(
+                        Icons.local_shipping_rounded,
+                        size: 36,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -131,12 +134,14 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Driver Information',
-                        style: AppTextStyles.headingMedium),
+                    Text(
+                      'Driver Information',
+                      style: AppTextStyles.headingMedium,
+                    ),
                     const SizedBox(height: 16),
 
                     AppTextField(
-                      label: 'Driver Name',
+                      label: 'Driver Name * ',
                       hint: 'e.g. Ravi Kumar',
                       controller: _nameCtrl,
                       prefixIcon: Icons.person_outline_rounded,
@@ -148,7 +153,7 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
                     const SizedBox(height: 14),
 
                     AppTextField(
-                      label: 'Phone Number',
+                      label: 'Phone Number * ',
                       hint: 'e.g. 9876543210',
                       controller: _phoneCtrl,
                       prefixIcon: Icons.phone_outlined,
@@ -167,24 +172,39 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
                     const SizedBox(height: 14),
 
                     AppTextField(
-                      label: 'Vehicle Number',
+                      label: 'Vehicle Number * ',
                       hint: 'e.g. TN 09 AB 1234',
                       controller: _vehicleCtrl,
                       prefixIcon: Icons.directions_car_outlined,
                       textInputAction: TextInputAction.next,
-                      inputFormatters: [
-                        TextInputFormatter.withFunction((oldValue, newValue) {
-                          return newValue.copyWith(text: newValue.text.toUpperCase());
-                        }),
-                      ],
-                      validator: (v) => v == null || v.isEmpty
-                          ? 'Vehicle number is required'
-                          : null,
+                      inputFormatters: [VehicleNumberFormatter()],
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) {
+                          return 'Vehicle number is required';
+                        }
+
+                        final value = v.trim().toUpperCase();
+
+                        final normalReg = RegExp(
+                          r'^[A-Z]{2}\s?\d{2}\s?[A-Z]{1,2}\s?\d{4}$',
+                        );
+
+                        final bhReg = RegExp(
+                          r'^\d{2}\s?BH\s?\d{4}\s?[A-Z]{2}$',
+                        );
+
+                        if (!normalReg.hasMatch(value) &&
+                            !bhReg.hasMatch(value)) {
+                          return 'Enter a valid vehicle number';
+                        }
+
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 14),
 
                     AppTextField(
-                      label: 'Distance (in km/meters)',
+                      label: 'Distance (in km/meters) *',
                       hint: 'e.g. 1000',
                       controller: _distanceCtrl,
                       prefixIcon: Icons.add_road_outlined,
@@ -257,7 +277,10 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
                           _additionalRows.add(_KeyValuePair());
                         });
                       },
-                      icon: const Icon(Icons.add_rounded, color: AppColors.primary),
+                      icon: const Icon(
+                        Icons.add_rounded,
+                        color: AppColors.primary,
+                      ),
                       label: const Text(
                         'Add one more row',
                         style: TextStyle(color: AppColors.primary),
@@ -296,7 +319,10 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
                           children: [
                             Row(
                               children: [
-                                const Icon(Icons.check_circle, color: AppColors.success),
+                                const Icon(
+                                  Icons.check_circle,
+                                  color: AppColors.success,
+                                ),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Text(
@@ -305,22 +331,27 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
                                   ),
                                 ),
                                 IconButton(
-                                  icon: const Icon(Icons.delete_outline, color: AppColors.error),
+                                  icon: const Icon(
+                                    Icons.delete_outline,
+                                    color: AppColors.error,
+                                  ),
                                   onPressed: () {
                                     setState(() {
                                       media.dispose();
                                       _uploadedMedia.removeAt(idx);
                                     });
                                   },
-                                )
+                                ),
                               ],
                             ),
                             const SizedBox(height: 10),
                             AppTextField(
-                              label: 'Media Title',
+                              label: 'Media Title * ',
                               hint: 'e.g. Truck loaded image',
                               controller: media.titleCtrl,
-                              validator: (v) => v == null || v.isEmpty ? 'Title is required' : null,
+                              validator: (v) => v == null || v.isEmpty
+                                  ? 'Title is required'
+                                  : null,
                             ),
                             const SizedBox(height: 10),
                             AppTextField(
@@ -337,9 +368,14 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
                     else
                       OutlinedButton.icon(
                         onPressed: _pickAndUploadFile,
-                        icon: const Icon(Icons.upload_file, color: AppColors.primary),
+                        icon: const Icon(
+                          Icons.upload_file,
+                          color: AppColors.primary,
+                        ),
                         label: Text(
-                          _uploadedMedia.isEmpty ? 'Upload Media (Image/PDF)' : 'Upload Another Media',
+                          _uploadedMedia.isEmpty
+                              ? 'Upload Media (Image/PDF)'
+                              : 'Upload Another Media',
                           style: const TextStyle(color: AppColors.primary),
                         ),
                         style: OutlinedButton.styleFrom(
@@ -362,18 +398,23 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
                         color: AppColors.warning.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                            color: AppColors.warning.withValues(alpha: 0.25)),
+                          color: AppColors.warning.withValues(alpha: 0.25),
+                        ),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.info_outline_rounded,
-                              size: 18, color: AppColors.warning),
+                          const Icon(
+                            Icons.info_outline_rounded,
+                            size: 18,
+                            color: AppColors.warning,
+                          ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
                               'Once dispatched, the status cannot be reversed. Ensure all details are correct.',
-                              style: AppTextStyles.caption
-                                  .copyWith(color: AppColors.warning),
+                              style: AppTextStyles.caption.copyWith(
+                                color: AppColors.warning,
+                              ),
                             ),
                           ),
                         ],
@@ -410,12 +451,14 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
         setState(() => _isUploadingMedia = true);
         final filePath = result.path;
         final fileName = result.name;
-        final url = await ref.read(shipmentRepositoryProvider).uploadMedia(
-          shipmentId: widget.shipmentId,
-          actionType: 'dispatch',
-          filePath: filePath,
-          fileName: fileName,
-        );
+        final url = await ref
+            .read(shipmentRepositoryProvider)
+            .uploadMedia(
+              shipmentId: widget.shipmentId,
+              actionType: 'dispatch',
+              filePath: filePath,
+              fileName: fileName,
+            );
         setState(() {
           _uploadedMedia.add(_MediaItem(url));
           _isUploadingMedia = false;
@@ -432,7 +475,10 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
   Future<void> _dispatch() async {
     if (!_formKey.currentState!.validate()) return;
     if (_uploadedMedia.isEmpty) {
-      showTopErrorSnackBar(context, 'Please upload at least one media to proceed with dispatch.');
+      showTopErrorSnackBar(
+        context,
+        'Please upload at least one media to proceed with dispatch.',
+      );
       return;
     }
 
@@ -443,11 +489,16 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
         "driver_number": _phoneCtrl.text.trim(),
         "vehicle_number": _vehicleCtrl.text.trim(),
         "distance": _distanceCtrl.text.trim(),
-        "images": _uploadedMedia.map((m) => {
-          "title": m.titleCtrl.text.trim(),
-          if (m.descCtrl.text.trim().isNotEmpty) "description": m.descCtrl.text.trim(),
-          "image_url": m.url,
-        }).toList(),
+        "images": _uploadedMedia
+            .map(
+              (m) => {
+                "title": m.titleCtrl.text.trim(),
+                if (m.descCtrl.text.trim().isNotEmpty)
+                  "description": m.descCtrl.text.trim(),
+                "image_url": m.url,
+              },
+            )
+            .toList(),
       };
       for (final row in _additionalRows) {
         final k = row.keyCtrl.text.trim();
@@ -467,7 +518,10 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
       if (mounted) {
         ref.invalidate(shipmentByIdProvider(widget.shipmentId));
         ref.invalidate(shipmentListProvider);
-        showTopSuccessSnackBar(context, 'Shipment marked as dispatched successfully!');
+        showTopSuccessSnackBar(
+          context,
+          'Shipment marked as dispatched successfully!',
+        );
         context.pop(); // back to detail
       }
     } catch (e) {
@@ -477,5 +531,33 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+}
+
+class VehicleNumberFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    // Remove spaces and convert to uppercase
+    String text = newValue.text.replaceAll(RegExp(r'\s+'), '').toUpperCase();
+
+    // Maximum possible length:
+    // TN09AB1234 -> 10
+    // 21BH1234AA -> 10
+    if (text.length > 10) {
+      return oldValue;
+    }
+
+    // Allow only letters and digits
+    if (!RegExp(r'^[A-Z0-9]*$').hasMatch(text)) {
+      return oldValue;
+    }
+
+    return TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
   }
 }

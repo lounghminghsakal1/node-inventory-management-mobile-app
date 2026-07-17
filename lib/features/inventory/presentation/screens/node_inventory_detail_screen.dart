@@ -153,9 +153,16 @@ class _NodeInventoryDetailScreenState
                           fontSize: 18,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 4),
                       Text(
-                        "SKU Code: ${detail.skuCode.isNotEmpty ? detail.skuCode : 'N/A'} • Tracking: ${detail.trackingType.toUpperCase()}",
+                        "SKU Code: ${detail.skuCode.isNotEmpty ? detail.skuCode : 'N/A'}",
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        "Tracking: ${detail.trackingType.toUpperCase()}",
                         style: AppTextStyles.bodyMedium.copyWith(
                           color: AppColors.textMuted,
                         ),

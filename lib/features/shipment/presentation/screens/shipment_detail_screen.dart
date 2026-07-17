@@ -114,7 +114,7 @@ class ShipmentDetailScreen extends ConsumerWidget {
           backgroundColor: AppColors.background,
           appBar: NodeOpsAppBar(
             showBack: true,
-            title: shipment.shipmentNumber,
+            title: "Shipment Details\n Sh.No: ${shipment.shipmentNumber}",
             extraActions: [
               Padding(
                 padding: const EdgeInsets.only(right: 4),
@@ -125,71 +125,6 @@ class ShipmentDetailScreen extends ConsumerWidget {
                   ),
                 ),
               ),
-              //   if (canEditOrCancel)
-              //     PopupMenuButton<String>(
-              //       icon: const Icon(
-              //         Icons.more_vert_rounded,
-              //         color: AppColors.textSecondary,
-              //       ),
-              //       color: AppColors.surface,
-              //       shape: RoundedRectangleBorder(
-              //         borderRadius: BorderRadius.circular(12),
-              //         side: const BorderSide(color: AppColors.cardBorder),
-              //       ),
-              //       onSelected: (value) async {
-              //         if (value == 'edit') {
-              //           _showEditModal(context, ref, shipment);
-              //         } else if (value == 'cancel') {
-              //           final confirm = await _confirmDialog(
-              //             context,
-              //             'Cancel Shipment',
-              //             'Are you sure you want to cancel this shipment?',
-              //           );
-              //           if (confirm == true && context.mounted) {
-              //             await ref
-              //                 .read(shipmentListProvider.notifier)
-              //                 .updateStatus(
-              //                   shipment.id,
-              //                   ShipmentStatus.cancelled,
-              //                 );
-              //             ref.invalidate(shipmentByIdProvider(shipmentId));
-              //           }
-              //         }
-              //       },
-              //       itemBuilder: (context) => [
-              //         const PopupMenuItem<String>(
-              //           value: 'edit',
-              //           child: Row(
-              //             children: [
-              //               Icon(
-              //                 Icons.edit_outlined,
-              //                 size: 18,
-              //                 color: AppColors.textSecondary,
-              //               ),
-              //               SizedBox(width: 10),
-              //               Text('Edit Shipment'),
-              //             ],
-              //           ),
-              //         ),
-              //         const PopupMenuItem<String>(
-              //           value: 'cancel',
-              //           child: Row(
-              //             children: [
-              //               Icon(
-              //                 Icons.cancel_outlined,
-              //                 size: 18,
-              //                 color: AppColors.error,
-              //               ),
-              //               SizedBox(width: 10),
-              //               Text(
-              //                 'Cancel Shipment',
-              //                 style: TextStyle(color: AppColors.error),
-              //               ),
-              //             ],
-              //           ),
-              //         ),
-              //       ],
-              //     ),
             ],
           ),
           body: SingleChildScrollView(
@@ -270,7 +205,6 @@ class ShipmentDetailScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 20),
 
-                // "?"? Order & Invoice Info Card "?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?
                 _SectionCard(
                   title: 'Order & Invoice Info',
                   child: Column(
@@ -566,10 +500,18 @@ class ShipmentDetailScreen extends ConsumerWidget {
                             .deliveryDetails!
                             .additionalDetails
                             .isNotEmpty) ...[
-                          if(shipment.deliveryDetails!.deliveryNote != null &&
-                            shipment.deliveryDetails!.deliveryNote!.isNotEmpty) const SizedBox(height: 8),
-                          if(shipment.deliveryDetails!.deliveryNote != null &&
-                            shipment.deliveryDetails!.deliveryNote!.isNotEmpty) const Divider(color: AppColors.cardBorder),
+                          if (shipment.deliveryDetails!.deliveryNote != null &&
+                              shipment
+                                  .deliveryDetails!
+                                  .deliveryNote!
+                                  .isNotEmpty)
+                            const SizedBox(height: 8),
+                          if (shipment.deliveryDetails!.deliveryNote != null &&
+                              shipment
+                                  .deliveryDetails!
+                                  .deliveryNote!
+                                  .isNotEmpty)
+                            const Divider(color: AppColors.cardBorder),
                           const SizedBox(height: 8),
                           Align(
                             alignment: Alignment.centerLeft,
@@ -1760,13 +1702,22 @@ class _ActionButtons extends ConsumerWidget {
             icon: Icons.inventory_2_outlined,
             gradient: AppColors.greenGradient,
             onPressed: () async {
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (_) => const Center(
-                  child: CircularProgressIndicator(color: AppColors.primary),
-                ),
+              final confirm = await _confirmDialog(
+                context,
+                'Proceed to Packing',
+                'Once proceeded to packing, you cannot undo or revert the allocations you made. Do you want to proceed?',
               );
+              if (confirm != true) return;
+
+              if (context.mounted) {
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (_) => const Center(
+                    child: CircularProgressIndicator(color: AppColors.primary),
+                  ),
+                );
+              }
               try {
                 await ref
                     .read(shipmentRepositoryProvider)
@@ -1960,7 +1911,9 @@ class _DeliverShipmentModalState extends ConsumerState<_DeliverShipmentModal> {
       final result = await MediaPickerService.showMediaPicker(context);
       if (result != null && result.path.isNotEmpty) {
         setState(() => _isUploadingMedia = true);
-        final url = await ref.read(shipmentRepositoryProvider).uploadMedia(
+        final url = await ref
+            .read(shipmentRepositoryProvider)
+            .uploadMedia(
               shipmentId: widget.shipment.id,
               actionType: 'delivered',
               filePath: result.path,
@@ -2476,35 +2429,54 @@ class _EditShipmentModalState extends ConsumerState<_EditShipmentModal> {
 }
 
 // -- Section Card --------------------------------------------------------------
-class _SectionCard extends StatelessWidget {
+class _SectionCard extends StatefulWidget {
   final String title;
   final Widget child;
   const _SectionCard({required this.title, required this.child});
 
   @override
+  State<_SectionCard> createState() => _SectionCardState();
+}
+
+class _SectionCardState extends State<_SectionCard> {
+  bool _isExpanded = false;
+
+  @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.cardBorder),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          childrenPadding: const EdgeInsets.only(
+            left: 16,
+            right: 16,
+            bottom: 16,
+          ),
+          initiallyExpanded: _isExpanded,
+          onExpansionChanged: (expanded) {
+            setState(() {
+              _isExpanded = expanded;
+            });
+          },
+          title: Text(
+            widget.title,
             style: AppTextStyles.headingSmall.copyWith(
               color: AppColors.textSecondary,
             ),
           ),
-          const SizedBox(height: 12),
-          const Divider(height: 1),
-          const SizedBox(height: 12),
-          child,
-        ],
+          children: [
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+            widget.child,
+          ],
+        ),
       ),
     );
   }

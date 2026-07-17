@@ -8,11 +8,7 @@ class ShipmentCard extends StatelessWidget {
   final Shipment shipment;
   final VoidCallback onTap;
 
-  const ShipmentCard({
-    super.key,
-    required this.shipment,
-    required this.onTap,
-  });
+  const ShipmentCard({super.key, required this.shipment, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +36,7 @@ class ShipmentCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    shipment.shipmentNumber,
+                    "Sh.No: ${shipment.shipmentNumber}",
                     style: AppTextStyles.headingMedium,
                   ),
                 ),
@@ -97,7 +93,9 @@ class ShipmentCard extends StatelessWidget {
               children: [
                 Text(
                   _formatDate(shipment.createdAt),
-                  style: AppTextStyles.caption.copyWith(color: AppColors.textMuted),
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.textMuted,
+                  ),
                 ),
               ],
             ),
@@ -147,8 +145,18 @@ class ShipmentCard extends StatelessWidget {
 
   String _formatDate(DateTime dt) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${dt.day} ${months[dt.month - 1]} ${dt.year}, '
         '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';

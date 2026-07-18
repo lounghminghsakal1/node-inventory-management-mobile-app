@@ -4,6 +4,7 @@ import 'package:node_management_app/core/utils/helper_functions.dart';
 import '../../../home/providers/home_provider.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/widgets/info_modal.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_shell.dart';
 import '../../../../core/widgets/status_badge.dart';
@@ -106,9 +107,22 @@ class _PurchaseOrderDetailScreenState
                 const SizedBox(height: 24),
 
                 // -- Goods Received Notes Section ----------------------------
-                Text(
-                  'Goods Received Notes (GRNs)',
-                  style: AppTextStyles.headingMedium,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Goods Received Notes (GRNs)',
+                      style: AppTextStyles.headingMedium,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.info_outline, color: AppColors.primary, size: 20),
+                      constraints: const BoxConstraints(),
+                      padding: EdgeInsets.zero,
+                      onPressed: () {
+                        InfoModal.showGrnLifecycle(context);
+                      },
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
 

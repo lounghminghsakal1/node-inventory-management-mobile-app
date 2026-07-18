@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../core/widgets/info_modal.dart';
 import '../../../../core/utils/snackbar_utils.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_shell.dart';
@@ -91,9 +92,17 @@ class _AllocationScreenState extends ConsumerState<AllocationScreen> {
 
         return Scaffold(
           backgroundColor: AppColors.background,
-          appBar: const NodeOpsAppBar(
+          appBar: NodeOpsAppBar(
             showBack: true,
             title: 'Manage Allocations',
+            extraActions: [
+              IconButton(
+                icon: const Icon(Icons.info_outline, color: AppColors.primary),
+                onPressed: () {
+                  InfoModal.showShipmentLifecycle(context);
+                },
+              ),
+            ],
           ),
           body: Column(
             children: [

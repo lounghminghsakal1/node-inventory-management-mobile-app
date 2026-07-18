@@ -1,7 +1,8 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:node_management_app/features/home/providers/home_provider.dart';
+import 'package:node_management_app/core/widgets/info_modal.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/widgets/app_button.dart';
@@ -188,6 +189,14 @@ class ShipmentDetailScreen extends ConsumerWidget {
                                     ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.info_outline, color: AppColors.primary, size: 20),
+                                  constraints: const BoxConstraints(),
+                                  padding: EdgeInsets.zero,
+                                  onPressed: () {
+                                    InfoModal.showShipmentLifecycle(context);
+                                  },
                                 ),
                               ],
                             ),
@@ -386,6 +395,18 @@ class ShipmentDetailScreen extends ConsumerWidget {
                   const SizedBox(height: 16),
                   _SectionCard(
                     title: 'Driver & Dispatch Details',
+                    onInfoTap: () {
+                      InfoModal.show(
+                        context,
+                        title: 'Driver & Dispatch Details',
+                        items: const [
+                          InfoModalItem(
+                            title: 'Overview',
+                            content: 'Dispatch details track the driver and vehicle assigned to move this shipment. Gate pass images and driver information are recorded here for security and auditing.',
+                          ),
+                        ],
+                      );
+                    },
                     child: Column(
                       children: [
                         if (shipment.driverDetails!.name.isNotEmpty)
@@ -479,6 +500,18 @@ class ShipmentDetailScreen extends ConsumerWidget {
                   const SizedBox(height: 16),
                   _SectionCard(
                     title: 'Delivery Details',
+                    onInfoTap: () {
+                      InfoModal.show(
+                        context,
+                        title: 'Delivery Details',
+                        items: const [
+                          InfoModalItem(
+                            title: 'Overview',
+                            content: 'Delivery details capture the final handover of the shipment to the customer, including proof of delivery photos and the exact time of completion.',
+                          ),
+                        ],
+                      );
+                    },
                     child: Column(
                       children: [
                         if (shipment.deliveryDetails!.receivedBy != null &&
@@ -854,7 +887,20 @@ class _ShipmentTimeline extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.cardBorder),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Shipment Tracker',
+                style: AppTextStyles.headingSmall.copyWith(color: AppColors.textPrimary),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: List.generate(stages.length, (i) {
           final stage = stages[i];
@@ -958,6 +1004,8 @@ class _ShipmentTimeline extends StatelessWidget {
             ),
           );
         }),
+      ),
+        ],
       ),
     );
   }
@@ -2463,7 +2511,8 @@ class _EditShipmentModalState extends ConsumerState<_EditShipmentModal> {
 class _SectionCard extends StatefulWidget {
   final String title;
   final Widget child;
-  const _SectionCard({required this.title, required this.child});
+  final VoidCallback? onInfoTap;
+  const _SectionCard({required this.title, required this.child, this.onInfoTap});
 
   @override
   State<_SectionCard> createState() => _SectionCardState();
@@ -2496,11 +2545,27 @@ class _SectionCardState extends State<_SectionCard> {
               _isExpanded = expanded;
             });
           },
-          title: Text(
-            widget.title,
-            style: AppTextStyles.headingSmall.copyWith(
-              color: AppColors.textSecondary,
-            ),
+          title: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                widget.title,
+                style: AppTextStyles.headingSmall.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              if (widget.onInfoTap != null) ...[
+                const SizedBox(width: 8),
+                InkWell(
+                  onTap: widget.onInfoTap,
+                  borderRadius: BorderRadius.circular(12),
+                  child: const Padding(
+                    padding: EdgeInsets.all(4.0),
+                    child: Icon(Icons.info_outline, size: 18, color: AppColors.primary),
+                  ),
+                ),
+              ],
+            ],
           ),
           children: [
             const Divider(height: 1),

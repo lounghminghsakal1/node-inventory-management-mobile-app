@@ -78,18 +78,29 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
     final asyncShipment = ref.watch(shipmentByIdProvider(widget.shipmentId));
     final shipment = asyncShipment.valueOrNull;
     final splash = ref.watch(splashDataProvider).valueOrNull;
-    final bool isLineItemLevelPhotoEnabled = splash?.captureShipmentLineItemPhotos ?? false;
+    final bool isLineItemLevelPhotoEnabled =
+        splash?.captureShipmentLineItemPhotos ?? false;
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: NodeOpsAppBar(
-        showBack: true, 
+        showBack: true,
         title: 'Dispatch Shipment',
         extraActions: [
           IconButton(
             icon: const Icon(Icons.info_outline, color: AppColors.primary),
             onPressed: () {
-              InfoModal.showShipmentLifecycle(context);
+              InfoModal.show(
+                context,
+                title: 'Dispatch Shipment',
+                items: const [
+                  InfoModalItem(
+                    title: 'Overview',
+                    content:
+                        'Dispatching a shipment involves recording the assigned driver, vehicle details, and capturing the gate pass. Based on your warehouse configurations, you may also be required to upload photos of every line item before the shipment can leave the facility.',
+                  ),
+                ],
+              );
             },
           ),
         ],
@@ -203,14 +214,25 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     InkWell(
-                                      onTap: () => _showLineItemImagePopup(context, item.product.name, photos.first),
+                                      onTap: () => _showLineItemImagePopup(
+                                        context,
+                                        item.product.name,
+                                        photos.first,
+                                      ),
                                       child: Container(
                                         padding: const EdgeInsets.all(8),
                                         decoration: BoxDecoration(
-                                          color: AppColors.primary.withValues(alpha: 0.1),
-                                          borderRadius: BorderRadius.circular(8),
+                                          color: AppColors.primary.withValues(
+                                            alpha: 0.1,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
                                         ),
-                                        child: const Icon(Icons.remove_red_eye_outlined, color: AppColors.primary),
+                                        child: const Icon(
+                                          Icons.remove_red_eye_outlined,
+                                          color: AppColors.primary,
+                                        ),
                                       ),
                                     ),
                                     const SizedBox(width: 8),
@@ -223,10 +245,17 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
                                       child: Container(
                                         padding: const EdgeInsets.all(8),
                                         decoration: BoxDecoration(
-                                          color: AppColors.error.withValues(alpha: 0.1),
-                                          borderRadius: BorderRadius.circular(8),
+                                          color: AppColors.error.withValues(
+                                            alpha: 0.1,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
                                         ),
-                                        child: const Icon(Icons.delete_outline, color: AppColors.error),
+                                        child: const Icon(
+                                          Icons.delete_outline,
+                                          color: AppColors.error,
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -256,7 +285,9 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(8),
                                     ),
-                                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                    ),
                                   ),
                                 ),
                             ],
@@ -764,7 +795,8 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
       };
 
       final splash = ref.read(splashDataProvider).valueOrNull;
-      final bool isLineItemLevelPhotoEnabled = splash?.captureShipmentLineItemPhotos ?? false;
+      final bool isLineItemLevelPhotoEnabled =
+          splash?.captureShipmentLineItemPhotos ?? false;
       if (isLineItemLevelPhotoEnabled && _lineItemPhotos.isNotEmpty) {
         final lineItemsPayload = _lineItemPhotos.entries
             .where((e) => e.value.isNotEmpty)

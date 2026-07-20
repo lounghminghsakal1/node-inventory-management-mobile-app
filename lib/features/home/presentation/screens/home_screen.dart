@@ -51,7 +51,9 @@ class HomeScreen extends ConsumerWidget {
       backgroundColor: AppColors.background,
       body: RefreshIndicator(
         onRefresh: () async {
-          return ref.refresh(splashDataProvider.future);
+          final splashFuture = ref.refresh(splashDataProvider.future);
+          final statsFuture = ref.refresh(nodeStatsProvider.future);
+          await Future.wait([splashFuture, statsFuture]);
         },
         color: AppColors.primary,
         child: CustomScrollView(
@@ -76,12 +78,7 @@ class HomeScreen extends ConsumerWidget {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  splashAsync.when(
-                    data: (splash) => _buildStatsRow(context, ref, splash),
-                    loading: () => _buildLoadingStatsRow(context, ref),
-                    error: (err, _) =>
-                        _buildErrorStatsRow(context, ref, err.toString()),
-                  ),
+                  _buildOverviewSection(context, ref),
                   const SizedBox(height: 24),
 
                   // ── Stock Audits Section (From Splash API) ────────────────
@@ -137,17 +134,37 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatsRow(
-    BuildContext context,
-    WidgetRef ref,
-    SplashData splash,
-  ) {
+  Widget _buildOverviewSection(BuildContext context, WidgetRef ref) {
+    final splashAsync = ref.watch(splashDataProvider);
+    final statsAsync = ref.watch(nodeStatsProvider);
+
+    if (splashAsync.isLoading || statsAsync.isLoading) {
+      return _buildLoadingStatsRow(context, ref);
+    }
+
+    if (splashAsync.hasError || statsAsync.hasError) {
+      return _buildErrorStatsRow(context, ref, 'Failed to load overview data');
+    }
+
+    final splash = splashAsync.value;
+    final stats = statsAsync.value;
+
+    if (splash == null || stats == null) {
+      return _buildErrorStatsRow(context, ref, 'No data available');
+    }
+
+    final pendingShipmentsCount = stats.pendingActions.toPack + 
+        stats.pendingActions.toDispatch + 
+        stats.pendingActions.unallocated;
+    
+    final returnsCount = stats.pendingActions.returnsPending;
+
     return Row(
       children: [
         Expanded(
           child: StatCard(
             label: 'Pending\nShipments',
-            value: '${splash.pendingForwardShipmentsCount}',
+            value: pendingShipmentsCount.toString(),
             icon: Icons.local_shipping_outlined,
             gradient: AppColors.primaryGradient,
             onTap: () => _navigateWithPermission(
@@ -163,7 +180,7 @@ class HomeScreen extends ConsumerWidget {
         Expanded(
           child: StatCard(
             label: 'Return\nInitiated',
-            value: '${splash.returnInitiatedShipmentsCount}',
+            value: returnsCount.toString(),
             icon: Icons.assignment_return_outlined,
             gradient: AppColors.warningGradient,
             onTap: () => _navigateWithPermission(
@@ -443,37 +460,40 @@ class HomeScreen extends ConsumerWidget {
         children: [
           _buildSectionLabel('Pending Actions'),
           const SizedBox(height: 12),
-          GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 1.8,
+          Row(
             children: [
-              _buildSimpleStatCard('Shipments to Pack', stats.pendingActions.toPack, Icons.inventory_2_outlined, AppColors.primary),
-              _buildSimpleStatCard('Shipments to Dispatch', stats.pendingActions.toDispatch, Icons.local_shipping_outlined, AppColors.secondary),
-              _buildSimpleStatCard('Shipments Unallocated', stats.pendingActions.unallocated, Icons.warning_amber_rounded, AppColors.warning),
-              _buildSimpleStatCard('Shipments Returns Pending', stats.pendingActions.returnsPending, Icons.keyboard_return_rounded, AppColors.error),
-              _buildSimpleStatCard('GRN QC Pending', stats.pendingActions.grnQcPending, Icons.fact_check_outlined, AppColors.accent),
+              _buildStatRowCard('Shipments\nUnallocated', stats.pendingActions.unallocated, Icons.warning_amber_rounded, AppColors.warning),
+              const SizedBox(width: 12),
+              _buildStatRowCard('Shipments\nto Pack', stats.pendingActions.toPack, Icons.inventory_2_outlined, AppColors.primary),
             ],
           ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _buildStatRowCard('Shipments\nto Dispatch', stats.pendingActions.toDispatch, Icons.local_shipping_outlined, AppColors.secondary),
+              const SizedBox(width: 12),
+              _buildStatRowCard('Returns\nPending', stats.pendingActions.returnsPending, Icons.keyboard_return_rounded, AppColors.error),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _buildFullWidthStatCard('GRN QC Pending', stats.pendingActions.grnQcPending, Icons.fact_check_outlined, AppColors.accent),
+          
           const SizedBox(height: 24),
           _buildSectionLabel("Today's Summary"),
           const SizedBox(height: 12),
-          GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 1.8,
+          Row(
             children: [
-              _buildSimpleStatCard('Shipments Dispatched Today', stats.todaySummary.dispatchedToday, Icons.check_circle_outline, AppColors.success),
-              _buildSimpleStatCard('Shipments Delivered Today', stats.todaySummary.deliveredToday, Icons.done_all_rounded, AppColors.accentGreen),
-              _buildSimpleStatCard('Shipments Returns Completed', stats.todaySummary.returnsCompletedToday, Icons.assignment_return_outlined, AppColors.textSecondary),
-              _buildSimpleStatCard('GRNs Completed Today', stats.todaySummary.grnsCompletedToday, Icons.receipt_long_rounded, Colors.cyan),
-              _buildSimpleStatCard('GRN Items Received Today', stats.todaySummary.itemsReceivedToday, Icons.move_to_inbox_rounded, AppColors.primary),
+              _buildStatRowCard('Dispatched\nToday', stats.todaySummary.dispatchedToday, Icons.check_circle_outline, AppColors.success),
+              const SizedBox(width: 12),
+              _buildStatRowCard('Returns\nCompleted', stats.todaySummary.returnsCompletedToday, Icons.assignment_return_outlined, AppColors.textSecondary),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _buildStatRowCard('GRNs\nCompleted', stats.todaySummary.grnsCompletedToday, Icons.receipt_long_rounded, Colors.cyan),
+              const SizedBox(width: 12),
+              _buildStatRowCard('Items\nReceived', stats.todaySummary.itemsReceivedToday, Icons.move_to_inbox_rounded, AppColors.primary),
             ],
           ),
         ],
@@ -488,45 +508,87 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildSimpleStatCard(String title, int value, IconData icon, Color color) {
+  Widget _buildStatRowCard(String title, int value, IconData icon, Color color) {
+    return Expanded(
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.cardBorder),
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(icon, color: color, size: 20),
+                ),
+                Text(
+                  value.toString(),
+                  style: AppTextStyles.headingMedium.copyWith(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 22,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: AppTextStyles.caption.copyWith(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 2,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFullWidthStatCard(String title, int value, IconData icon, Color color) {
     return Container(
+      width: double.infinity,
       decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.cardBorder),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.all(16),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
+              borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(icon, color: color, size: 20),
+            child: Icon(icon, color: color, size: 24),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 16),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  value.toString(),
-                  style: AppTextStyles.headingMedium.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  title,
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+            child: Text(
+              title,
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Text(
+            value.toString(),
+            style: AppTextStyles.headingMedium.copyWith(
+              fontWeight: FontWeight.bold,
+              fontSize: 24,
             ),
           ),
         ],

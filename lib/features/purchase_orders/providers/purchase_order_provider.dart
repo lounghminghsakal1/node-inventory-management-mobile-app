@@ -20,6 +20,7 @@ class PurchaseOrderListState {
   final int? byVendorId;
   final String? byPoNumber;
   final String? byStatus;
+  final String? byGrnStatus;
   final String? fromDate;
   final String? toDate;
 
@@ -35,6 +36,7 @@ class PurchaseOrderListState {
     this.byVendorId,
     this.byPoNumber,
     this.byStatus,
+    this.byGrnStatus,
     this.fromDate,
     this.toDate,
   });
@@ -51,6 +53,7 @@ class PurchaseOrderListState {
     int? byVendorId,
     String? byPoNumber,
     String? byStatus,
+    String? byGrnStatus,
     String? fromDate,
     String? toDate,
   }) =>
@@ -66,6 +69,7 @@ class PurchaseOrderListState {
         byVendorId: byVendorId ?? this.byVendorId,
         byPoNumber: byPoNumber ?? this.byPoNumber,
         byStatus: byStatus ?? this.byStatus,
+        byGrnStatus: byGrnStatus ?? this.byGrnStatus,
         fromDate: fromDate ?? this.fromDate,
         toDate: toDate ?? this.toDate,
       );
@@ -74,8 +78,8 @@ class PurchaseOrderListState {
 class PurchaseOrderListNotifier extends StateNotifier<PurchaseOrderListState> {
   final PurchaseOrderRepository _repo;
 
-  PurchaseOrderListNotifier(this._repo) : super(const PurchaseOrderListState()) {
-    load();
+  PurchaseOrderListNotifier(this._repo) : super(const PurchaseOrderListState(byGrnStatus: 'qc_pending')) {
+    load(byGrnStatus: 'qc_pending');
   }
 
   Future<void> load({
@@ -84,6 +88,7 @@ class PurchaseOrderListNotifier extends StateNotifier<PurchaseOrderListState> {
     int? byVendorId,
     String? byPoNumber,
     String? byStatus,
+    String? byGrnStatus,
     String? fromDate,
     String? toDate,
   }) async {
@@ -96,6 +101,7 @@ class PurchaseOrderListNotifier extends StateNotifier<PurchaseOrderListState> {
         byVendorId: byVendorId,
         byPoNumber: byPoNumber,
         byStatus: byStatus,
+        byGrnStatus: byGrnStatus,
         fromDate: fromDate,
         toDate: toDate,
         purchaseOrders: [],
@@ -111,6 +117,7 @@ class PurchaseOrderListNotifier extends StateNotifier<PurchaseOrderListState> {
         byVendorId: page == 1 ? byVendorId : (byVendorId ?? state.byVendorId),
         byPoNumber: page == 1 ? byPoNumber : (byPoNumber ?? state.byPoNumber),
         byStatus: page == 1 ? byStatus : (byStatus ?? state.byStatus),
+        byGrnStatus: page == 1 ? byGrnStatus : (byGrnStatus ?? state.byGrnStatus),
         fromDate: page == 1 ? fromDate : (fromDate ?? state.fromDate),
         toDate: page == 1 ? toDate : (toDate ?? state.toDate),
       );
@@ -127,6 +134,7 @@ class PurchaseOrderListNotifier extends StateNotifier<PurchaseOrderListState> {
         byVendorId: page == 1 ? byVendorId : (byVendorId ?? state.byVendorId),
         byPoNumber: page == 1 ? byPoNumber : (byPoNumber ?? state.byPoNumber),
         byStatus: page == 1 ? byStatus : (byStatus ?? state.byStatus),
+        byGrnStatus: page == 1 ? byGrnStatus : (byGrnStatus ?? state.byGrnStatus),
         fromDate: page == 1 ? fromDate : (fromDate ?? state.fromDate),
         toDate: page == 1 ? toDate : (toDate ?? state.toDate),
       );
@@ -148,6 +156,7 @@ class PurchaseOrderListNotifier extends StateNotifier<PurchaseOrderListState> {
       byVendorId: state.byVendorId,
       byPoNumber: state.byPoNumber,
       byStatus: state.byStatus,
+      byGrnStatus: state.byGrnStatus,
       fromDate: state.fromDate,
       toDate: state.toDate,
     );
@@ -158,6 +167,7 @@ class PurchaseOrderListNotifier extends StateNotifier<PurchaseOrderListState> {
     int? byVendorId,
     String? byPoNumber,
     String? byStatus,
+    String? byGrnStatus,
     String? fromDate,
     String? toDate,
   }) {
@@ -167,6 +177,7 @@ class PurchaseOrderListNotifier extends StateNotifier<PurchaseOrderListState> {
       byVendorId: byVendorId ?? state.byVendorId,
       byPoNumber: byPoNumber ?? state.byPoNumber,
       byStatus: byStatus ?? state.byStatus,
+      byGrnStatus: byGrnStatus ?? state.byGrnStatus,
       fromDate: fromDate ?? state.fromDate,
       toDate: toDate ?? state.toDate,
     );
@@ -184,6 +195,7 @@ class PurchaseOrderListNotifier extends StateNotifier<PurchaseOrderListState> {
       byVendorName: state.byVendorName,
       byVendorId: state.byVendorId,
       byStatus: state.byStatus,
+      byGrnStatus: state.byGrnStatus,
       byPoNumber: null,
       fromDate: null,
       toDate: null,

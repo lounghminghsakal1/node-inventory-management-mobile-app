@@ -10,6 +10,7 @@ import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/status_badge.dart';
 import '../../../../core/widgets/tracking_type_badge.dart';
+import '../../../../core/widgets/info_modal.dart';
 import '../../../home/providers/home_provider.dart';
 import '../../data/models/purchase_order_model.dart';
 import '../../providers/purchase_order_provider.dart';
@@ -129,6 +130,10 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
                     ),
                   ),
                   StatusBadge(status: grn.status),
+                  IconButton(
+                    icon: const Icon(Icons.info_outline, color: AppColors.primary, size: 20),
+                    onPressed: () => InfoModal.showGrnLifecycle(context),
+                  ),
                   const SizedBox(width: 8),
                   Icon(
                     widget.isExpanded ? Icons.expand_less : Icons.expand_more,

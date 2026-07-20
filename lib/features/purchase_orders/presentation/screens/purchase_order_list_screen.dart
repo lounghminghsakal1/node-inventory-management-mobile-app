@@ -24,7 +24,7 @@ class _PurchaseOrderListScreenState
   String _search = '';
   Timer? _debounce;
 
-  static const _tabs = [('All', null), ('Approved', 'approved')];
+  static const _tabs = [('Pending', 'qc_pending'), ('All', null)];
 
   @override
   void initState() {
@@ -34,7 +34,7 @@ class _PurchaseOrderListScreenState
       if (_tabCtrl.indexIsChanging) return;
       ref
           .read(purchaseOrderListProvider.notifier)
-          .load(page: 1, byStatus: _tabs[_tabCtrl.index].$2);
+          .load(page: 1, byGrnStatus: _tabs[_tabCtrl.index].$2, byStatus: null);
       setState(() {});
     });
   }
@@ -241,14 +241,7 @@ class _PurchaseOrderListScreenState
                     );
                   }
 
-                  final statusFilter = _tabs[_tabCtrl.index].$2;
-                  final filtered = allPos.where((po) {
-                    if (statusFilter != null &&
-                        po.status.toLowerCase() != statusFilter) {
-                      return false;
-                    }
-                    return true;
-                  }).toList();
+                  final filtered = allPos.toList();
 
                   return RefreshIndicator(
                     onRefresh: () async {

@@ -89,17 +89,17 @@ class ShipmentCard extends StatelessWidget {
               ),
               const SizedBox(height: 8),
             ],
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                if(shipment.createdAt != null) Text(
-                  HelperFunctions.formatDate(DateTime.parse(shipment.createdAt!.toString())),
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.textMuted,
-                  ),
-                ),
-              ],
-            ),
+            // Row(
+            //   mainAxisAlignment: MainAxisAlignment.end,
+            //   children: [
+            //     if(shipment.createdAt != null) Text(
+            //       HelperFunctions.formatDate(DateTime.parse(shipment.createdAt!.toString())),
+            //       style: AppTextStyles.caption.copyWith(
+            //         color: AppColors.textMuted,
+            //       ),
+            //     ),
+            //   ],
+            // ),
           ],
         ),
       ),

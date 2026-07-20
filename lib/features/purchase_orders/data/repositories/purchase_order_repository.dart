@@ -49,6 +49,7 @@ class PurchaseOrderRepository {
     int? byVendorId,
     String? byPoNumber,
     String? byStatus,
+    String? byGrnStatus,
     String? fromDate,
     String? toDate,
     int page = 1,
@@ -60,6 +61,7 @@ class PurchaseOrderRepository {
       if (byPoNumber != null && byPoNumber.isNotEmpty)
         'by_po_number': byPoNumber,
       if (byStatus != null && byStatus.isNotEmpty) 'by_status': byStatus,
+      if (byGrnStatus != null && byGrnStatus.isNotEmpty) 'by_grn_status': byGrnStatus,
       if (fromDate != null && fromDate.isNotEmpty) 'from_date': fromDate,
       if (toDate != null && toDate.isNotEmpty) 'to_date': toDate,
       'page': page,

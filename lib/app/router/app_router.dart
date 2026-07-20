@@ -133,7 +133,11 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/shipments',
                 name: 'shipments',
-                builder: (context, _) => const ShipmentListScreen(),
+                builder: (context, state) => ShipmentListScreen(
+                  filter: state.uri.queryParameters['filter'],
+                  tab: state.uri.queryParameters['tab'],
+                  type: state.uri.queryParameters['type'],
+                ),
               ),
             ],
           ),
@@ -298,12 +302,7 @@ class _ScaffoldWithNavBar extends ConsumerWidget {
         SystemNavigator.pop();
       },
       child: Scaffold(
-        appBar: NodeOpsAppBar(
-          extraActions: [
-            if (navigationShell.currentIndex == 1 && showShipmentCreate)
-              const _ShipmentsAppBarAction(),
-          ],
-        ),
+        appBar: NodeOpsAppBar(),
         body: navigationShell,
         bottomNavigationBar: Container(
           decoration: const BoxDecoration(
@@ -371,29 +370,10 @@ class _ScaffoldWithNavBar extends ConsumerWidget {
   }
 
   void _onTap(BuildContext context, int index) {
-    if (index == navigationShell.currentIndex) {
-      navigationShell.goBranch(index, initialLocation: true);
-      return;
-    }
-    switch (index) {
-      case 0:
-        GoRouter.of(context).go('/home');
-        break;
-      case 1:
-        GoRouter.of(context).go('/shipments');
-        break;
-      case 2:
-        GoRouter.of(context).go('/purchase-orders');
-        break;
-      case 3:
-        GoRouter.of(context).go('/inventory');
-        break;
-      case 4:
-        GoRouter.of(context).go('/audit');
-        break;
-      default:
-        navigationShell.goBranch(index);
-    }
+    navigationShell.goBranch(
+      index,
+      initialLocation: index == navigationShell.currentIndex,
+    );
   }
 }
 

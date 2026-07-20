@@ -68,11 +68,6 @@ class _AllocationScreenState extends ConsumerState<AllocationScreen> {
         }
         final availList = asyncAvail.value ?? const [];
 
-        if (!_initialized) {
-          _items = List.from(shipment.lineItems);
-          _initialized = true;
-        }
-
         int? getAvailQty(ShipmentLineItem item) {
           for (final a in availList) {
             if (a.shipmentLineItemId == item.id ||
@@ -83,6 +78,23 @@ class _AllocationScreenState extends ConsumerState<AllocationScreen> {
           }
           return null;
         }
+
+        if (!_initialized) {
+          _items = List.from(shipment.lineItems);
+          _items.sort((a, b) {
+            final availA = getAvailQty(a);
+            final availB = getAvailQty(b);
+            final blockedA = availA != null && availA < a.shippedQty ? 1 : 0;
+            final blockedB = availB != null && availB < b.shippedQty ? 1 : 0;
+            return blockedB.compareTo(blockedA);
+          });
+          _initialized = true;
+        }
+
+        final hasBlockedItem = _items.any((i) {
+          final availQty = getAvailQty(i);
+          return availQty != null && availQty < i.shippedQty;
+        });
 
         final allAllocated = _items.every((i) {
           final availQty = getAvailQty(i);
@@ -107,34 +119,56 @@ class _AllocationScreenState extends ConsumerState<AllocationScreen> {
           body: Column(
             children: [
               // Header info
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-                decoration: const BoxDecoration(
-                  color: AppColors.surface,
-                  border: Border(
-                    bottom: BorderSide(color: AppColors.cardBorder),
+              if (hasBlockedItem)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: AppColors.error.withValues(alpha: 0.1),
+                    border: const Border(bottom: BorderSide(color: AppColors.cardBorder)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.error_outline, color: AppColors.error, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'The following line items are having insufficient inventory so make sure inventory for these line item and then continue allocations for this shipment',
+                          style: AppTextStyles.bodySmall.copyWith(color: AppColors.error, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
+                  decoration: const BoxDecoration(
+                    color: AppColors.surface,
+                    border: Border(
+                      bottom: BorderSide(color: AppColors.cardBorder),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.info_outline_rounded,
+                        size: 14,
+                        color: AppColors.textMuted,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Allocate inventory for each product. Select FIFO, Manual, or LIFO allocation.',
+                          style: AppTextStyles.caption,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.info_outline_rounded,
-                      size: 14,
-                      color: AppColors.textMuted,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Allocate inventory for each product. Select FIFO, Manual, or LIFO allocation.',
-                        style: AppTextStyles.caption,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
               Expanded(
                 child: ListView.builder(
                   padding: const EdgeInsets.all(16),
@@ -142,14 +176,26 @@ class _AllocationScreenState extends ConsumerState<AllocationScreen> {
                   itemBuilder: (_, i) {
                     final item = _items[i];
                     final availQty = getAvailQty(item);
-                    return _AllocationCard(
-                      key: ValueKey(item.id),
-                      item: item,
-                      shipmentId: widget.shipmentId,
-                      availableQty: availQty,
-                      onAllocated: (updated) {
-                        setState(() => _items[i] = updated);
-                      },
+                    final isBlocked = availQty != null && availQty < item.shippedQty;
+                    final isDisabled = hasBlockedItem && !isBlocked;
+
+                    return Opacity(
+                      opacity: isDisabled ? 0.5 : 1.0,
+                      child: IgnorePointer(
+                        ignoring: isDisabled,
+                        child: _AllocationCard(
+                          key: ValueKey(item.id),
+                          item: item,
+                          shipmentId: widget.shipmentId,
+                          availableQty: availQty,
+                          onAllocated: (updated) {
+                            final idx = _items.indexWhere((e) => e.id == item.id);
+                            if (idx != -1) {
+                              setState(() => _items[idx] = updated);
+                            }
+                          },
+                        ),
+                      ),
                     );
                   },
                 ),
@@ -463,6 +509,7 @@ class _AllocationCardState extends ConsumerState<_AllocationCard> {
   @override
   Widget build(BuildContext context) {
     final item = widget.item;
+    final isBlocked = widget.availableQty != null && widget.availableQty! < item.shippedQty;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -520,11 +567,9 @@ class _AllocationCardState extends ConsumerState<_AllocationCard> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Need: ${item.shippedQty}${widget.availableQty != null ? ' · Avail: ${widget.availableQty}' : ''}${item.product.trackingType != TrackingType.untracked ? ' · Got: $_allocatedQty' : ''}',
+                          'Need: ${item.shippedQty}${widget.availableQty != null ? ' · Avail: ${widget.availableQty}' : ''}${item.product.trackingType != TrackingType.untracked && !isBlocked ? ' · Got: $_allocatedQty' : ''}',
                           style: AppTextStyles.caption.copyWith(
-                            color:
-                                (widget.availableQty != null &&
-                                    widget.availableQty! < item.shippedQty)
+                            color: isBlocked
                                 ? AppColors.error
                                 : (_isComplete
                                       ? AppColors.success
@@ -579,7 +624,7 @@ class _AllocationCardState extends ConsumerState<_AllocationCard> {
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              'Assign allocation blocked: Insufficient inventory available (${widget.availableQty}) for required quantity (${item.shippedQty}).',
+                              'Assign allocation blocked: Insufficient inventory available ${widget.availableQty} qty but required ${item.shippedQty} qty.',
                               style: AppTextStyles.bodySmall.copyWith(
                                 color: AppColors.error,
                                 fontWeight: FontWeight.w600,

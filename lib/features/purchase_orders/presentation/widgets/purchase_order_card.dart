@@ -5,16 +5,25 @@ import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/widgets/status_badge.dart';
 import '../../data/models/purchase_order_model.dart';
 
-class PurchaseOrderCard extends StatelessWidget {
+class PurchaseOrderCard extends StatefulWidget {
   final PurchaseOrderModel po;
   final VoidCallback onTap;
 
   const PurchaseOrderCard({super.key, required this.po, required this.onTap});
 
   @override
+  State<PurchaseOrderCard> createState() => _PurchaseOrderCardState();
+}
+
+class _PurchaseOrderCardState extends State<PurchaseOrderCard> {
+  bool _isExpanded = false;
+
+  @override
   Widget build(BuildContext context) {
+    final po = widget.po;
+    
     return GestureDetector(
-      onTap: onTap,
+      onTap: widget.onTap,
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -30,7 +39,7 @@ class PurchaseOrderCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                "Po.No: ${po.purchaseOrderNumber}",
+                    "PO.No: ${po.purchaseOrderNumber}",
                     style: AppTextStyles.headingMedium,
                   ),
                 ),
@@ -121,6 +130,7 @@ class PurchaseOrderCard extends StatelessWidget {
                 const Spacer(),
                 if (po.deliveryDate != null && po.createdDate != null)
                   Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Row(
                         children: [
@@ -138,7 +148,7 @@ class PurchaseOrderCard extends StatelessWidget {
                           ),
                         ],
                       ),
-
+                      const SizedBox(height: 4),
                       Row(
                         children: [
                           const Icon(
@@ -159,9 +169,70 @@ class PurchaseOrderCard extends StatelessWidget {
                   ),
               ],
             ),
+
+            if (po.grns.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              const Divider(height: 1),
+              const SizedBox(height: 12),
+              Text(
+                'GRNs (${po.grns.length})',
+                style: AppTextStyles.labelMedium.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              
+              // GRN List
+              ...List.generate(
+                _isExpanded ? po.grns.length : (po.grns.length > 3 ? 3 : po.grns.length),
+                (index) {
+                  final grn = po.grns[index];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.receipt_long_rounded, size: 14, color: AppColors.textMuted),
+                            const SizedBox(width: 6),
+                            Text(
+                              grn.grnNumber,
+                              style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w500),
+                            ),
+                          ],
+                        ),
+                        StatusBadge(status: grn.status, large: false),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              
+              if (po.grns.length > 3)
+                Center(
+                  child: TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _isExpanded = !_isExpanded;
+                      });
+                    },
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Text(
+                      _isExpanded ? 'Show Less' : 'Show More',
+                      style: AppTextStyles.labelMedium.copyWith(color: AppColors.primary),
+                    ),
+                  ),
+                ),
+            ],
           ],
         ),
       ),
     );
   }
 }
+

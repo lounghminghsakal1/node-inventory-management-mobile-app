@@ -32,38 +32,35 @@ class InfoModal extends StatelessWidget {
   static void showShipmentLifecycle(BuildContext context) {
     show(
       context,
-      title: 'Shipment Lifecycle & Tracking',
-      description: 'These shows all line items of the shipment with quantity to be shipped. Each line item has a tracking type:\n'
-          '• Batch: Product quantities are grouped together under a single unit.\n'
-          '• Serial: Each product is treated as a separate, individually tracked item.\n'
-          '• Untracked: Items requiring no specific tracking.',
+      title: 'How to Process a Shipment',
+      description: 'Follow these steps to process a shipment from start to finish. Some items are tracked by Batch (group) or Serial (one by one).',
       items: const [
         InfoModalItem(
-          title: 'State - Created',
+          title: 'Step 1: Created',
           titleColor: AppColors.primary,
-          content: 'Now the shipment is in the created state. Next, allocations should be made by clicking "Manage Allocations".\n\n'
-              '• If blocked: There is no inventory. You must do a GRN or contact admin.\n'
-              '• Assigning: For manual allocation, you must choose a batch and enter the quantity. For LIFO/FIFO, no manual allocation is needed.',
+          content: 'What you do: Click "Manage Allocations" to pick items from your stock.\n'
+              '• Not enough stock? You must add more stock (GRN) first.\n'
+              '• How to pick: The app might pick for you. If not, pick the items yourself.',
         ),
         InfoModalItem(
-          title: 'State - Allocated',
+          title: 'Step 2: Allocated',
           titleColor: AppColors.warning,
-          content: 'Once quantities are allocated for all line items, the shipment status becomes allocated. You can still edit the allocations you made. Next, proceed to packing. Note: Once proceeded to packing, you cannot edit the allocations.',
+          content: 'What you do: Check if the picked items are correct. If yes, click to pack them. Warning: Once you pack, you cannot change the items.',
         ),
         InfoModalItem(
-          title: 'State - Packed',
+          title: 'Step 3: Packed',
           titleColor: AppColors.secondary,
-          content: 'Allocations are locked. To create an invoice, click on "Create Invoice", then proceed to dispatch.',
+          content: 'What you do: The items are in boxes. Now click "Create Invoice" to make a bill. Then, you are ready to send them.',
         ),
         InfoModalItem(
-          title: 'State - Dispatched',
+          title: 'Step 4: Dispatched',
           titleColor: Colors.cyan,
-          content: 'For dispatch, you must upload photos at the line item level (if required). You must also enter driver-related fields and upload one media file to mark as dispatched.',
+          content: 'What you do: Add photos of the boxes. Type the driver details and take one photo of the truck. Then, mark it as sent.',
         ),
         InfoModalItem(
-          title: 'State - Delivered',
+          title: 'Step 5: Delivered',
           titleColor: AppColors.success,
-          content: 'To mark as delivered, you must upload one media file.',
+          content: 'What you do: Take one last photo to prove the items reached the customer.',
         ),
       ],
     );
@@ -72,23 +69,23 @@ class InfoModal extends StatelessWidget {
   static void showGrnLifecycle(BuildContext context) {
     show(
       context,
-      title: 'Goods Receipt Note (GRN) Lifecycle',
-      description: 'A GRN is used to record the delivery of items against a Purchase Order. A single PO can have multiple GRNs until all items are fully received.',
+      title: 'How to Receive Items (GRN)',
+      description: 'Follow these simple steps to receive your items:',
       items: const [
         InfoModalItem(
-          title: 'State - Created',
+          title: 'Step 1: Created (Inwarding)',
           titleColor: AppColors.primary,
-          content: 'The GRN is initiated upon goods arrival. At this stage, you must receive the physical items and log their quantities. You can continue receiving items until the quantities match the vendor invoice.',
+          content: 'What you need to do:\n1. Open the boxes you received.\n2. Count all the items inside.\n3. Type that exact number into the app.\n4. Click save.',
         ),
         InfoModalItem(
-          title: 'State - QC Pending',
+          title: 'Step 2: QC Pending (Quality Check)',
           titleColor: AppColors.warning,
-          content: 'The received items are awaiting Quality Control. You must verify accepted and rejected quantities for each line item. If required by warehouse configuration, you must also upload photos of the items.',
+          content: 'What you need to do:\n1. Look closely at the items you received.\n2. How many are in good condition? Type that number in "Accepted".\n3. How many are broken or bad? Type that number in "Rejected".\n4. Add photos if something is broken.\n5. Click save.',
         ),
         InfoModalItem(
-          title: 'State - Completed',
+          title: 'Step 3: Completed',
           titleColor: AppColors.success,
-          content: 'The GRN process is finished. The accepted goods are now added to your warehouse inventory and are available for allocation.',
+          content: 'What happens now:\nGreat job! You are all done. The good items have been safely added to your inventory.',
         ),
       ],
     );

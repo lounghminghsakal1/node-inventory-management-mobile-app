@@ -225,6 +225,26 @@ class PoSkuItemModel {
   }
 }
 
+class PoGrnModel {
+  final int id;
+  final String grnNumber;
+  final String status;
+
+  const PoGrnModel({
+    required this.id,
+    required this.grnNumber,
+    required this.status,
+  });
+
+  factory PoGrnModel.fromJson(Map<String, dynamic> json) {
+    return PoGrnModel(
+      id: json['id'] ?? 0,
+      grnNumber: json['grn_number'] ?? '',
+      status: json['status'] ?? '',
+    );
+  }
+}
+
 class PurchaseOrderModel {
   final int id;
   final String purchaseOrderNumber;
@@ -238,6 +258,7 @@ class PurchaseOrderModel {
   final VendorModel vendor;
   final List<PurchaseOrderLineItemModel> lineItems;
   final List<GrnModel> goodsReceivedNotes;
+  final List<PoGrnModel> grns;
   final String? createdByName;
 
   const PurchaseOrderModel({
@@ -253,6 +274,7 @@ class PurchaseOrderModel {
     required this.vendor,
     this.lineItems = const [],
     this.goodsReceivedNotes = const [],
+    this.grns = const [],
     this.createdByName,
   });
 
@@ -276,6 +298,10 @@ class PurchaseOrderModel {
           [],
       goodsReceivedNotes: (json['goods_received_notes'] as List?)
               ?.map((e) => GrnModel.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      grns: (json['grns'] as List?)
+              ?.map((e) => PoGrnModel.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
     );

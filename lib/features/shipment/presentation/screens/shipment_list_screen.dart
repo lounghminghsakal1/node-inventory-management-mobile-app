@@ -11,7 +11,10 @@ import '../widgets/shipment_card.dart';
 import "../../../../core/widgets/back_to_home_scope.dart";
 
 class ShipmentListScreen extends ConsumerStatefulWidget {
-  const ShipmentListScreen({super.key});
+  final String? filter;
+  final String? tab;
+  final String? type;
+  const ShipmentListScreen({super.key, this.filter, this.tab, this.type});
 
   @override
   ConsumerState<ShipmentListScreen> createState() => _ShipmentListScreenState();
@@ -19,6 +22,7 @@ class ShipmentListScreen extends ConsumerStatefulWidget {
 
 class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
     with TickerProviderStateMixin {
+  String? _activeFilter;
   late TabController _typeTabCtrl;
   late TabController _statusTabCtrl;
   final TextEditingController _searchCtrl = TextEditingController();
@@ -76,13 +80,52 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
   @override
   void initState() {
     super.initState();
-    _typeTabCtrl = TabController(length: 2, vsync: this);
+    _activeFilter = widget.filter;
+    
+    int initialTypeIndex = widget.type == 'return' ? 1 : 0;
+    _shipmentType = initialTypeIndex == 0 ? 'forward_shipment' : 'reverse_shipment';
+    _typeTabCtrl = TabController(length: 2, vsync: this, initialIndex: initialTypeIndex);
+    
+    final statusTabs = initialTypeIndex == 0 ? _forwardStatusTabs : _returnStatusTabs;
+    int initialStatusIndex = 0;
+    if (widget.tab == 'dispatched' && initialTypeIndex == 0) {
+      initialStatusIndex = 1;
+    } else if (widget.tab == 'initiated' && initialTypeIndex == 1) {
+      initialStatusIndex = 0;
+    }
+    
     _statusTabCtrl = TabController(
-      length: _forwardStatusTabs.length,
+      length: statusTabs.length,
       vsync: this,
+      initialIndex: initialStatusIndex,
     );
+    
     _typeTabCtrl.addListener(_onTypeTabChanged);
     _statusTabCtrl.addListener(_onStatusTabChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant ShipmentListScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.filter != oldWidget.filter || widget.tab != oldWidget.tab || widget.type != oldWidget.type) {
+      setState(() {
+        if (widget.filter != oldWidget.filter) _activeFilter = widget.filter;
+      });
+      if (widget.type != oldWidget.type) {
+        if (widget.type == 'return' && _typeTabCtrl.index != 1) {
+          _typeTabCtrl.animateTo(1);
+        } else if (widget.type != 'return' && _typeTabCtrl.index != 0) {
+          _typeTabCtrl.animateTo(0);
+        }
+      }
+      if (widget.tab != oldWidget.tab) {
+        if (widget.tab == 'dispatched' && _typeTabCtrl.index == 0) {
+          if (_statusTabCtrl.length > 1) _statusTabCtrl.animateTo(1);
+        } else if (widget.tab == 'initiated' && _typeTabCtrl.index == 1) {
+          if (_statusTabCtrl.length > 0) _statusTabCtrl.animateTo(0);
+        }
+      }
+    }
   }
 
   @override
@@ -336,7 +379,17 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
                         s.customerName.toLowerCase().contains(q) ||
                         (s.customerId?.toLowerCase().contains(q) ?? false) ||
                         s.orderNumber.toLowerCase().contains(q);
-                    return matchesStatus && matchesSearch;
+                    
+                    bool matchesActiveFilter = true;
+                    if (_activeFilter == 'unallocated' && tab.$1 == 'Pending') {
+                      matchesActiveFilter = s.status == ShipmentStatus.created;
+                    } else if (_activeFilter == 'to_pack' && tab.$1 == 'Pending') {
+                      matchesActiveFilter = s.status == ShipmentStatus.allocated && s.fullyAllocated == true;
+                    } else if (_activeFilter == 'to_dispatch' && tab.$1 == 'Pending') {
+                      matchesActiveFilter = s.status == ShipmentStatus.packed;
+                    }
+
+                    return matchesStatus && matchesSearch && matchesActiveFilter;
                   }).toList();
 
                   if (state.isLoading && !state.isMoreLoading) {
@@ -347,15 +400,53 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
                     );
                   }
 
-                  return RefreshIndicator(
-                    color: AppColors.primary,
-                    backgroundColor: AppColors.card,
-                    onRefresh: () async {
-                      await ref
-                          .read(shipmentListProvider.notifier)
-                          .load(page: 1, byShipmentType: _shipmentType);
-                    },
-                    child: NotificationListener<ScrollNotification>(
+                  return Column(
+                    children: [
+                      if (_activeFilter != null && tab.$1 == 'Pending')
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          color: AppColors.warning.withValues(alpha: 0.2),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  _activeFilter == 'unallocated' ? 'Showing only unallocated' : 
+                                  _activeFilter == 'to_pack' ? 'Showing only to pack' : 
+                                  _activeFilter == 'to_dispatch' ? 'Showing only to dispatch' : 'Filtered',
+                                  style: AppTextStyles.bodySmall.copyWith(color: AppColors.warning, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.close, color: AppColors.warning, size: 20),
+                                onPressed: () {
+                                  setState(() {
+                                    _activeFilter = null;
+                                  });
+                                  final newUri = Uri(
+                                    path: '/shipments',
+                                    queryParameters: {
+                                      if (widget.tab != null) 'tab': widget.tab!,
+                                      if (widget.type != null) 'type': widget.type!,
+                                    },
+                                  );
+                                  context.go(newUri.toString());
+                                },
+                                constraints: const BoxConstraints(),
+                                padding: EdgeInsets.zero,
+                              ),
+                            ],
+                          ),
+                        ),
+                      Expanded(
+                        child: RefreshIndicator(
+                          color: AppColors.primary,
+                          backgroundColor: AppColors.card,
+                          onRefresh: () async {
+                            await ref
+                                .read(shipmentListProvider.notifier)
+                                .load(page: 1, byShipmentType: _shipmentType);
+                          },
+                          child: NotificationListener<ScrollNotification>(
                       onNotification: (notification) {
                         if (!filtered.isEmpty &&
                             (notification is ScrollEndNotification ||
@@ -436,7 +527,10 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
                                 );
                               },
                             ),
-                    ),
+                          ),
+                        ),
+                      ),
+                    ],
                   );
                 }).toList(),
               ),

@@ -186,7 +186,7 @@ class HomeScreen extends ConsumerWidget {
             onTap: () => _navigateWithPermission(
               context,
               ref,
-              '/shipments',
+              '/shipments?type=return&tab=initiated',
               'Shipments',
               'Shipment',
             ),
@@ -240,7 +240,7 @@ class HomeScreen extends ConsumerWidget {
             onTap: () => _navigateWithPermission(
               context,
               ref,
-              '/shipments',
+              '/shipments?type=return&tab=initiated',
               'Shipments',
               'Shipment',
             ),
@@ -462,17 +462,41 @@ class HomeScreen extends ConsumerWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              _buildStatRowCard('Shipments\nUnallocated', stats.pendingActions.unallocated, Icons.warning_amber_rounded, AppColors.warning),
+              _buildStatRowCard(
+                'Shipments\nUnallocated',
+                stats.pendingActions.unallocated,
+                Icons.warning_amber_rounded,
+                AppColors.warning,
+                onTap: () => _navigateWithPermission(context, ref, '/shipments?filter=unallocated', 'Shipments', 'Shipment'),
+              ),
               const SizedBox(width: 12),
-              _buildStatRowCard('Shipments\nto Pack', stats.pendingActions.toPack, Icons.inventory_2_outlined, AppColors.primary),
+              _buildStatRowCard(
+                'Shipments\nto Pack',
+                stats.pendingActions.toPack,
+                Icons.inventory_2_outlined,
+                AppColors.primary,
+                onTap: () => _navigateWithPermission(context, ref, '/shipments?filter=to_pack', 'Shipments', 'Shipment'),
+              ),
             ],
           ),
           const SizedBox(height: 12),
           Row(
             children: [
-              _buildStatRowCard('Shipments\nto Dispatch', stats.pendingActions.toDispatch, Icons.local_shipping_outlined, AppColors.secondary),
+              _buildStatRowCard(
+                'Shipments\nto Dispatch',
+                stats.pendingActions.toDispatch,
+                Icons.local_shipping_outlined,
+                AppColors.secondary,
+                onTap: () => _navigateWithPermission(context, ref, '/shipments?filter=to_dispatch', 'Shipments', 'Shipment'),
+              ),
               const SizedBox(width: 12),
-              _buildStatRowCard('Returns\nPending', stats.pendingActions.returnsPending, Icons.keyboard_return_rounded, AppColors.error),
+              _buildStatRowCard(
+                'Shipments Returns\nPending',
+                stats.pendingActions.returnsPending,
+                Icons.keyboard_return_rounded,
+                AppColors.error,
+                onTap: () => _navigateWithPermission(context, ref, '/shipments?type=return&tab=initiated', 'Shipments', 'Shipment'),
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -483,9 +507,9 @@ class HomeScreen extends ConsumerWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              _buildStatRowCard('Dispatched\nToday', stats.todaySummary.dispatchedToday, Icons.check_circle_outline, AppColors.success),
+              _buildStatRowCard('Shipments Dispatched\nToday', stats.todaySummary.dispatchedToday, Icons.check_circle_outline, AppColors.success),
               const SizedBox(width: 12),
-              _buildStatRowCard('Returns\nCompleted', stats.todaySummary.returnsCompletedToday, Icons.assignment_return_outlined, AppColors.textSecondary),
+              _buildStatRowCard('Shipments Returns\nCompleted', stats.todaySummary.returnsCompletedToday, Icons.assignment_return_outlined, AppColors.textSecondary),
             ],
           ),
           const SizedBox(height: 12),
@@ -508,7 +532,7 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatRowCard(String title, int value, IconData icon, Color color) {
+  Widget _buildStatRowCard(String title, int value, IconData icon, Color color, {VoidCallback? onTap}) {
     return Expanded(
       child: Container(
         decoration: BoxDecoration(
@@ -516,40 +540,49 @@ class HomeScreen extends ConsumerWidget {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: AppColors.cardBorder),
         ),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(icon, color: color, size: 20),
+                      ),
+                      Text(
+                        value.toString(),
+                        style: AppTextStyles.headingMedium.copyWith(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 22,
+                        ),
+                      ),
+                    ],
                   ),
-                  child: Icon(icon, color: color, size: 20),
-                ),
-                Text(
-                  value.toString(),
-                  style: AppTextStyles.headingMedium.copyWith(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 22,
+                  const SizedBox(height: 12),
+                  Text(
+                    title,
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 2,
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: AppTextStyles.caption.copyWith(
-                color: AppColors.textSecondary,
-                fontWeight: FontWeight.w600,
+                ],
               ),
-              maxLines: 2,
             ),
-          ],
+          ),
         ),
       ),
     );

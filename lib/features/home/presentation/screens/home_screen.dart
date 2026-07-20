@@ -458,68 +458,9 @@ class HomeScreen extends ConsumerWidget {
       data: (stats) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildSectionLabel('Pending Actions'),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              _buildStatRowCard(
-                'Shipments\nUnallocated',
-                stats.pendingActions.unallocated,
-                Icons.warning_amber_rounded,
-                AppColors.warning,
-                onTap: () => _navigateWithPermission(context, ref, '/shipments?filter=unallocated', 'Shipments', 'Shipment'),
-              ),
-              const SizedBox(width: 12),
-              _buildStatRowCard(
-                'Shipments\nto Pack',
-                stats.pendingActions.toPack,
-                Icons.inventory_2_outlined,
-                AppColors.primary,
-                onTap: () => _navigateWithPermission(context, ref, '/shipments?filter=to_pack', 'Shipments', 'Shipment'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              _buildStatRowCard(
-                'Shipments\nto Dispatch',
-                stats.pendingActions.toDispatch,
-                Icons.local_shipping_outlined,
-                AppColors.secondary,
-                onTap: () => _navigateWithPermission(context, ref, '/shipments?filter=to_dispatch', 'Shipments', 'Shipment'),
-              ),
-              const SizedBox(width: 12),
-              _buildStatRowCard(
-                'Shipments Returns\nPending',
-                stats.pendingActions.returnsPending,
-                Icons.keyboard_return_rounded,
-                AppColors.error,
-                onTap: () => _navigateWithPermission(context, ref, '/shipments?type=return&tab=initiated', 'Shipments', 'Shipment'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _buildFullWidthStatCard('GRN QC Pending', stats.pendingActions.grnQcPending, Icons.fact_check_outlined, AppColors.accent),
-          
+          _buildPendingActionsSection(context, ref, stats),
           const SizedBox(height: 24),
-          _buildSectionLabel("Today's Summary"),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              _buildStatRowCard('Shipments Dispatched\nToday', stats.todaySummary.dispatchedToday, Icons.check_circle_outline, AppColors.success),
-              const SizedBox(width: 12),
-              _buildStatRowCard('Shipments Returns\nCompleted', stats.todaySummary.returnsCompletedToday, Icons.assignment_return_outlined, AppColors.textSecondary),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              _buildStatRowCard('GRNs\nCompleted', stats.todaySummary.grnsCompletedToday, Icons.receipt_long_rounded, Colors.cyan),
-              const SizedBox(width: 12),
-              _buildStatRowCard('Items\nReceived', stats.todaySummary.itemsReceivedToday, Icons.move_to_inbox_rounded, AppColors.primary),
-            ],
-          ),
+          _buildTodaySummarySection(context, ref, stats),
         ],
       ),
       loading: () => const Center(
@@ -532,50 +473,299 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatRowCard(String title, int value, IconData icon, Color color, {VoidCallback? onTap}) {
+  Widget _buildPendingActionsSection(
+    BuildContext context,
+    WidgetRef ref,
+    NodeStats stats,
+  ) {
+    final pending = stats.pendingActions;
+    final totalPending = pending.unallocated +
+        pending.toPack +
+        pending.toDispatch +
+        pending.returnsPending +
+        pending.grnQcPending;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.cardElevated.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.warning.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.pending_actions_rounded,
+                  color: AppColors.warning,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(child: _buildSectionLabel('Pending Actions')),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: totalPending > 0
+                      ? AppColors.error.withValues(alpha: 0.1)
+                      : AppColors.success.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  totalPending > 0 ? '$totalPending open' : 'All clear',
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: totalPending > 0 ? AppColors.error : AppColors.success,
+                    letterSpacing: 0,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              _buildActionTile(
+                'Unallocated',
+                pending.unallocated,
+                Icons.warning_amber_rounded,
+                AppColors.warning,
+                onTap: () => _navigateWithPermission(context, ref, '/shipments?filter=unallocated', 'Shipments', 'Shipment'),
+              ),
+              const SizedBox(width: 12),
+              _buildActionTile(
+                'To Pack',
+                pending.toPack,
+                Icons.inventory_2_outlined,
+                AppColors.primary,
+                onTap: () => _navigateWithPermission(context, ref, '/shipments?filter=to_pack', 'Shipments', 'Shipment'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _buildActionTile(
+                'To Dispatch',
+                pending.toDispatch,
+                Icons.local_shipping_outlined,
+                AppColors.secondary,
+                onTap: () => _navigateWithPermission(context, ref, '/shipments?filter=to_dispatch', 'Shipments', 'Shipment'),
+              ),
+              const SizedBox(width: 12),
+              _buildActionTile(
+                'Returns Pending',
+                pending.returnsPending,
+                Icons.keyboard_return_rounded,
+                AppColors.error,
+                onTap: () => _navigateWithPermission(context, ref, '/shipments?type=return&tab=initiated', 'Shipments', 'Shipment'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _buildActionFullTile(
+            'GRN QC Pending',
+            pending.grnQcPending,
+            Icons.fact_check_outlined,
+            AppColors.accent,
+            onTap: () => _navigateWithPermission(context, ref, '/purchase-orders', 'PurchaseOrder', 'PurchaseOrder'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTodaySummarySection(
+    BuildContext context,
+    WidgetRef ref,
+    NodeStats stats,
+  ) {
+    final today = stats.todaySummary;
+    final todayLabel = HelperFunctions.formatDate(DateTime.now(), hasTime: false);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.success.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.success.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.insights_rounded,
+                  color: AppColors.success,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(child: _buildSectionLabel("Today's Summary")),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: AppColors.card,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppColors.cardBorder.withValues(alpha: 0.15)),
+                ),
+                child: Text(
+                  todayLabel,
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: AppColors.textSecondary,
+                    letterSpacing: 0,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              _buildActionTile(
+                'Dispatched Today',
+                today.dispatchedToday,
+                Icons.check_circle_outline,
+                AppColors.success,
+                showAlert: false,
+              ),
+              const SizedBox(width: 12),
+              _buildActionTile(
+                'Returns Completed',
+                today.returnsCompletedToday,
+                Icons.assignment_return_outlined,
+                AppColors.accent,
+                showAlert: false,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _buildActionTile(
+                'GRNs Completed',
+                today.grnsCompletedToday,
+                Icons.receipt_long_rounded,
+                Colors.cyan.shade700,
+                showAlert: false,
+              ),
+              const SizedBox(width: 12),
+              _buildActionTile(
+                'Items Received',
+                today.itemsReceivedToday,
+                Icons.move_to_inbox_rounded,
+                AppColors.primary,
+                showAlert: false,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionTile(
+    String title,
+    int value,
+    IconData icon,
+    Color color, {
+    VoidCallback? onTap,
+    bool showAlert = true,
+  }) {
+    final hasValue = value > 0;
     return Expanded(
       child: Container(
         decoration: BoxDecoration(
           color: AppColors.card,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.cardBorder),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.cardBorder.withValues(alpha: 0.15)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Material(
           color: Colors.transparent,
           child: InkWell(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: color.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Icon(icon, color: color, size: 20),
+                      Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: color.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(icon, color: color, size: 20),
+                          ),
+                          if (showAlert && hasValue)
+                            Positioned(
+                              top: -3,
+                              right: -3,
+                              child: Container(
+                                width: 11,
+                                height: 11,
+                                decoration: BoxDecoration(
+                                  color: AppColors.error,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: AppColors.card, width: 2),
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
-                      Text(
-                        value.toString(),
-                        style: AppTextStyles.headingMedium.copyWith(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 22,
+                      if (onTap != null)
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          color: AppColors.textMuted.withValues(alpha: 0.5),
+                          size: 18,
                         ),
-                      ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 14),
+                  Text(
+                    value.toString(),
+                    style: AppTextStyles.headingXL.copyWith(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 24,
+                      color: hasValue ? AppColors.textPrimary : AppColors.textDisabled,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
                   Text(
                     title,
                     style: AppTextStyles.caption.copyWith(
                       color: AppColors.textSecondary,
                       fontWeight: FontWeight.w600,
+                      fontSize: 11.5,
                     ),
                     maxLines: 2,
                   ),
@@ -588,43 +778,96 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildFullWidthStatCard(String title, int value, IconData icon, Color color) {
+  Widget _buildActionFullTile(
+    String title,
+    int value,
+    IconData icon,
+    Color color, {
+    VoidCallback? onTap,
+    bool showAlert = true,
+  }) {
+    final hasValue = value > 0;
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
         color: AppColors.card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.cardBorder),
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, color: color, size: 24),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Text(
-              title,
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: AppColors.textSecondary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          Text(
-            value.toString(),
-            style: AppTextStyles.headingMedium.copyWith(
-              fontWeight: FontWeight.bold,
-              fontSize: 24,
-            ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.cardBorder.withValues(alpha: 0.15)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(icon, color: color, size: 20),
+                    ),
+                    if (showAlert && hasValue)
+                      Positioned(
+                        top: -3,
+                        right: -3,
+                        child: Container(
+                          width: 11,
+                          height: 11,
+                          decoration: BoxDecoration(
+                            color: AppColors.error,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: AppColors.card, width: 2),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                Text(
+                  value.toString(),
+                  style: AppTextStyles.headingXL.copyWith(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 22,
+                    color: hasValue ? AppColors.textPrimary : AppColors.textDisabled,
+                  ),
+                ),
+                if (onTap != null) ...[
+                  const SizedBox(width: 6),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppColors.textMuted.withValues(alpha: 0.5),
+                    size: 18,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

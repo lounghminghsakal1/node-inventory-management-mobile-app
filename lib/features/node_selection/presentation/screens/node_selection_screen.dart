@@ -94,12 +94,27 @@ class _NodeSelectionScreenState extends ConsumerState<NodeSelectionScreen>
                     loading: () => _buildLoading(),
                     error: (e, _) => _buildError(e),
                     data: (nodes) {
-                      // Auto-select only when there's a single node; otherwise
-                      // let the user pick.
-                      if (_selected == null && nodes.length == 1) {
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (mounted) setState(() => _selected = nodes.first);
-                        });
+                      // Default to the node the user is currently in, if it's
+                      // in the list. Otherwise auto-select only when there's a
+                      // single node; else let the user pick.
+                      if (_selected == null && nodes.isNotEmpty) {
+                        final currentNodeId = ref.read(authProvider).node?.id;
+                        NodeModel? preselect;
+                        if (currentNodeId != null) {
+                          for (final n in nodes) {
+                            if (n.id == currentNodeId) {
+                              preselect = n;
+                              break;
+                            }
+                          }
+                        }
+                        preselect ??= nodes.length == 1 ? nodes.first : null;
+                        if (preselect != null) {
+                          final toSelect = preselect;
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (mounted) setState(() => _selected = toSelect);
+                          });
+                        }
                       }
                       return _buildNodeList(nodes);
                     },

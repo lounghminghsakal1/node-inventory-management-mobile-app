@@ -519,7 +519,7 @@ class HomeScreen extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  totalPending > 0 ? '$totalPending open' : 'All clear',
+                  totalPending > 0 ? '$totalPending pending' : 'All clear',
                   style: AppTextStyles.labelSmall.copyWith(
                     color: totalPending > 0 ? AppColors.error : AppColors.success,
                     letterSpacing: 0,

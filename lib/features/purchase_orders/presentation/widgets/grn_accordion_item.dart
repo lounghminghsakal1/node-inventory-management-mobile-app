@@ -55,6 +55,9 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
   final Map<int, bool> _isUploadingPhoto = {};
   bool _qcPhotosInitialized = false;
 
+  GrnModel get _currentGrn =>
+      ref.read(grnDetailProvider(widget.grn.id)).value ?? widget.grn;
+
   @override
   void dispose() {
     for (final c in _skuQtyControllers.values) {
@@ -80,8 +83,9 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
 
   @override
   Widget build(BuildContext context) {
-    final grn = widget.grn;
-    
+    final grnAsync = ref.watch(grnDetailProvider(widget.grn.id));
+    final grn = grnAsync.value ?? widget.grn;
+
     return Container(
       decoration: BoxDecoration(
         color: AppColors.card,
@@ -149,16 +153,14 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
             const Divider(height: 1),
             Padding(
               padding: const EdgeInsets.all(16),
-              child: ref
-                  .watch(grnDetailProvider(widget.grn.id))
-                  .when(
-                    loading: () => const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 32),
-                      child: Center(child: CircularProgressIndicator()),
-                    ),
-                    error: (e, _) => _buildExpandedBody(widget.grn), // fallback
-                    data: (detailedGrn) => _buildExpandedBody(detailedGrn),
-                  ),
+              child: grnAsync.when(
+                loading: () => const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 32),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+                error: (e, _) => _buildExpandedBody(grn), // fallback
+                data: (detailedGrn) => _buildExpandedBody(detailedGrn),
+              ),
             ),
           ],
         ],
@@ -1527,6 +1529,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
             widget.grn.id,
             widget.grn.purchaseOrderId,
             updatedList,
+            _currentGrn,
           );
       if (!mounted) return;
       setState(() {
@@ -1538,10 +1541,6 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
         _skuSerials.clear();
         _inwardBlocks = [null];
       });
-      ref.invalidate(grnDetailProvider(widget.grn.id));
-      await ref.read(grnDetailProvider(widget.grn.id).future);
-      if (!mounted) return;
-      ref.invalidate(poSkuItemsProvider(widget.grn.purchaseOrderId));
       showTopSuccessSnackBar(context, "Line items added to GRN successfully");
     } catch (e) {
       if (!mounted) return;
@@ -1595,12 +1594,9 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
             widget.grn.id,
             widget.grn.purchaseOrderId,
             updatedList,
+            _currentGrn,
           );
       if (!mounted) return;
-      ref.invalidate(grnDetailProvider(widget.grn.id));
-      await ref.read(grnDetailProvider(widget.grn.id).future);
-      if (!mounted) return;
-      ref.invalidate(poSkuItemsProvider(widget.grn.purchaseOrderId));
       showTopSuccessSnackBar(context, "Line item updated successfully");
     } catch (e) {
       if (!mounted) return;
@@ -1664,12 +1660,9 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
             widget.grn.id,
             widget.grn.purchaseOrderId,
             updatedList,
+            _currentGrn,
           );
       if (!mounted) return;
-      ref.invalidate(grnDetailProvider(widget.grn.id));
-      await ref.read(grnDetailProvider(widget.grn.id).future);
-      if (!mounted) return;
-      ref.invalidate(poSkuItemsProvider(widget.grn.purchaseOrderId));
       showTopSuccessSnackBar(context, "Line item removed successfully");
     } catch (e) {
       if (!mounted) return;
@@ -2073,7 +2066,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
 
       await ref
           .read(grnControllerProvider.notifier)
-          .submitQc(widget.grn.id, widget.grn.purchaseOrderId, allItems);
+          .submitQc(widget.grn.id, widget.grn.purchaseOrderId, allItems, _currentGrn);
       if (!mounted) return;
       showTopSuccessSnackBar(context, "Quality Check submitted and grn completed successfully!");
     } catch (e) {

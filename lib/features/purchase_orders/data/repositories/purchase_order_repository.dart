@@ -166,9 +166,45 @@ class PurchaseOrderRepository {
     return GrnModel.fromJson(data);
   }
 
+  // Merges a `{ goods_received_note, grn_line_items }` payload (returned by the
+  // save-line-items and submit-qc endpoints) onto the currently known GrnModel,
+  // so the caller doesn't need a follow-up GET to fetch the updated GRN.
+  dynamic _numifyFinalAmount(dynamic value) {
+    if (value is String) return num.tryParse(value) ?? value;
+    return value;
+  }
+
+  GrnModel _mergeGrnUpdateResponse(GrnModel currentGrn, Map<String, dynamic> data) {
+    final grnData = data['goods_received_note'] as Map<String, dynamic>? ?? {};
+    final mergedJson = currentGrn.toJson();
+    grnData.forEach((key, value) {
+      final targetKey = key == 'vendor_invoice' ? 'vendor_invoice_no' : key;
+      mergedJson[targetKey] =
+          targetKey == 'final_amount' ? _numifyFinalAmount(value) : value;
+    });
+
+    final existingItemsById = {
+      for (final li in currentGrn.lineItems) li.id: li.toJson(),
+    };
+    final rawLineItems = data['grn_line_items'] as List? ?? [];
+    mergedJson['grn_line_items'] = rawLineItems.map((e) {
+      final incoming = Map<String, dynamic>.from(e as Map);
+      final base = Map<String, dynamic>.from(
+        existingItemsById[incoming['id']] ?? {},
+      )..addAll(incoming);
+      if (base['final_amount'] != null) {
+        base['final_amount'] = _numifyFinalAmount(base['final_amount']);
+      }
+      return base;
+    }).toList();
+
+    return GrnModel.fromJson(mergedJson);
+  }
+
   Future<GrnModel> updateGrnLineItems(
     int grnId,
     List<GrnLineItemModel> newLineItems,
+    GrnModel currentGrn,
   ) async {
     final body = {
       "grn_line_items": newLineItems.map((li) {
@@ -198,17 +234,17 @@ class PurchaseOrderRepository {
       ApiEndpoints.saveGrnLineItems(grnId.toString()),
       data: body,
     );
-    if (res.data is Map<String, dynamic>) {
-      final status = res.data['status']?.toString().toLowerCase();
-      if (status != null && status != 'success' && status != 'ok') {
-        throw Exception(
-          res.data['message'] ??
-              res.data['error'] ??
-              'Failed to update GRN line items',
-        );
-      }
+    final resData = res.data as Map<String, dynamic>? ?? {};
+    final status = resData['status']?.toString().toLowerCase();
+    if (status != null && status != 'success' && status != 'ok') {
+      throw Exception(
+        resData['message'] ??
+            resData['error'] ??
+            'Failed to update GRN line items',
+      );
     }
-    return await getGrnDetail(grnId);
+    final data = resData['data'] as Map<String, dynamic>? ?? {};
+    return _mergeGrnUpdateResponse(currentGrn, data);
   }
 
   Future<void> uploadGrnLineItemPhotos(
@@ -250,6 +286,7 @@ class PurchaseOrderRepository {
   Future<GrnModel> submitGrnQc(
     int grnId,
     List<GrnLineItemModel> qcLineItems,
+    GrnModel currentGrn,
   ) async {
     final body = {
       "grn_line_items": qcLineItems.map((li) {
@@ -283,15 +320,15 @@ class PurchaseOrderRepository {
       ApiEndpoints.saveQcLineItems(grnId.toString()),
       data: body,
     );
-    if (res.data is Map<String, dynamic>) {
-      final status = res.data['status']?.toString().toLowerCase();
-      if (status != null && status != 'success' && status != 'ok') {
-        throw Exception(
-          res.data['message'] ?? res.data['error'] ?? 'Failed to submit QC',
-        );
-      }
+    final resData = res.data as Map<String, dynamic>? ?? {};
+    final status = resData['status']?.toString().toLowerCase();
+    if (status != null && status != 'success' && status != 'ok') {
+      throw Exception(
+        resData['message'] ?? resData['error'] ?? 'Failed to submit QC',
+      );
     }
-    return await getGrnDetail(grnId);
+    final data = resData['data'] as Map<String, dynamic>? ?? {};
+    return _mergeGrnUpdateResponse(currentGrn, data);
   }
 
   Future<void> deleteGrnLineItem(int grnId, int grnLineItemId) async {

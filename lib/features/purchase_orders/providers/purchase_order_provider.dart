@@ -219,10 +219,24 @@ final grnListForPoProvider = FutureProvider.family.autoDispose<List<GrnModel>, i
   return repo.getGrnsForPo(poId);
 });
 
-final grnDetailProvider = FutureProvider.family.autoDispose<GrnModel, int>((ref, grnId) async {
-  final repo = ref.watch(purchaseOrderRepoProvider);
-  return repo.getGrnDetail(grnId);
-});
+class GrnDetailNotifier extends AutoDisposeFamilyAsyncNotifier<GrnModel, int> {
+  @override
+  Future<GrnModel> build(int grnId) async {
+    final repo = ref.watch(purchaseOrderRepoProvider);
+    return repo.getGrnDetail(grnId);
+  }
+
+  // Seeds the cache directly from an update response so callers can avoid an
+  // extra GET to refresh a single GRN's details.
+  void setData(GrnModel grn) {
+    state = AsyncValue.data(grn);
+  }
+}
+
+final grnDetailProvider =
+    AsyncNotifierProvider.family.autoDispose<GrnDetailNotifier, GrnModel, int>(
+  GrnDetailNotifier.new,
+);
 
 final poSkuItemsProvider = FutureProvider.family.autoDispose<List<PoSkuItemModel>, int>((ref, poId) async {
   final repo = ref.watch(purchaseOrderRepoProvider);
@@ -285,13 +299,17 @@ class GrnController extends StateNotifier<AsyncValue<void>> {
     }
   }
 
-  Future<void> updateGrnLineItems(int grnId, int poId, List<GrnLineItemModel> items) async {
+  Future<void> updateGrnLineItems(
+    int grnId,
+    int poId,
+    List<GrnLineItemModel> items,
+    GrnModel currentGrn,
+  ) async {
     state = const AsyncValue.loading();
     try {
       final repo = ref.read(purchaseOrderRepoProvider);
-      await repo.updateGrnLineItems(grnId, items);
-      ref.invalidate(grnDetailProvider(grnId));
-      ref.invalidate(grnListForPoProvider(poId));
+      final updatedGrn = await repo.updateGrnLineItems(grnId, items, currentGrn);
+      ref.read(grnDetailProvider(grnId).notifier).setData(updatedGrn);
       ref.invalidate(poSkuItemsProvider(poId));
       state = const AsyncValue.data(null);
     } catch (e, st) {
@@ -314,13 +332,17 @@ class GrnController extends StateNotifier<AsyncValue<void>> {
     }
   }
 
-  Future<void> submitQc(int grnId, int poId, List<GrnLineItemModel> items) async {
+  Future<void> submitQc(
+    int grnId,
+    int poId,
+    List<GrnLineItemModel> items,
+    GrnModel currentGrn,
+  ) async {
     state = const AsyncValue.loading();
     try {
       final repo = ref.read(purchaseOrderRepoProvider);
-      await repo.submitGrnQc(grnId, items);
-      ref.invalidate(grnDetailProvider(grnId));
-      ref.invalidate(grnListForPoProvider(poId));
+      final updatedGrn = await repo.submitGrnQc(grnId, items, currentGrn);
+      ref.read(grnDetailProvider(grnId).notifier).setData(updatedGrn);
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);

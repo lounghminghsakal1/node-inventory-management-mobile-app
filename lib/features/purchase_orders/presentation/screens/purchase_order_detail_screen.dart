@@ -28,6 +28,21 @@ class _PurchaseOrderDetailScreenState
   int? _expandedGrnId;
   bool _isLineItemsExpanded = false;
 
+  Future<void> _onRefresh() async {
+    ref.invalidate(purchaseOrderByIdProvider(widget.poId));
+    ref.invalidate(grnListForPoProvider(widget.poId));
+    final expandedGrnId = _expandedGrnId;
+    if (expandedGrnId != null) {
+      ref.invalidate(grnDetailProvider(expandedGrnId));
+    }
+    await Future.wait([
+      ref.read(purchaseOrderByIdProvider(widget.poId).future),
+      ref.read(grnListForPoProvider(widget.poId).future),
+      if (expandedGrnId != null)
+        ref.read(grnDetailProvider(expandedGrnId).future),
+    ]);
+  }
+
   @override
   Widget build(BuildContext context) {
     final asyncPo = ref.watch(purchaseOrderByIdProvider(widget.poId));
@@ -89,46 +104,50 @@ class _PurchaseOrderDetailScreenState
           ),
         ),
         data: (po) {
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // -- PO Summary Card -----------------------------------------
-                _buildPoSummaryCard(po),
-                const SizedBox(height: 24),
+          return RefreshIndicator(
+            onRefresh: _onRefresh,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // -- PO Summary Card -----------------------------------------
+                  _buildPoSummaryCard(po),
+                  const SizedBox(height: 24),
 
-                // -- Vendor Details Card -------------------------------------
-                // _buildVendorCard(po.vendor),
-                // const SizedBox(height: 24),
+                  // -- Vendor Details Card -------------------------------------
+                  // _buildVendorCard(po.vendor),
+                  // const SizedBox(height: 24),
 
-                // -- PO Line Items Section -----------------------------------
-                _buildLineItemsSection(po.lineItems),
-                const SizedBox(height: 24),
+                  // -- PO Line Items Section -----------------------------------
+                  _buildLineItemsSection(po.lineItems),
+                  const SizedBox(height: 24),
 
-                // -- Goods Received Notes Section ----------------------------
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Goods Received Notes (GRNs)',
-                      style: AppTextStyles.headingMedium,
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.info_outline, color: AppColors.primary, size: 20),
-                      constraints: const BoxConstraints(),
-                      padding: EdgeInsets.zero,
-                      onPressed: () {
-                        InfoModal.showGrnLifecycle(context);
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
+                  // -- Goods Received Notes Section ----------------------------
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Goods Received Notes (GRNs)',
+                        style: AppTextStyles.headingMedium,
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.info_outline, color: AppColors.primary, size: 20),
+                        constraints: const BoxConstraints(),
+                        padding: EdgeInsets.zero,
+                        onPressed: () {
+                          InfoModal.showGrnLifecycle(context);
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
 
-                _buildGrnSection(po),
-                const SizedBox(height: 40),
-              ],
+                  _buildGrnSection(po),
+                  const SizedBox(height: 40),
+                ],
+              ),
             ),
           );
         },

@@ -21,12 +21,22 @@ class _PurchaseOrderCardState extends State<PurchaseOrderCard> {
   String _formatStatusText(String status) {
     final formatted = status.replaceAll('_', ' ').trim();
     if (formatted.isEmpty) return 'Unknown';
+    if (status == "complete") return "Completed";
     return formatted[0].toUpperCase() + formatted.substring(1);
   }
 
   @override
   Widget build(BuildContext context) {
     final po = widget.po;
+    final grn = po.grns[0];
+    print("API String: ${grn.createdAt}");
+
+final dt = DateTime.parse(grn.createdAt!);
+
+print("DateTime: $dt");
+print("isUtc: ${dt.isUtc}");
+print("hour: ${dt.hour}");
+print("timezone: ${dt.timeZoneName}");
     
     return GestureDetector(
       onTap: widget.onTap,
@@ -215,7 +225,7 @@ class _PurchaseOrderCardState extends State<PurchaseOrderCard> {
                               _formatStatusText(grn.status),
                               style: AppTextStyles.bodySmall.copyWith(
                                 color: AppColors.textSecondary,
-                                fontWeight: FontWeight.w500,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
                           ],
@@ -225,7 +235,7 @@ class _PurchaseOrderCardState extends State<PurchaseOrderCard> {
                           Padding(
                             padding: const EdgeInsets.only(left: 20),
                             child: Text(
-                              'Created: ${HelperFunctions.formatDate(DateTime.parse(grn.createdAt!), hasTime: true)}',
+                              'Created: ${HelperFunctions.formatDate(DateTime.parse(grn.createdAt!).toLocal(), hasTime: true)}',
                               style: AppTextStyles.caption.copyWith(color: AppColors.textMuted),
                             ),
                           ),

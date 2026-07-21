@@ -94,8 +94,9 @@ class _NodeSelectionScreenState extends ConsumerState<NodeSelectionScreen>
                     loading: () => _buildLoading(),
                     error: (e, _) => _buildError(e),
                     data: (nodes) {
-                      // Pre-select first node when data loads
-                      if (_selected == null && nodes.isNotEmpty) {
+                      // Auto-select only when there's a single node; otherwise
+                      // let the user pick.
+                      if (_selected == null && nodes.length == 1) {
                         WidgetsBinding.instance.addPostFrameCallback((_) {
                           if (mounted) setState(() => _selected = nodes.first);
                         });

@@ -18,6 +18,12 @@ class PurchaseOrderCard extends StatefulWidget {
 class _PurchaseOrderCardState extends State<PurchaseOrderCard> {
   bool _isExpanded = false;
 
+  String _formatStatusText(String status) {
+    final formatted = status.replaceAll('_', ' ').trim();
+    if (formatted.isEmpty) return 'Unknown';
+    return formatted[0].toUpperCase() + formatted.substring(1);
+  }
+
   @override
   Widget build(BuildContext context) {
     final po = widget.po;
@@ -189,20 +195,41 @@ class _PurchaseOrderCardState extends State<PurchaseOrderCard> {
                   final grn = po.grns[index];
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 8.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Icon(Icons.receipt_long_rounded, size: 14, color: AppColors.textMuted),
-                            const SizedBox(width: 6),
+                            Row(
+                              children: [
+                                const Icon(Icons.receipt_long_rounded, size: 14, color: AppColors.textMuted),
+                                const SizedBox(width: 6),
+                                Text(
+                                  grn.grnNumber,
+                                  style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w500),
+                                ),
+                              ],
+                            ),
                             Text(
-                              grn.grnNumber,
-                              style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w500),
+                              _formatStatusText(grn.status),
+                              style: AppTextStyles.bodySmall.copyWith(
+                                color: AppColors.textSecondary,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ],
                         ),
-                        StatusBadge(status: grn.status, large: false),
+                        if (grn.createdAt != null && grn.createdAt!.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 20),
+                            child: Text(
+                              'Created: ${HelperFunctions.formatDate(DateTime.parse(grn.createdAt!), hasTime: true)}',
+                              style: AppTextStyles.caption.copyWith(color: AppColors.textMuted),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   );

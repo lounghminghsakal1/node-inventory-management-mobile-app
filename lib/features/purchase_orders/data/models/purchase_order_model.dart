@@ -229,11 +229,13 @@ class PoGrnModel {
   final int id;
   final String grnNumber;
   final String status;
+  final String? createdAt;
 
   const PoGrnModel({
     required this.id,
     required this.grnNumber,
     required this.status,
+    this.createdAt,
   });
 
   factory PoGrnModel.fromJson(Map<String, dynamic> json) {
@@ -241,6 +243,7 @@ class PoGrnModel {
       id: json['id'] ?? 0,
       grnNumber: json['grn_number'] ?? '',
       status: json['status'] ?? '',
+      createdAt: json['created_at']?.toString(),
     );
   }
 }

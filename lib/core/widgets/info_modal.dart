@@ -70,17 +70,17 @@ class InfoModal extends StatelessWidget {
     show(
       context,
       title: 'How to Receive Items (GRN)',
-      description: 'Follow these simple steps to receive your items:',
+      description: 'The GRNs for this PO are listed below. You can create a new GRN only when all existing GRNs are completed — the "Create GRN" button appears only once every GRN for this PO reaches the Completed status.',
       items: const [
         InfoModalItem(
           title: 'Step 1: Created (Inwarding)',
           titleColor: AppColors.primary,
-          content: 'What you need to do:\n1. Open the boxes you received.\n2. Count all the items inside.\n3. Type that exact number into the app.\n4. Click save.',
+          content: 'What you need to do:\n1. Open the goods you received.\n2. Count all the items inside.\n3. Type that exact number into the app.\n4. Click Add Line Items to GRN button then whatever you entered will be saved.',
         ),
         InfoModalItem(
           title: 'Step 2: QC Pending (Quality Check)',
           titleColor: AppColors.warning,
-          content: 'What you need to do:\n1. Look closely at the items you received.\n2. How many are in good condition? Type that number in "Accepted".\n3. How many are broken or bad? Type that number in "Rejected".\n4. Add photos if something is broken.\n5. Click save.',
+          content: 'What you need to do:\n1. Look closely at the items you received.\n2. How many are in good condition? Type that number in "Accepted".\n3. How many are broken or bad? Type that number in "Rejected".\n 4. Click Save Qc and Complete GRN button then GRN will be completed.',
         ),
         InfoModalItem(
           title: 'Step 3: Completed',

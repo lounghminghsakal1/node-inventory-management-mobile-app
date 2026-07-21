@@ -2075,7 +2075,7 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
           .read(grnControllerProvider.notifier)
           .submitQc(widget.grn.id, widget.grn.purchaseOrderId, allItems);
       if (!mounted) return;
-      showTopSuccessSnackBar(context, "Quality Check submitted successfully!");
+      showTopSuccessSnackBar(context, "Quality Check submitted and grn completed successfully!");
     } catch (e) {
       if (!mounted) return;
       String errMsg = e.toString().replaceAll('Exception: ', '');

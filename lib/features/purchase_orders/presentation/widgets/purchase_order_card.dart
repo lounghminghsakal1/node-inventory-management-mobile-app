@@ -28,16 +28,7 @@ class _PurchaseOrderCardState extends State<PurchaseOrderCard> {
   @override
   Widget build(BuildContext context) {
     final po = widget.po;
-    final grn = po.grns[0];
-    print("API String: ${grn.createdAt}");
 
-final dt = DateTime.parse(grn.createdAt!);
-
-print("DateTime: $dt");
-print("isUtc: ${dt.isUtc}");
-print("hour: ${dt.hour}");
-print("timezone: ${dt.timeZoneName}");
-    
     return GestureDetector(
       onTap: widget.onTap,
       child: Container(

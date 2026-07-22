@@ -247,7 +247,11 @@ class _PurchaseOrderListScreenState
                     onRefresh: () async {
                       await ref
                           .read(purchaseOrderListProvider.notifier)
-                          .load(page: 1, byStatus: _tabs[_tabCtrl.index].$2);
+                          .load(
+                            page: 1,
+                            byGrnStatus: _tabs[_tabCtrl.index].$2,
+                            byStatus: null,
+                          );
                     },
                     color: AppColors.primary,
                     child: NotificationListener<ScrollNotification>(

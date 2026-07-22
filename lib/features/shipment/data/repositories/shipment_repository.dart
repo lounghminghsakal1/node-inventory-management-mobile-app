@@ -19,6 +19,7 @@ class ShipmentRepository {
   Future<({List<Shipment> shipments, int currentPage, int totalPages, int totalCount})> getShipmentsApi({
     int page = 1,
     String? byStatus,
+    bool? byFullyAllocated,
     String? byOrderNumber,
     String? byCustomerCode,
     String? byShipmentType,
@@ -31,6 +32,7 @@ class ShipmentRepository {
     try {
       final queryParams = <String, dynamic>{'page': page};
       if (byStatus != null && byStatus.isNotEmpty) queryParams['by_status'] = byStatus;
+      if (byFullyAllocated != null) queryParams['by_fully_allocated'] = byFullyAllocated;
       if (byOrderNumber != null && byOrderNumber.isNotEmpty) queryParams['by_order_number'] = byOrderNumber;
       if (byCustomerCode != null && byCustomerCode.isNotEmpty) queryParams['by_customer_code'] = byCustomerCode;
       if (byShipmentType != null && byShipmentType.isNotEmpty) queryParams['by_shipment_type'] = byShipmentType;

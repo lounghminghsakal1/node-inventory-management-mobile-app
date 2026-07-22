@@ -11,10 +11,17 @@ import '../widgets/shipment_card.dart';
 import "../../../../core/widgets/back_to_home_scope.dart";
 
 class ShipmentListScreen extends ConsumerStatefulWidget {
-  final String? filter;
   final String? tab;
   final String? type;
-  const ShipmentListScreen({super.key, this.filter, this.tab, this.type});
+  final String? byStatus;
+  final String? byFullyAllocated;
+  const ShipmentListScreen({
+    super.key,
+    this.tab,
+    this.type,
+    this.byStatus,
+    this.byFullyAllocated,
+  });
 
   @override
   ConsumerState<ShipmentListScreen> createState() => _ShipmentListScreenState();
@@ -22,7 +29,8 @@ class ShipmentListScreen extends ConsumerStatefulWidget {
 
 class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
     with TickerProviderStateMixin {
-  String? _activeFilter;
+  String? _activeByStatus;
+  bool? _activeByFullyAllocated;
   late TabController _typeTabCtrl;
   late TabController _statusTabCtrl;
   final TextEditingController _searchCtrl = TextEditingController();
@@ -77,11 +85,33 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
     setState(() {});
   }
 
+  bool? _parseFullyAllocated(String? raw) {
+    if (raw == null) return null;
+    return raw.toLowerCase() == 'true';
+  }
+
+  String _statusFilterLabel() {
+    if (_activeByStatus == 'created') {
+      return _activeByFullyAllocated == true ? 'allocated' : 'created';
+    }
+    return _activeByStatus ?? 'filtered';
+  }
+
   @override
   void initState() {
     super.initState();
-    _activeFilter = widget.filter;
-    
+    _activeByStatus = widget.byStatus;
+    _activeByFullyAllocated = _parseFullyAllocated(widget.byFullyAllocated);
+    if (_activeByStatus != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ref.read(shipmentListProvider.notifier).setStatusFilter(
+              byStatus: _activeByStatus,
+              byFullyAllocated: _activeByFullyAllocated,
+            );
+      });
+    }
+
     int initialTypeIndex = widget.type == 'return' ? 1 : 0;
     _shipmentType = initialTypeIndex == 0 ? 'forward_shipment' : 'reverse_shipment';
     _typeTabCtrl = TabController(length: 2, vsync: this, initialIndex: initialTypeIndex);
@@ -107,10 +137,24 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
   @override
   void didUpdateWidget(covariant ShipmentListScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.filter != oldWidget.filter || widget.tab != oldWidget.tab || widget.type != oldWidget.type) {
-      setState(() {
-        if (widget.filter != oldWidget.filter) _activeFilter = widget.filter;
-      });
+    final statusChanged = widget.byStatus != oldWidget.byStatus ||
+        widget.byFullyAllocated != oldWidget.byFullyAllocated;
+    if (statusChanged || widget.tab != oldWidget.tab || widget.type != oldWidget.type) {
+      if (statusChanged) {
+        setState(() {
+          _activeByStatus = widget.byStatus;
+          _activeByFullyAllocated = _parseFullyAllocated(widget.byFullyAllocated);
+        });
+        final newByStatus = _activeByStatus;
+        final newByFullyAllocated = _activeByFullyAllocated;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          ref.read(shipmentListProvider.notifier).setStatusFilter(
+                byStatus: newByStatus,
+                byFullyAllocated: newByFullyAllocated,
+              );
+        });
+      }
       if (widget.type != oldWidget.type) {
         if (widget.type == 'return' && _typeTabCtrl.index != 1) {
           _typeTabCtrl.animateTo(1);
@@ -380,16 +424,7 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
                         (s.customerId?.toLowerCase().contains(q) ?? false) ||
                         s.orderNumber.toLowerCase().contains(q);
                     
-                    bool matchesActiveFilter = true;
-                    if (_activeFilter == 'unallocated' && tab.$1 == 'Pending') {
-                      matchesActiveFilter = s.status == ShipmentStatus.created;
-                    } else if (_activeFilter == 'to_pack' && tab.$1 == 'Pending') {
-                      matchesActiveFilter = s.status == ShipmentStatus.allocated && s.fullyAllocated == true;
-                    } else if (_activeFilter == 'to_dispatch' && tab.$1 == 'Pending') {
-                      matchesActiveFilter = s.status == ShipmentStatus.packed;
-                    }
-
-                    return matchesStatus && matchesSearch && matchesActiveFilter;
+                    return matchesStatus && matchesSearch;
                   }).toList();
 
                   if (state.isLoading && !state.isMoreLoading) {
@@ -402,26 +437,28 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
 
                   return Column(
                     children: [
-                      if (_activeFilter != null && tab.$1 == 'Pending')
+                      if (_activeByStatus != null && tab.$1 == 'Pending')
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                           color: AppColors.warning.withValues(alpha: 0.2),
                           child: Row(
                             children: [
                               Expanded(
                                 child: Text(
-                                  _activeFilter == 'unallocated' ? 'Showing only unallocated' : 
-                                  _activeFilter == 'to_pack' ? 'Showing only to pack' : 
-                                  _activeFilter == 'to_dispatch' ? 'Showing only to dispatch' : 'Filtered',
-                                  style: AppTextStyles.bodySmall.copyWith(color: AppColors.warning, fontWeight: FontWeight.bold),
+                                  'Showing only ${_statusFilterLabel()}',
+                                  style: AppTextStyles.bodySmall.copyWith(color: AppColors.warning, fontWeight: FontWeight.w800),
                                 ),
                               ),
                               IconButton(
                                 icon: const Icon(Icons.close, color: AppColors.warning, size: 20),
                                 onPressed: () {
                                   setState(() {
-                                    _activeFilter = null;
+                                    _activeByStatus = null;
+                                    _activeByFullyAllocated = null;
                                   });
+                                  ref
+                                      .read(shipmentListProvider.notifier)
+                                      .setStatusFilter(byStatus: null, byFullyAllocated: null);
                                   final newUri = Uri(
                                     path: '/shipments',
                                     queryParameters: {
@@ -843,7 +880,8 @@ class _ShipmentFilterSheetState extends State<_ShipmentFilterSheet> {
         20,
         MediaQuery.of(context).viewInsets.bottom + 20,
       ),
-      child: Column(
+      child: SingleChildScrollView(
+        child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1077,6 +1115,7 @@ class _ShipmentFilterSheetState extends State<_ShipmentFilterSheet> {
             ],
           ),
         ],
+        ),
       ),
     );
   }

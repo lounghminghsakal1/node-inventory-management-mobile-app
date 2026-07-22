@@ -15,6 +15,7 @@ class ShipmentListState {
   final int totalCount;
   final String byShipmentType;
   final String? byStatus;
+  final bool? byFullyAllocated;
   final String? byOrderNumber;
   final String? byShipmentNumber;
   final String? bySkuName;
@@ -32,6 +33,7 @@ class ShipmentListState {
     this.totalCount = 0,
     this.byShipmentType = 'forward_shipment',
     this.byStatus,
+    this.byFullyAllocated,
     this.byOrderNumber,
     this.byShipmentNumber,
     this.bySkuName,
@@ -50,6 +52,7 @@ class ShipmentListState {
     int? totalCount,
     String? byShipmentType,
     String? byStatus,
+    bool? byFullyAllocated,
     String? byOrderNumber,
     String? byShipmentNumber,
     String? bySkuName,
@@ -67,6 +70,7 @@ class ShipmentListState {
         totalCount: totalCount ?? this.totalCount,
         byShipmentType: byShipmentType ?? this.byShipmentType,
         byStatus: byStatus ?? this.byStatus,
+        byFullyAllocated: byFullyAllocated ?? this.byFullyAllocated,
         byOrderNumber: byOrderNumber ?? this.byOrderNumber,
         byShipmentNumber: byShipmentNumber ?? this.byShipmentNumber,
         bySkuName: bySkuName ?? this.bySkuName,
@@ -88,6 +92,7 @@ class ShipmentListNotifier extends StateNotifier<ShipmentListState> {
     int page = 1,
     String? byShipmentType,
     String? byStatus,
+    bool? byFullyAllocated,
     String? byOrderNumber,
     String? byShipmentNumber,
     String? byCustomerCode,
@@ -101,10 +106,11 @@ class ShipmentListNotifier extends StateNotifier<ShipmentListState> {
 
     if (page == 1) {
       state = state.copyWith(
-        isLoading: true, 
-        error: null, 
-        byShipmentType: targetShipmentType, 
+        isLoading: true,
+        error: null,
+        byShipmentType: targetShipmentType,
         byStatus: byStatus ?? state.byStatus,
+        byFullyAllocated: byFullyAllocated ?? state.byFullyAllocated,
         byOrderNumber: byOrderNumber ?? state.byOrderNumber,
         byShipmentNumber: byShipmentNumber ?? state.byShipmentNumber,
         bySkuName: bySkuName ?? state.bySkuName,
@@ -122,6 +128,7 @@ class ShipmentListNotifier extends StateNotifier<ShipmentListState> {
       final res = await _repo.getShipmentsApi(
         page: page,
         byStatus: state.byStatus,
+        byFullyAllocated: state.byFullyAllocated,
         byOrderNumber: state.byOrderNumber,
         byCustomerCode: byCustomerCode,
         byShipmentType: targetShipmentType,
@@ -189,12 +196,39 @@ class ShipmentListNotifier extends StateNotifier<ShipmentListState> {
       totalCount: state.totalCount,
       byShipmentType: state.byShipmentType,
       byStatus: state.byStatus,
+      byFullyAllocated: state.byFullyAllocated,
       byOrderNumber: null,
       byShipmentNumber: null,
       bySkuName: null,
       bySkuCode: null,
       fromDate: null,
       toDate: null,
+    );
+    load(page: 1);
+  }
+
+  // Sets (or clears, when passed null) the status filter driven by the Home
+  // screen's pending-actions tiles. copyWith can't null a field back out (it
+  // falls back to the current value), so this rebuilds the state directly —
+  // this is the only way to independently null either field.
+  void setStatusFilter({String? byStatus, bool? byFullyAllocated}) {
+    state = ShipmentListState(
+      shipments: state.shipments,
+      isLoading: state.isLoading,
+      isMoreLoading: state.isMoreLoading,
+      error: state.error,
+      currentPage: state.currentPage,
+      totalPages: state.totalPages,
+      totalCount: state.totalCount,
+      byShipmentType: state.byShipmentType,
+      byStatus: byStatus,
+      byFullyAllocated: byFullyAllocated,
+      byOrderNumber: state.byOrderNumber,
+      byShipmentNumber: state.byShipmentNumber,
+      bySkuName: state.bySkuName,
+      bySkuCode: state.bySkuCode,
+      fromDate: state.fromDate,
+      toDate: state.toDate,
     );
     load(page: 1);
   }

@@ -153,10 +153,11 @@ class HomeScreen extends ConsumerWidget {
       return _buildErrorStatsRow(context, ref, 'No data available');
     }
 
-    final pendingShipmentsCount = stats.pendingActions.toPack + 
-        stats.pendingActions.toDispatch + 
-        stats.pendingActions.unallocated;
-    
+    final pendingShipmentsCount = stats.pendingActions.created +
+        stats.pendingActions.allocated +
+        stats.pendingActions.packed +
+        stats.pendingActions.invoiced;
+
     final returnsCount = stats.pendingActions.returnsPending;
 
     return Row(
@@ -479,9 +480,10 @@ class HomeScreen extends ConsumerWidget {
     NodeStats stats,
   ) {
     final pending = stats.pendingActions;
-    final totalPending = pending.unallocated +
-        pending.toPack +
-        pending.toDispatch +
+    final totalPending = pending.created +
+        pending.allocated +
+        pending.packed +
+        pending.invoiced +
         pending.returnsPending +
         pending.grnQcPending;
 
@@ -533,19 +535,19 @@ class HomeScreen extends ConsumerWidget {
           Row(
             children: [
               _buildActionTile(
-                'Unallocated',
-                pending.unallocated,
+                'Shipments\nCreated',
+                pending.created,
                 Icons.warning_amber_rounded,
                 AppColors.warning,
-                onTap: () => _navigateWithPermission(context, ref, '/shipments?filter=unallocated', 'Shipments', 'Shipment'),
+                onTap: () => _navigateWithPermission(context, ref, '/shipments?by_status=created&by_fully_allocated=false', 'Shipments', 'Shipment'),
               ),
               const SizedBox(width: 12),
               _buildActionTile(
-                'To Pack',
-                pending.toPack,
+                'Allocated',
+                pending.allocated,
                 Icons.inventory_2_outlined,
                 AppColors.primary,
-                onTap: () => _navigateWithPermission(context, ref, '/shipments?filter=to_pack', 'Shipments', 'Shipment'),
+                onTap: () => _navigateWithPermission(context, ref, '/shipments?by_status=created&by_fully_allocated=true', 'Shipments', 'Shipment'),
               ),
             ],
           ),
@@ -553,21 +555,29 @@ class HomeScreen extends ConsumerWidget {
           Row(
             children: [
               _buildActionTile(
-                'To Dispatch',
-                pending.toDispatch,
+                'Packed',
+                pending.packed,
                 Icons.local_shipping_outlined,
                 AppColors.secondary,
-                onTap: () => _navigateWithPermission(context, ref, '/shipments?filter=to_dispatch', 'Shipments', 'Shipment'),
+                onTap: () => _navigateWithPermission(context, ref, '/shipments?by_status=packed', 'Shipments', 'Shipment'),
               ),
               const SizedBox(width: 12),
               _buildActionTile(
-                'Returns Pending',
-                pending.returnsPending,
-                Icons.keyboard_return_rounded,
-                AppColors.error,
-                onTap: () => _navigateWithPermission(context, ref, '/shipments?type=return&tab=initiated', 'Shipments', 'Shipment'),
+                'Invoiced',
+                pending.invoiced,
+                Icons.receipt_long_rounded,
+                AppColors.accent,
+                onTap: () => _navigateWithPermission(context, ref, '/shipments?by_status=invoiced', 'Shipments', 'Shipment'),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          _buildActionFullTile(
+            'Returns Pending',
+            pending.returnsPending,
+            Icons.keyboard_return_rounded,
+            AppColors.error,
+            onTap: () => _navigateWithPermission(context, ref, '/shipments?type=return&tab=initiated', 'Shipments', 'Shipment'),
           ),
           const SizedBox(height: 12),
           _buildActionFullTile(
@@ -684,7 +694,7 @@ class HomeScreen extends ConsumerWidget {
     IconData icon,
     Color color, {
     VoidCallback? onTap,
-    bool showAlert = true,
+    bool showAlert = false,
   }) {
     final hasValue = value > 0;
     return Expanded(

@@ -134,9 +134,10 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: '/shipments',
                 name: 'shipments',
                 builder: (context, state) => ShipmentListScreen(
-                  filter: state.uri.queryParameters['filter'],
                   tab: state.uri.queryParameters['tab'],
                   type: state.uri.queryParameters['type'],
+                  byStatus: state.uri.queryParameters['by_status'],
+                  byFullyAllocated: state.uri.queryParameters['by_fully_allocated'],
                 ),
               ),
             ],

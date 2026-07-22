@@ -570,12 +570,6 @@ class _NodeInventoryFilterSheetState extends State<_NodeInventoryFilterSheet> {
             controller: _skuCodeCtrl,
             hint: "Enter SKU code...",
           ),
-          const SizedBox(height: 12),
-          AppTextField(
-            label: "SKU ID",
-            controller: _skuIdCtrl,
-            hint: "Enter SKU ID...",
-          ),
           const SizedBox(height: 16),
           SwitchListTile(
             title: Text(

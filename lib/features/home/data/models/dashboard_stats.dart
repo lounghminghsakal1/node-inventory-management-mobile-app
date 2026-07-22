@@ -243,25 +243,28 @@ const List<ActivityItem> dummyActivity = [
 // -- Node Stats API models ----------------------------------------------------
 
 class NodeStatsPendingActions {
-  final int toPack;
-  final int toDispatch;
-  final int unallocated;
+  final int created;
+  final int allocated;
+  final int packed;
+  final int invoiced;
   final int returnsPending;
   final int grnQcPending;
 
   const NodeStatsPendingActions({
-    required this.toPack,
-    required this.toDispatch,
-    required this.unallocated,
+    required this.created,
+    required this.allocated,
+    required this.packed,
+    required this.invoiced,
     required this.returnsPending,
     required this.grnQcPending,
   });
 
   factory NodeStatsPendingActions.fromJson(Map<String, dynamic> json) =>
       NodeStatsPendingActions(
-        toPack: json['to_pack'] ?? 0,
-        toDispatch: json['to_dispatch'] ?? 0,
-        unallocated: json['unallocated'] ?? 0,
+        created: json['created'] ?? 0,
+        allocated: json['allocated'] ?? 0,
+        packed: json['packed'] ?? 0,
+        invoiced: json['invoiced'] ?? 0,
         returnsPending: json['returns_pending'] ?? 0,
         grnQcPending: json['grn_qc_pending'] ?? 0,
       );

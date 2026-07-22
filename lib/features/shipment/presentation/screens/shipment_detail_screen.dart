@@ -205,6 +205,8 @@ class ShipmentDetailScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 14),
                       const Divider(height: 1),
+                      const SizedBox(height: 10),
+                      const _TrackingLegendRow(),
                       const SizedBox(height: 14),
                       ...shipment.lineItems.map(
                         (li) => _LineItemRow(item: li, shipment: shipment),
@@ -776,6 +778,7 @@ class ShipmentDetailScreen extends ConsumerWidget {
                         width: double.infinity,
                         child: SfPdfViewer.network(
                           img.url,
+                          key: ValueKey(img.url),
                           canShowScrollHead: false,
                           canShowScrollStatus: false,
                         ),
@@ -1011,6 +1014,81 @@ class _ShipmentTimeline extends StatelessWidget {
   }
 }
 
+// -- Tracking Type Legend -------------------------------------------------------
+class _TrackingLegendRow extends StatelessWidget {
+  const _TrackingLegendRow();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: const [
+        _TrackingLegendItem(label: 'Batch', trackingType: 'batch'),
+        SizedBox(width: 14),
+        _TrackingLegendItem(label: 'Serial', trackingType: 'serial'),
+        SizedBox(width: 14),
+        _TrackingLegendItem(label: 'Untracked', trackingType: 'untracked'),
+      ],
+    );
+  }
+}
+
+class _TrackingLegendItem extends StatelessWidget {
+  final String label;
+  final String trackingType;
+  const _TrackingLegendItem({required this.label, required this.trackingType});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _TrackingLetterChip(trackingType: trackingType),
+        const SizedBox(width: 4),
+        Text(
+          '${_TrackingLetterChip.letterFor(trackingType)} - $label',
+          style: AppTextStyles.caption.copyWith(color: AppColors.textMuted),
+        ),
+      ],
+    );
+  }
+}
+
+class _TrackingLetterChip extends StatelessWidget {
+  final String trackingType;
+  const _TrackingLetterChip({required this.trackingType});
+
+  static String letterFor(String trackingType) {
+    final type = trackingType.trim().toLowerCase();
+    if (type.contains('batch')) return 'B';
+    if (type.contains('serial')) return 'S';
+    return 'U';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = AppColors.getTrackingBgColor(trackingType);
+    final text = AppColors.getTrackingTextColor(trackingType);
+    return Container(
+      width: 18,
+      height: 18,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(color: text.withValues(alpha: 0.25), width: 1),
+      ),
+      child: Text(
+        letterFor(trackingType),
+        style: AppTextStyles.labelSmall.copyWith(
+          color: text,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
 // -- Line Item Row -------------------------------------------------------------
 class _LineItemRow extends ConsumerWidget {
   final ShipmentLineItem item;
@@ -1057,7 +1135,7 @@ class _LineItemRow extends ConsumerWidget {
                       children: [
                         Text(item.product.sku, style: AppTextStyles.caption),
                         const SizedBox(width: 8),
-                        TrackingTypeBadge(
+                        _TrackingLetterChip(
                           trackingType: item.product.trackingType.name,
                         ),
                       ],

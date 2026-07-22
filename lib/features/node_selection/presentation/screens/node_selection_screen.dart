@@ -7,6 +7,11 @@ import '../../../../app/theme/app_text_styles.dart';
 import '../../../auth/data/models/auth_response.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../providers/node_provider.dart';
+import '../../../audit/providers/stock_audit_provider.dart';
+import '../../../inventory/providers/inventory_provider.dart';
+import '../../../orders/providers/order_provider.dart';
+import '../../../purchase_orders/providers/purchase_order_provider.dart';
+import '../../../shipment/providers/shipment_provider.dart';
 
 class NodeSelectionScreen extends ConsumerStatefulWidget {
   /// When true the user came from within the app (via AppBar tap), so we show
@@ -42,6 +47,7 @@ class _NodeSelectionScreenState extends ConsumerState<NodeSelectionScreen>
   Future<void> _confirm() async {
     if (_selected == null) return;
     await ref.read(authProvider.notifier).selectNode(_selected!);
+    _invalidateNodeScopedProviders();
     if (mounted) {
       if (widget.canGoBack && context.canPop()) {
         context.pop();
@@ -49,6 +55,48 @@ class _NodeSelectionScreenState extends ConsumerState<NodeSelectionScreen>
         context.go('/home');
       }
     }
+  }
+
+  // Force every node-scoped screen/widget to refetch with the newly selected
+  // node instead of showing data left over from the previous one.
+  void _invalidateNodeScopedProviders() {
+    ref.invalidate(nodeListProvider);
+
+    ref.invalidate(stockAuditsProvider);
+    ref.invalidate(stockAuditDetailProvider);
+    ref.invalidate(auditLineItemsProvider);
+    ref.invalidate(auditSkuBatchesProvider);
+    ref.invalidate(auditSkuSerialsProvider);
+
+    ref.invalidate(batchInventoryListProvider);
+    ref.invalidate(serialInventoryListProvider);
+    ref.invalidate(batchInventoryDetailProvider);
+    ref.invalidate(serialInventoryDetailProvider);
+    ref.invalidate(batchTransactionsProvider);
+    ref.invalidate(nodeInventoryListProvider);
+    ref.invalidate(nodeInventoryTransactionsProvider);
+    ref.invalidate(nodeInventoryDetailProvider);
+    ref.invalidate(nodeInventoryLedgerProvider);
+
+    ref.invalidate(orderListProvider);
+    ref.invalidate(orderDetailProvider);
+
+    ref.invalidate(purchaseOrderListProvider);
+    ref.invalidate(purchaseOrderByIdProvider);
+    ref.invalidate(grnListForPoProvider);
+    ref.invalidate(grnDetailProvider);
+    ref.invalidate(poSkuItemsProvider);
+
+    ref.invalidate(shipmentListProvider);
+    ref.invalidate(shipmentByIdProvider);
+    ref.invalidate(confirmedOrdersProvider);
+    ref.invalidate(shippableLineItemsProvider);
+    ref.invalidate(lineItemsAvailabilityProvider);
+    ref.invalidate(batchAvailabilityProvider);
+    ref.invalidate(untrackedAvailabilityProvider);
+    ref.invalidate(serialAvailabilityProvider);
+    ref.invalidate(returnRemainingProvider);
+    ref.invalidate(returnAllocationInfoProvider);
   }
 
   @override

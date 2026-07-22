@@ -460,6 +460,29 @@ class _PoFilterSheetState extends State<_PoFilterSheet> {
     super.dispose();
   }
 
+  Widget _clearSuffix(TextEditingController ctrl, {Widget? trailing}) {
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: ctrl,
+      builder: (context, value, child) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (value.text.isNotEmpty)
+              IconButton(
+                icon: const Icon(
+                  Icons.clear,
+                  size: 18,
+                  color: AppColors.textMuted,
+                ),
+                onPressed: () => ctrl.clear(),
+              ),
+            ?trailing,
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _selectDate(TextEditingController ctrl) async {
     final picked = await showDatePicker(
       context: context,
@@ -552,6 +575,7 @@ class _PoFilterSheetState extends State<_PoFilterSheet> {
               decoration: InputDecoration(
                 hintText: "Enter SKU name...",
                 hintStyle: AppTextStyles.bodySmall,
+                suffixIcon: _clearSuffix(_skuNameCtrl),
                 filled: true,
                 fillColor: AppColors.surface,
                 contentPadding: const EdgeInsets.symmetric(
@@ -582,6 +606,7 @@ class _PoFilterSheetState extends State<_PoFilterSheet> {
               decoration: InputDecoration(
                 hintText: "Enter GRN number...",
                 hintStyle: AppTextStyles.bodySmall,
+                suffixIcon: _clearSuffix(_grnNumberCtrl),
                 filled: true,
                 fillColor: AppColors.surface,
                 contentPadding: const EdgeInsets.symmetric(
@@ -618,9 +643,12 @@ class _PoFilterSheetState extends State<_PoFilterSheet> {
                         decoration: InputDecoration(
                           hintText: "YYYY-MM-DD",
                           hintStyle: AppTextStyles.bodySmall,
-                          suffixIcon: const Icon(
-                            Icons.calendar_today,
-                            size: 16,
+                          suffixIcon: _clearSuffix(
+                            _fromCtrl,
+                            trailing: const Padding(
+                              padding: EdgeInsets.only(right: 12),
+                              child: Icon(Icons.calendar_today, size: 16),
+                            ),
                           ),
                           filled: true,
                           fillColor: AppColors.surface,
@@ -659,9 +687,12 @@ class _PoFilterSheetState extends State<_PoFilterSheet> {
                         decoration: InputDecoration(
                           hintText: "YYYY-MM-DD",
                           hintStyle: AppTextStyles.bodySmall,
-                          suffixIcon: const Icon(
-                            Icons.calendar_today,
-                            size: 16,
+                          suffixIcon: _clearSuffix(
+                            _toCtrl,
+                            trailing: const Padding(
+                              padding: EdgeInsets.only(right: 12),
+                              child: Icon(Icons.calendar_today, size: 16),
+                            ),
                           ),
                           filled: true,
                           fillColor: AppColors.surface,

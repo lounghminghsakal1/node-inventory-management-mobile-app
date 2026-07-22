@@ -245,12 +245,18 @@ class AuthRepository {
       nodeId: nodeId ?? '',
     );
 
-    // nodeId may be null if user logged in but never selected a node
+    // nodeId/nodeAdminId may be null OR empty if the user logged in but
+    // never (fully) selected a node — treat either case as "no node yet"
+    // rather than just checking for null, since a blank string would
+    // otherwise be mistaken for a valid selection.
     NodeModel? node;
-    if (nodeId != null) {
+    if (nodeId != null &&
+        nodeId.isNotEmpty &&
+        nodeAdminId != null &&
+        nodeAdminId.isNotEmpty) {
       node = NodeModel(
         id: nodeId,
-        nodeAdminId: nodeAdminId ?? '',
+        nodeAdminId: nodeAdminId,
         name: 'Selected Node ($nodeId)',
         code: 'active',
         location: '',

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:node_management_app/core/utils/snackbar_utils.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
@@ -126,30 +127,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   Widget _buildLogoHeader() {
     return Column(
       children: [
-        Container(
-          width: 80,
-          height: 80,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [AppColors.primary, AppColors.secondary],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(22),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.primary.withValues(alpha: 0.3),
-                blurRadius: 24,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: const Center(
-            child: Icon(Icons.warehouse_rounded, size: 40, color: Colors.white),
-          ),
+        SvgPicture.asset(
+          'assets/images/logo.svg',
+          height: 56,
         ),
         const SizedBox(height: 18),
-        Text('NodeOps', style: AppTextStyles.displayMedium),
+        Text(
+          'Node Inventory Management',
+          style: AppTextStyles.displayMedium,
+          textAlign: TextAlign.center,
+        ),
         const SizedBox(height: 6),
         Text(
           'Inventory Management System',

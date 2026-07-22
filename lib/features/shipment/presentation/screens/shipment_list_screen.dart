@@ -92,26 +92,28 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
     _lastAppliedStatusTabIndex = _statusTabCtrl.index;
     if (_shipmentType != 'forward_shipment') return;
 
-    // 'Pending' keeps the existing unfiltered behavior; only Dispatched and
-    // Delivered request a server-side status filter.
+    // Dispatched/Delivered request their own server-side status filter.
+    // 'Pending' restores whatever Home-tile filter (_activeByStatus) was
+    // active before — it should persist across tab switches and only be
+    // cleared when the user explicitly dismisses the banner via its X icon.
     final tabLabel = _currentStatusTabs[_statusTabCtrl.index].$1;
     String? targetStatus;
+    bool? targetFullyAllocated;
     if (tabLabel == 'Dispatched') {
       targetStatus = ShipmentStatus.dispatched.value;
     } else if (tabLabel == 'Delivered') {
       targetStatus = ShipmentStatus.delivered.value;
+    } else {
+      targetStatus = _activeByStatus;
+      targetFullyAllocated = _activeByFullyAllocated;
     }
 
     final state = ref.read(shipmentListProvider);
-    setState(() {
-      _activeByStatus = null;
-      _activeByFullyAllocated = null;
-    });
     ref
         .read(shipmentListProvider.notifier)
         .updateFilters(
           byStatus: targetStatus,
-          byFullyAllocated: null,
+          byFullyAllocated: targetFullyAllocated,
           byOrderNumber: state.byOrderNumber,
           byShipmentNumber: state.byShipmentNumber,
           bySkuName: state.bySkuName,
@@ -190,21 +192,42 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
   @override
   void didUpdateWidget(covariant ShipmentListScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final statusChanged = widget.byStatus != oldWidget.byStatus ||
-        widget.byFullyAllocated != oldWidget.byFullyAllocated;
+    // Compare against our own tracked state (not oldWidget): re-tapping the
+    // same Home tile navigates to the exact same location, so
+    // oldWidget.byStatus == widget.byStatus and a comparison against
+    // oldWidget would never re-fire here. We also force a re-apply if a
+    // by_status filter is incoming but the user is currently sitting on a
+    // non-Pending sub-tab (e.g. Delivered) — the value itself may not have
+    // changed (it's preserved across tab switches), but the tab/banner still
+    // need to jump back to Pending.
+    final newFullyAllocated = _parseFullyAllocated(widget.byFullyAllocated);
+    final onWrongTab = widget.byStatus != null &&
+        _shipmentType == 'forward_shipment' &&
+        _statusTabCtrl.index != 0;
+    final statusChanged = widget.byStatus != _activeByStatus ||
+        newFullyAllocated != _activeByFullyAllocated ||
+        onWrongTab;
     if (statusChanged || widget.tab != oldWidget.tab || widget.type != oldWidget.type) {
       if (statusChanged) {
         setState(() {
           _activeByStatus = widget.byStatus;
-          _activeByFullyAllocated = _parseFullyAllocated(widget.byFullyAllocated);
+          _activeByFullyAllocated = newFullyAllocated;
         });
         final newByStatus = _activeByStatus;
-        final newByFullyAllocated = _activeByFullyAllocated;
+        // These by_status filters (created/allocated/packed/invoiced) belong
+        // to the Pending sub-tab; jump back there so the banner (gated on
+        // the Pending tab) and the filtered data are both visible again.
+        // _lastAppliedStatusTabIndex is updated first so the animateTo below
+        // doesn't also trigger _onStatusTabChanged's own (unwanted) refetch.
+        if (newByStatus != null && _shipmentType == 'forward_shipment' && _statusTabCtrl.index != 0) {
+          _lastAppliedStatusTabIndex = 0;
+          _statusTabCtrl.animateTo(0);
+        }
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           ref.read(shipmentListProvider.notifier).setStatusFilter(
                 byStatus: newByStatus,
-                byFullyAllocated: newByFullyAllocated,
+                byFullyAllocated: newFullyAllocated,
               );
         });
       }

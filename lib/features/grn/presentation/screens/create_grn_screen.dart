@@ -131,6 +131,10 @@ class _CreateGrnScreenState extends ConsumerState<CreateGrnScreen> {
   }
 
   Future<void> _pickAndUploadFile() async {
+    // Dismiss the keyboard before opening the picker so focus doesn't
+    // return to a text field (and reopen the keyboard) once it closes.
+    FocusManager.instance.primaryFocus?.unfocus();
+
     setState(() {
       _uploadError = null;
     });
@@ -154,6 +158,7 @@ class _CreateGrnScreenState extends ConsumerState<CreateGrnScreen> {
         .uploadGrnDocument(filePath, fileName);
 
     if (!mounted) return;
+    FocusManager.instance.primaryFocus?.unfocus();
 
     if (s3Url != null) {
       setState(() {

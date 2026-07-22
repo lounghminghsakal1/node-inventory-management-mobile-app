@@ -399,6 +399,10 @@ class GrnController extends StateNotifier<AsyncValue<void>> {
       state = AsyncValue.error(e, st);
       rethrow;
     }
+    // QC submission succeeded — refresh from the GRN details API so this
+    // one GRN reflects the authoritative server state (only its own
+    // accordion shows a loading indicator while this refetches).
+    ref.invalidate(grnDetailProvider(grnId));
   }
 
   Future<bool> checkSerialExists(String serial, [int productSkuId = 0]) async {

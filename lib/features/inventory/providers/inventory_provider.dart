@@ -141,18 +141,30 @@ class BatchInventoryListNotifier extends StateNotifier<BatchInventoryListState> 
     }
   }
 
+  // Replaces the filter fields with exactly what's passed in (including
+  // null, to clear a field). fetchInitial()'s own copyWith-based merge
+  // (`x ?? state.x`) can't null a field back out, so this seeds `state`
+  // directly first — fetchInitial() then simply confirms the same values.
   void updateFilters({
     String? bySkuName,
     String? bySkuCode,
     String? byBatchId,
     bool? availableOnly,
   }) {
-    fetchInitial(
+    state = BatchInventoryListState(
+      items: state.items,
+      isLoading: state.isLoading,
+      isLoadingMore: state.isLoadingMore,
+      errorMessage: state.errorMessage,
+      currentPage: state.currentPage,
+      totalPages: state.totalPages,
+      totalCount: state.totalCount,
       bySkuName: bySkuName,
       bySkuCode: bySkuCode,
       byBatchId: byBatchId,
-      availableOnly: availableOnly,
+      availableOnly: availableOnly ?? true,
     );
+    fetchInitial();
   }
 
   void clearFilters() {
@@ -302,18 +314,28 @@ class SerialInventoryListNotifier extends StateNotifier<SerialInventoryListState
     }
   }
 
+  // See BatchInventoryListNotifier.updateFilters for why this bypasses
+  // fetchInitial()'s copyWith-based merge instead of just calling it.
   void updateFilters({
     String? bySkuItemNumber,
     String? bySkuName,
     String? bySkuCode,
     String? byStatus,
   }) {
-    fetchInitial(
+    state = SerialInventoryListState(
+      items: state.items,
+      isLoading: state.isLoading,
+      isLoadingMore: state.isLoadingMore,
+      errorMessage: state.errorMessage,
+      currentPage: state.currentPage,
+      totalPages: state.totalPages,
+      totalCount: state.totalCount,
       bySkuItemNumber: bySkuItemNumber,
       bySkuName: bySkuName,
       bySkuCode: bySkuCode,
-      byStatus: byStatus,
+      byStatus: byStatus ?? 'all',
     );
+    fetchInitial();
   }
 
   void clearFilters() {
@@ -578,18 +600,28 @@ class NodeInventoryListNotifier extends StateNotifier<NodeInventoryListState> {
     fetchInitial(availableOnly: value);
   }
 
+  // See BatchInventoryListNotifier.updateFilters for why this bypasses
+  // fetchInitial()'s copyWith-based merge instead of just calling it.
   void updateFilters({
     String? bySkuName,
     String? bySkuCode,
     String? bySkuId,
     bool? availableOnly,
   }) {
-    fetchInitial(
+    state = NodeInventoryListState(
+      items: state.items,
+      isLoading: state.isLoading,
+      isLoadingMore: state.isLoadingMore,
+      errorMessage: state.errorMessage,
+      currentPage: state.currentPage,
+      totalPages: state.totalPages,
+      totalCount: state.totalCount,
       bySkuName: bySkuName,
       bySkuCode: bySkuCode,
       bySkuId: bySkuId,
-      availableOnly: availableOnly,
+      availableOnly: availableOnly ?? true,
     );
+    fetchInitial();
   }
 
   void clearFilters() {
@@ -846,18 +878,28 @@ class NodeInventoryLedgerNotifier extends StateNotifier<NodeInventoryLedgerState
     fetchInitial(fromDate: from, toDate: to);
   }
 
+  // See BatchInventoryListNotifier.updateFilters for why this bypasses
+  // fetchInitial()'s copyWith-based merge instead of just calling it.
   void updateFilters({
     String? bySkuId,
     String? bySkuCode,
     String? fromDate,
     String? toDate,
   }) {
-    fetchInitial(
+    state = NodeInventoryLedgerState(
+      items: state.items,
+      isLoading: state.isLoading,
+      isLoadingMore: state.isLoadingMore,
+      errorMessage: state.errorMessage,
+      currentPage: state.currentPage,
+      totalPages: state.totalPages,
+      totalCount: state.totalCount,
       bySkuId: bySkuId,
       bySkuCode: bySkuCode,
       fromDate: fromDate,
       toDate: toDate,
     );
+    fetchInitial();
   }
 
   void clearFilters() {

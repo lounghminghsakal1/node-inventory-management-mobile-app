@@ -845,17 +845,22 @@ class _ShipmentTimeline extends StatelessWidget {
   const _ShipmentTimeline({required this.shipment});
 
   static const _stages = [
-    ('Created', ShipmentStatus.created, Icons.add_circle_outline_rounded),
-    ('Allocated', ShipmentStatus.allocated, Icons.inventory_outlined),
-    ('Packed', ShipmentStatus.packed, Icons.inventory_2_outlined),
-    ('Invoiced', ShipmentStatus.invoiced, Icons.receipt_long_outlined),
-    ('Dispatched', ShipmentStatus.dispatched, Icons.local_shipping_outlined),
-    ('Delivered', ShipmentStatus.delivered, Icons.check_circle_outline_rounded),
+    ('Created', 'C', ShipmentStatus.created, Icons.add_circle_outline_rounded),
+    ('Allocated', 'A', ShipmentStatus.allocated, Icons.inventory_outlined),
+    ('Packed', 'P', ShipmentStatus.packed, Icons.inventory_2_outlined),
+    ('Invoiced', 'I', ShipmentStatus.invoiced, Icons.receipt_long_outlined),
+    ('Dispatched', 'Di', ShipmentStatus.dispatched, Icons.local_shipping_outlined),
+    ('Delivered', 'De', ShipmentStatus.delivered, Icons.check_circle_outline_rounded),
   ];
+
+  // Below this width, stage labels are shown as short codes (see legend).
+  static const _smallScreenBreakpoint = 380.0;
 
   @override
   Widget build(BuildContext context) {
     final status = shipment.status;
+    final isSmallScreen =
+        MediaQuery.of(context).size.width < _smallScreenBreakpoint;
     final isReturn =
         shipment.shipmentType == 'reverse_shipment' ||
         status == ShipmentStatus.returnInitiated ||
@@ -866,6 +871,7 @@ class _ShipmentTimeline extends StatelessWidget {
               status != ShipmentStatus.returnCompleted
                   ? 'Return Initiated\n(Current)'
                   : 'Return Initiated\n(Completed)',
+              'RI',
               ShipmentStatus.returnInitiated,
               Icons.keyboard_return_rounded,
             ),
@@ -873,6 +879,7 @@ class _ShipmentTimeline extends StatelessWidget {
               status != ShipmentStatus.returnCompleted
                   ? 'Return Completed\n(Pending)'
                   : 'Return Completed\n(Current)',
+              'RC',
               ShipmentStatus.returnCompleted,
               Icons.check_circle_outline_rounded,
             ),
@@ -881,7 +888,7 @@ class _ShipmentTimeline extends StatelessWidget {
 
     final currentIdx = isReturn
         ? (status == ShipmentStatus.returnCompleted ? 1 : 0)
-        : stages.indexWhere((s) => s.$2 == status);
+        : stages.indexWhere((s) => s.$3 == status);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -911,7 +918,7 @@ class _ShipmentTimeline extends StatelessWidget {
           final isCurrent = i == currentIdx;
           
           DateTime? stageDate;
-          final statusStr = stage.$2.toString().split('.').last;
+          final statusStr = stage.$3.toString().split('.').last;
           if (statusStr != 'allocated') {
             final match = shipment.statusTimeline.where((t) => t.toStatus == statusStr).toList();
             if (match.isNotEmpty) {
@@ -963,7 +970,7 @@ class _ShipmentTimeline extends StatelessWidget {
                       ),
                       child: Center(
                         child: Icon(
-                          stage.$3,
+                          stage.$4,
                           size: isCurrent ? 15 : 12,
                           color: isDone
                               ? (isCurrent ? Colors.white : AppColors.primary)
@@ -984,7 +991,7 @@ class _ShipmentTimeline extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  stage.$1,
+                  isSmallScreen ? stage.$2 : stage.$1,
                   style: AppTextStyles.caption.copyWith(
                     color: isDone ? AppColors.primary : AppColors.textMuted,
                     fontSize: 9,
@@ -1008,6 +1015,26 @@ class _ShipmentTimeline extends StatelessWidget {
           );
         }),
       ),
+          if (isSmallScreen) ...[
+            const SizedBox(height: 14),
+            const Divider(height: 1),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 12,
+              runSpacing: 6,
+              children: stages
+                  .map(
+                    (s) => Text(
+                      '${s.$2} - ${s.$1.split('\n').first}',
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.textMuted,
+                        fontSize: 10,
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ],
         ],
       ),
     );

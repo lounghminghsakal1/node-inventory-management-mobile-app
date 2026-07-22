@@ -19,6 +19,8 @@ class PurchaseOrderListState {
   final String? byVendorName;
   final int? byVendorId;
   final String? byPoNumber;
+  final String? bySkuName;
+  final String? byGrnNumber;
   final String? byStatus;
   final String? byGrnStatus;
   final String? fromDate;
@@ -35,6 +37,8 @@ class PurchaseOrderListState {
     this.byVendorName,
     this.byVendorId,
     this.byPoNumber,
+    this.bySkuName,
+    this.byGrnNumber,
     this.byStatus,
     this.byGrnStatus,
     this.fromDate,
@@ -52,6 +56,8 @@ class PurchaseOrderListState {
     String? byVendorName,
     int? byVendorId,
     String? byPoNumber,
+    String? bySkuName,
+    String? byGrnNumber,
     String? byStatus,
     String? byGrnStatus,
     String? fromDate,
@@ -68,6 +74,8 @@ class PurchaseOrderListState {
         byVendorName: byVendorName ?? this.byVendorName,
         byVendorId: byVendorId ?? this.byVendorId,
         byPoNumber: byPoNumber ?? this.byPoNumber,
+        bySkuName: bySkuName ?? this.bySkuName,
+        byGrnNumber: byGrnNumber ?? this.byGrnNumber,
         byStatus: byStatus ?? this.byStatus,
         byGrnStatus: byGrnStatus ?? this.byGrnStatus,
         fromDate: fromDate ?? this.fromDate,
@@ -87,6 +95,8 @@ class PurchaseOrderListNotifier extends StateNotifier<PurchaseOrderListState> {
     String? byVendorName,
     int? byVendorId,
     String? byPoNumber,
+    String? bySkuName,
+    String? byGrnNumber,
     String? byStatus,
     String? byGrnStatus,
     String? fromDate,
@@ -100,6 +110,8 @@ class PurchaseOrderListNotifier extends StateNotifier<PurchaseOrderListState> {
         byVendorName: byVendorName,
         byVendorId: byVendorId,
         byPoNumber: byPoNumber,
+        bySkuName: bySkuName,
+        byGrnNumber: byGrnNumber,
         byStatus: byStatus,
         byGrnStatus: byGrnStatus,
         fromDate: fromDate,
@@ -116,6 +128,8 @@ class PurchaseOrderListNotifier extends StateNotifier<PurchaseOrderListState> {
         byVendorName: page == 1 ? byVendorName : (byVendorName ?? state.byVendorName),
         byVendorId: page == 1 ? byVendorId : (byVendorId ?? state.byVendorId),
         byPoNumber: page == 1 ? byPoNumber : (byPoNumber ?? state.byPoNumber),
+        bySkuName: page == 1 ? bySkuName : (bySkuName ?? state.bySkuName),
+        byGrnNumber: page == 1 ? byGrnNumber : (byGrnNumber ?? state.byGrnNumber),
         byStatus: page == 1 ? byStatus : (byStatus ?? state.byStatus),
         byGrnStatus: page == 1 ? byGrnStatus : (byGrnStatus ?? state.byGrnStatus),
         fromDate: page == 1 ? fromDate : (fromDate ?? state.fromDate),
@@ -133,6 +147,8 @@ class PurchaseOrderListNotifier extends StateNotifier<PurchaseOrderListState> {
         byVendorName: page == 1 ? byVendorName : (byVendorName ?? state.byVendorName),
         byVendorId: page == 1 ? byVendorId : (byVendorId ?? state.byVendorId),
         byPoNumber: page == 1 ? byPoNumber : (byPoNumber ?? state.byPoNumber),
+        bySkuName: page == 1 ? bySkuName : (bySkuName ?? state.bySkuName),
+        byGrnNumber: page == 1 ? byGrnNumber : (byGrnNumber ?? state.byGrnNumber),
         byStatus: page == 1 ? byStatus : (byStatus ?? state.byStatus),
         byGrnStatus: page == 1 ? byGrnStatus : (byGrnStatus ?? state.byGrnStatus),
         fromDate: page == 1 ? fromDate : (fromDate ?? state.fromDate),
@@ -155,6 +171,8 @@ class PurchaseOrderListNotifier extends StateNotifier<PurchaseOrderListState> {
       byVendorName: state.byVendorName,
       byVendorId: state.byVendorId,
       byPoNumber: state.byPoNumber,
+      bySkuName: state.bySkuName,
+      byGrnNumber: state.byGrnNumber,
       byStatus: state.byStatus,
       byGrnStatus: state.byGrnStatus,
       fromDate: state.fromDate,
@@ -162,24 +180,49 @@ class PurchaseOrderListNotifier extends StateNotifier<PurchaseOrderListState> {
     );
   }
 
+  // Replaces the filter-owned fields with exactly what's passed in (including
+  // null, to clear a field). The previous implementation merged each field
+  // with `?? state.field` before calling load(), so clearing a field (e.g.
+  // the PO number search) by passing null silently kept the old value
+  // instead — both in the state bookkeeping and in the actual API request.
   void updateFilters({
     String? byVendorName,
     int? byVendorId,
     String? byPoNumber,
-    String? byStatus,
+    String? bySkuName,
+    String? byGrnNumber,
     String? byGrnStatus,
     String? fromDate,
     String? toDate,
   }) {
+    state = PurchaseOrderListState(
+      purchaseOrders: state.purchaseOrders,
+      isLoading: state.isLoading,
+      isMoreLoading: state.isMoreLoading,
+      error: state.error,
+      currentPage: state.currentPage,
+      totalPages: state.totalPages,
+      totalCount: state.totalCount,
+      byVendorName: byVendorName,
+      byVendorId: byVendorId,
+      byPoNumber: byPoNumber,
+      bySkuName: bySkuName,
+      byGrnNumber: byGrnNumber,
+      byStatus: null,
+      byGrnStatus: byGrnStatus,
+      fromDate: fromDate,
+      toDate: toDate,
+    );
     load(
       page: 1,
-      byVendorName: byVendorName ?? state.byVendorName,
-      byVendorId: byVendorId ?? state.byVendorId,
-      byPoNumber: byPoNumber ?? state.byPoNumber,
-      byStatus: byStatus ?? state.byStatus,
-      byGrnStatus: byGrnStatus ?? state.byGrnStatus,
-      fromDate: fromDate ?? state.fromDate,
-      toDate: toDate ?? state.toDate,
+      byVendorName: byVendorName,
+      byVendorId: byVendorId,
+      byPoNumber: byPoNumber,
+      bySkuName: bySkuName,
+      byGrnNumber: byGrnNumber,
+      byGrnStatus: byGrnStatus,
+      fromDate: fromDate,
+      toDate: toDate,
     );
   }
 
@@ -197,6 +240,8 @@ class PurchaseOrderListNotifier extends StateNotifier<PurchaseOrderListState> {
       byStatus: state.byStatus,
       byGrnStatus: state.byGrnStatus,
       byPoNumber: null,
+      bySkuName: null,
+      byGrnNumber: null,
       fromDate: null,
       toDate: null,
     );
@@ -336,12 +381,18 @@ class GrnController extends StateNotifier<AsyncValue<void>> {
     int grnId,
     int poId,
     List<GrnLineItemModel> items,
-    GrnModel currentGrn,
-  ) async {
+    GrnModel currentGrn, {
+    Map<int, List<String>>? qcPhotosByLineItemId,
+  }) async {
     state = const AsyncValue.loading();
     try {
       final repo = ref.read(purchaseOrderRepoProvider);
-      final updatedGrn = await repo.submitGrnQc(grnId, items, currentGrn);
+      final updatedGrn = await repo.submitGrnQc(
+        grnId,
+        items,
+        currentGrn,
+        qcPhotosByLineItemId: qcPhotosByLineItemId,
+      );
       ref.read(grnDetailProvider(grnId).notifier).setData(updatedGrn);
       state = const AsyncValue.data(null);
     } catch (e, st) {

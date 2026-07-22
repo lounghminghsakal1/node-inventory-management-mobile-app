@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/theme/app_colors.dart';
@@ -7,6 +8,7 @@ import '../../../../core/widgets/app_button.dart';
 import '../../data/models/batch_inventory_model.dart';
 import '../../providers/inventory_provider.dart';
 import '../screens/batch_inventory_detail_screen.dart';
+import 'inventory_card_skeleton.dart';
 
 class BatchInventoryListView extends ConsumerStatefulWidget {
   const BatchInventoryListView({super.key});
@@ -20,6 +22,7 @@ class _BatchInventoryListViewState
     extends ConsumerState<BatchInventoryListView> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
 
   @override
   void initState() {
@@ -35,9 +38,23 @@ class _BatchInventoryListViewState
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _searchBySkuName(String v) {
+    final trimmed = v.trim();
+    final state = ref.read(batchInventoryListProvider);
+    ref
+        .read(batchInventoryListProvider.notifier)
+        .updateFilters(
+          bySkuName: trimmed.isEmpty ? null : trimmed,
+          bySkuCode: state.bySkuCode,
+          byBatchId: state.byBatchId,
+          availableOnly: state.availableOnly,
+        );
   }
 
   void _openFilterSheet(BatchInventoryListState state) {
@@ -74,6 +91,11 @@ class _BatchInventoryListViewState
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(batchInventoryListProvider);
+    final hasFilters =
+        state.bySkuName != null ||
+        state.bySkuCode != null ||
+        state.byBatchId != null ||
+        !state.availableOnly;
 
     return Column(
       children: [
@@ -103,10 +125,20 @@ class _BatchInventoryListViewState
                               color: AppColors.textMuted,
                             ),
                             onPressed: () {
+                              _searchDebounce?.cancel();
                               _searchController.clear();
+                              setState(() {});
+                              final state = ref.read(
+                                batchInventoryListProvider,
+                              );
                               ref
                                   .read(batchInventoryListProvider.notifier)
-                                  .updateFilters(bySkuName: '', bySkuCode: '');
+                                  .updateFilters(
+                                    bySkuName: null,
+                                    bySkuCode: null,
+                                    byBatchId: state.byBatchId,
+                                    availableOnly: state.availableOnly,
+                                  );
                             },
                           )
                         : null,
@@ -130,9 +162,16 @@ class _BatchInventoryListViewState
                     ),
                   ),
                   onSubmitted: (val) {
-                    ref
-                        .read(batchInventoryListProvider.notifier)
-                        .updateFilters(bySkuName: val.trim());
+                    _searchDebounce?.cancel();
+                    _searchBySkuName(val);
+                  },
+                  onChanged: (v) {
+                    setState(() {}); // refresh suffix clear-icon visibility
+                    _searchDebounce?.cancel();
+                    _searchDebounce = Timer(
+                      const Duration(milliseconds: 500),
+                      () => _searchBySkuName(v),
+                    );
                   },
                 ),
               ),
@@ -143,18 +182,10 @@ class _BatchInventoryListViewState
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color:
-                        (state.bySkuCode != null ||
-                            state.byBatchId != null ||
-                            !state.availableOnly)
-                        ? AppColors.primary
-                        : AppColors.surface,
+                    color: hasFilters ? AppColors.primary : AppColors.surface,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color:
-                          (state.bySkuCode != null ||
-                              state.byBatchId != null ||
-                              !state.availableOnly)
+                      color: hasFilters
                           ? AppColors.primary
                           : AppColors.cardBorder,
                       width: 1,
@@ -162,12 +193,7 @@ class _BatchInventoryListViewState
                   ),
                   child: Icon(
                     Icons.filter_list_rounded,
-                    color:
-                        (state.bySkuCode != null ||
-                            state.byBatchId != null ||
-                            !state.availableOnly)
-                        ? Colors.white
-                        : AppColors.textMuted,
+                    color: hasFilters ? Colors.white : AppColors.textMuted,
                     size: 22,
                   ),
                 ),
@@ -186,7 +212,11 @@ class _BatchInventoryListViewState
             },
             color: AppColors.primary,
             child: state.isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
+                    itemCount: 6,
+                    itemBuilder: (_, _) => const InventoryCardSkeleton(),
+                  )
                 : state.errorMessage != null && state.items.isEmpty
                 ? Center(
                     child: Column(
@@ -366,7 +396,15 @@ class _BatchCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: _QtyBadge(
-                    label: "Available",
+                    label: "Total",
+                    count: item.totalQuantity,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _QtyBadge(
+                    label: "Avail. ",
                     count: item.availableQuantity,
                     color: AppColors.success,
                   ),
@@ -377,14 +415,6 @@ class _BatchCard extends StatelessWidget {
                     label: "Blocked",
                     count: item.blockedQuantity,
                     color: AppColors.warning,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _QtyBadge(
-                    label: "Total",
-                    count: item.totalQuantity,
-                    color: AppColors.primary,
                   ),
                 ),
               ],
@@ -540,6 +570,19 @@ class _BatchFilterSheetState extends State<_BatchFilterSheet> {
     super.dispose();
   }
 
+  Widget _clearSuffix(TextEditingController ctrl) {
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: ctrl,
+      builder: (context, value, child) {
+        if (value.text.isEmpty) return const SizedBox.shrink();
+        return IconButton(
+          icon: const Icon(Icons.clear, size: 18, color: AppColors.textMuted),
+          onPressed: () => ctrl.clear(),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -568,18 +611,21 @@ class _BatchFilterSheetState extends State<_BatchFilterSheet> {
             label: "SKU Name",
             controller: _skuNameCtrl,
             hint: "Enter SKU name...",
+            suffix: _clearSuffix(_skuNameCtrl),
           ),
           const SizedBox(height: 12),
           AppTextField(
             label: "SKU Code",
             controller: _skuCodeCtrl,
             hint: "Enter SKU code...",
+            suffix: _clearSuffix(_skuCodeCtrl),
           ),
           const SizedBox(height: 12),
           AppTextField(
             label: "Batch Code or ID",
             controller: _batchIdCtrl,
             hint: "Enter Batch code/ID...",
+            suffix: _clearSuffix(_batchIdCtrl),
           ),
           const SizedBox(height: 16),
           SwitchListTile(

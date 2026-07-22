@@ -2054,19 +2054,15 @@ class _GrnAccordionItemState extends ConsumerState<GrnAccordionItem> {
         .map((li) => _qcModifiedItems[li.id] ?? li)
         .toList();
     try {
-      if (isLineItemLevelPhotoEnabled) {
-        final photoPayload = currentLineItems
-            .map((li) => {"id": li.id, "photo_urls": _qcPhotos[li.id] ?? []})
-            .toList();
-
-        await ref
-            .read(purchaseOrderRepoProvider)
-            .uploadGrnLineItemPhotos(widget.grn.id, photoPayload);
-      }
-
       await ref
           .read(grnControllerProvider.notifier)
-          .submitQc(widget.grn.id, widget.grn.purchaseOrderId, allItems, _currentGrn);
+          .submitQc(
+            widget.grn.id,
+            widget.grn.purchaseOrderId,
+            allItems,
+            _currentGrn,
+            qcPhotosByLineItemId: isLineItemLevelPhotoEnabled ? _qcPhotos : null,
+          );
       if (!mounted) return;
       showTopSuccessSnackBar(context, "Quality Check submitted and grn completed successfully!");
     } catch (e) {

@@ -794,7 +794,7 @@ class HomeScreen extends ConsumerWidget {
     IconData icon,
     Color color, {
     VoidCallback? onTap,
-    bool showAlert = true,
+    bool showAlert = false,
   }) {
     final hasValue = value > 0;
     return Container(

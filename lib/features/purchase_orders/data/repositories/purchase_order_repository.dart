@@ -48,6 +48,8 @@ class PurchaseOrderRepository {
     String? byVendorName,
     int? byVendorId,
     String? byPoNumber,
+    String? bySkuName,
+    String? byGrnNumber,
     String? byStatus,
     String? byGrnStatus,
     String? fromDate,
@@ -60,6 +62,10 @@ class PurchaseOrderRepository {
       'by_vendor_id': ?byVendorId,
       if (byPoNumber != null && byPoNumber.isNotEmpty)
         'by_po_number': byPoNumber,
+      if (bySkuName != null && bySkuName.isNotEmpty)
+        'by_sku_name': bySkuName,
+      if (byGrnNumber != null && byGrnNumber.isNotEmpty)
+        'by_grn_number': byGrnNumber,
       if (byStatus != null && byStatus.isNotEmpty) 'by_status': byStatus,
       if (byGrnStatus != null && byGrnStatus.isNotEmpty) 'by_grn_status': byGrnStatus,
       if (fromDate != null && fromDate.isNotEmpty) 'from_date': fromDate,
@@ -247,26 +253,6 @@ class PurchaseOrderRepository {
     return _mergeGrnUpdateResponse(currentGrn, data);
   }
 
-  Future<void> uploadGrnLineItemPhotos(
-    int grnId,
-    List<Map<String, dynamic>> items,
-  ) async {
-    final body = {"grn_line_items": items};
-    print("kkfv d f $body");
-    final res = await _dio.patch(
-      ApiEndpoints.uploadGrnLineItemsPhotos(grnId.toString()),
-      data: body,
-    );
-    if (res.data is Map<String, dynamic>) {
-      final status = res.data['status']?.toString().toLowerCase();
-      if (status != null && status != 'success' && status != 'ok') {
-        throw Exception(
-          res.data['message'] ?? res.data['error'] ?? 'Failed to upload photos',
-        );
-      }
-    }
-  }
-
   Future<GrnModel> updateGrnStatus(int grnId, String newStatus) async {
     Response? res;
     if (newStatus == 'qc_pending') {
@@ -286,8 +272,9 @@ class PurchaseOrderRepository {
   Future<GrnModel> submitGrnQc(
     int grnId,
     List<GrnLineItemModel> qcLineItems,
-    GrnModel currentGrn,
-  ) async {
+    GrnModel currentGrn, {
+    Map<int, List<String>>? qcPhotosByLineItemId,
+  }) async {
     final body = {
       "grn_line_items": qcLineItems.map((li) {
         final acceptedBatchesMap = <String, int>{};
@@ -305,6 +292,7 @@ class PurchaseOrderRepository {
         return {
           "goods_received_note_id": grnId,
           "product_sku_id": li.productSkuId,
+          "received_quantity": li.receivedQuantity,
           "accepted_quantity": li.acceptedQuantity,
           "rejected_quantity": li.rejectedQuantity,
           if (li.rejectionReason != null && li.rejectionReason!.isNotEmpty)
@@ -313,6 +301,7 @@ class PurchaseOrderRepository {
           "rejected_batch_codes": rejectedBatchesMap,
           "accepted_serials": li.acceptedSerials,
           "rejected_serials": li.rejectedSerials,
+          "photo_urls": qcPhotosByLineItemId?[li.id] ?? [],
         };
       }).toList(),
     };

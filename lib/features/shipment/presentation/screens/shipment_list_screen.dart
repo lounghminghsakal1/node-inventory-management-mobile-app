@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +9,7 @@ import '../../../orders/providers/order_provider.dart';
 import '../../data/models/shipment.dart';
 import '../../providers/shipment_provider.dart';
 import '../widgets/shipment_card.dart';
+import '../widgets/shipment_card_skeleton.dart';
 import "../../../../core/widgets/back_to_home_scope.dart";
 
 class ShipmentListScreen extends ConsumerStatefulWidget {
@@ -36,6 +38,8 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
   final TextEditingController _searchCtrl = TextEditingController();
   String _search = '';
   String _shipmentType = 'forward_shipment';
+  Timer? _searchDebounce;
+  int _lastAppliedStatusTabIndex = 0;
 
   static const _forwardStatusTabs = [
     (
@@ -73,6 +77,7 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
         length: _currentStatusTabs.length,
         vsync: this,
       );
+      _lastAppliedStatusTabIndex = 0;
       _statusTabCtrl.addListener(_onStatusTabChanged);
       setState(() {});
       ref
@@ -83,6 +88,53 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
 
   void _onStatusTabChanged() {
     setState(() {});
+    if (_statusTabCtrl.index == _lastAppliedStatusTabIndex) return;
+    _lastAppliedStatusTabIndex = _statusTabCtrl.index;
+    if (_shipmentType != 'forward_shipment') return;
+
+    // 'Pending' keeps the existing unfiltered behavior; only Dispatched and
+    // Delivered request a server-side status filter.
+    final tabLabel = _currentStatusTabs[_statusTabCtrl.index].$1;
+    String? targetStatus;
+    if (tabLabel == 'Dispatched') {
+      targetStatus = ShipmentStatus.dispatched.value;
+    } else if (tabLabel == 'Delivered') {
+      targetStatus = ShipmentStatus.delivered.value;
+    }
+
+    final state = ref.read(shipmentListProvider);
+    setState(() {
+      _activeByStatus = null;
+      _activeByFullyAllocated = null;
+    });
+    ref
+        .read(shipmentListProvider.notifier)
+        .updateFilters(
+          byStatus: targetStatus,
+          byFullyAllocated: null,
+          byOrderNumber: state.byOrderNumber,
+          byShipmentNumber: state.byShipmentNumber,
+          bySkuName: state.bySkuName,
+          bySkuCode: state.bySkuCode,
+          fromDate: state.fromDate,
+          toDate: state.toDate,
+        );
+  }
+
+  void _searchByShipmentNumber(String v) {
+    final state = ref.read(shipmentListProvider);
+    ref
+        .read(shipmentListProvider.notifier)
+        .updateFilters(
+          byShipmentNumber: v.trim().isEmpty ? null : v.trim(),
+          byStatus: state.byStatus,
+          byFullyAllocated: state.byFullyAllocated,
+          byOrderNumber: state.byOrderNumber,
+          bySkuName: state.bySkuName,
+          bySkuCode: state.bySkuCode,
+          fromDate: state.fromDate,
+          toDate: state.toDate,
+        );
   }
 
   bool? _parseFullyAllocated(String? raw) {
@@ -129,7 +181,8 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
       vsync: this,
       initialIndex: initialStatusIndex,
     );
-    
+    _lastAppliedStatusTabIndex = initialStatusIndex;
+
     _typeTabCtrl.addListener(_onTypeTabChanged);
     _statusTabCtrl.addListener(_onStatusTabChanged);
   }
@@ -174,6 +227,7 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _typeTabCtrl.removeListener(_onTypeTabChanged);
     _statusTabCtrl.removeListener(_onStatusTabChanged);
     _typeTabCtrl.dispose();
@@ -191,6 +245,7 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
         length: _currentStatusTabs.length,
         vsync: this,
       );
+      _lastAppliedStatusTabIndex = 0;
       _statusTabCtrl.addListener(_onStatusTabChanged);
     }
 
@@ -281,23 +336,42 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
                                   width: 1.5,
                                 ),
                               ),
+                              suffixIcon: _searchCtrl.text.isNotEmpty
+                                  ? IconButton(
+                                      icon: const Icon(
+                                        Icons.clear,
+                                        size: 18,
+                                        color: AppColors.textMuted,
+                                      ),
+                                      onPressed: () {
+                                        _searchDebounce?.cancel();
+                                        _searchCtrl.clear();
+                                        setState(() => _search = '');
+                                        _searchByShipmentNumber('');
+                                      },
+                                    )
+                                  : null,
                             ),
                             onSubmitted: (v) {
-                              ref
-                                  .read(shipmentListProvider.notifier)
-                                  .updateFilters(
-                                    byShipmentNumber: v.trim().isEmpty
-                                        ? null
-                                        : v.trim(),
-                                    byStatus: state.byStatus,
-                                    byOrderNumber: state.byOrderNumber,
-                                    fromDate: state.fromDate,
-                                    toDate: state.toDate,
-                                  );
+                              _searchDebounce?.cancel();
+                              _searchByShipmentNumber(v);
                             },
-                            onChanged: (v) => setState(
-                              () => _search = v,
-                            ), // Keep local search for text
+                            onChanged: (v) {
+                              setState(() => _search = v); // Keep local search for text
+                              _searchDebounce?.cancel();
+                              final trimmed = v.trim();
+                              if (trimmed.length >= 6) {
+                                _searchDebounce = Timer(
+                                  const Duration(milliseconds: 500),
+                                  () => _searchByShipmentNumber(v),
+                                );
+                              } else if (trimmed.isEmpty) {
+                                // Manually clearing the field should also
+                                // clear the applied filter, not just leave
+                                // the last search still in effect.
+                                _searchByShipmentNumber('');
+                              }
+                            },
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -339,6 +413,9 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
                                                 shipmentListProvider.notifier,
                                               )
                                               .updateFilters(
+                                                byStatus: state.byStatus,
+                                                byFullyAllocated:
+                                                    state.byFullyAllocated,
                                                 byOrderNumber: orderNum,
                                                 byShipmentNumber:
                                                     state.byShipmentNumber,
@@ -428,10 +505,10 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
                   }).toList();
 
                   if (state.isLoading && !state.isMoreLoading) {
-                    return const Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.primary,
-                      ),
+                    return ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: 6,
+                      itemBuilder: (_, _) => const ShipmentCardSkeleton(),
                     );
                   }
 
@@ -847,7 +924,7 @@ class _ShipmentFilterSheetState extends State<_ShipmentFilterSheet> {
   Future<void> _selectDate(TextEditingController ctrl) async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
+      initialDate: DateTime.tryParse(ctrl.text) ?? DateTime.now(),
       firstDate: DateTime(2020),
       lastDate: DateTime(2030),
       builder: (context, child) {
@@ -869,6 +946,29 @@ class _ShipmentFilterSheetState extends State<_ShipmentFilterSheet> {
       ctrl.text =
           "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
     }
+  }
+
+  Widget _clearSuffix(TextEditingController ctrl, {Widget? trailing}) {
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: ctrl,
+      builder: (context, value, child) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (value.text.isNotEmpty)
+              IconButton(
+                icon: const Icon(
+                  Icons.clear,
+                  size: 18,
+                  color: AppColors.textMuted,
+                ),
+                onPressed: () => ctrl.clear(),
+              ),
+            ?trailing,
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -903,6 +1003,7 @@ class _ShipmentFilterSheetState extends State<_ShipmentFilterSheet> {
             decoration: InputDecoration(
               hintText: "Enter exact order number...",
               hintStyle: AppTextStyles.bodySmall,
+              suffixIcon: _clearSuffix(_orderCtrl),
               filled: true,
               fillColor: AppColors.surface,
               contentPadding: const EdgeInsets.symmetric(
@@ -931,6 +1032,7 @@ class _ShipmentFilterSheetState extends State<_ShipmentFilterSheet> {
             decoration: InputDecoration(
               hintText: "Enter SKU name...",
               hintStyle: AppTextStyles.bodySmall,
+              suffixIcon: _clearSuffix(_skuNameCtrl),
               filled: true,
               fillColor: AppColors.surface,
               contentPadding: const EdgeInsets.symmetric(
@@ -959,6 +1061,7 @@ class _ShipmentFilterSheetState extends State<_ShipmentFilterSheet> {
             decoration: InputDecoration(
               hintText: "Enter SKU code...",
               hintStyle: AppTextStyles.bodySmall,
+              suffixIcon: _clearSuffix(_skuCodeCtrl),
               filled: true,
               fillColor: AppColors.surface,
               contentPadding: const EdgeInsets.symmetric(
@@ -995,7 +1098,13 @@ class _ShipmentFilterSheetState extends State<_ShipmentFilterSheet> {
                       decoration: InputDecoration(
                         hintText: "YYYY-MM-DD",
                         hintStyle: AppTextStyles.bodySmall,
-                        suffixIcon: const Icon(Icons.calendar_today, size: 16),
+                        suffixIcon: _clearSuffix(
+                          _fromCtrl,
+                          trailing: const Padding(
+                            padding: EdgeInsets.only(right: 12),
+                            child: Icon(Icons.calendar_today, size: 16),
+                          ),
+                        ),
                         filled: true,
                         fillColor: AppColors.surface,
                         contentPadding: const EdgeInsets.symmetric(
@@ -1033,7 +1142,13 @@ class _ShipmentFilterSheetState extends State<_ShipmentFilterSheet> {
                       decoration: InputDecoration(
                         hintText: "YYYY-MM-DD",
                         hintStyle: AppTextStyles.bodySmall,
-                        suffixIcon: const Icon(Icons.calendar_today, size: 16),
+                        suffixIcon: _clearSuffix(
+                          _toCtrl,
+                          trailing: const Padding(
+                            padding: EdgeInsets.only(right: 12),
+                            child: Icon(Icons.calendar_today, size: 16),
+                          ),
+                        ),
                         filled: true,
                         fillColor: AppColors.surface,
                         contentPadding: const EdgeInsets.symmetric(

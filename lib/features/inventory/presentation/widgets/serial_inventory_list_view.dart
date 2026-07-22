@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/theme/app_colors.dart';
@@ -7,6 +8,7 @@ import '../../../../core/widgets/app_button.dart';
 import '../../data/models/serial_inventory_model.dart';
 import '../../providers/inventory_provider.dart';
 import '../screens/serial_inventory_detail_screen.dart';
+import 'inventory_card_skeleton.dart';
 
 class SerialInventoryListView extends ConsumerStatefulWidget {
   const SerialInventoryListView({super.key});
@@ -20,6 +22,7 @@ class _SerialInventoryListViewState
     extends ConsumerState<SerialInventoryListView> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
 
   @override
   void initState() {
@@ -35,9 +38,23 @@ class _SerialInventoryListViewState
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _searchBySkuItemNumber(String v) {
+    final trimmed = v.trim();
+    final state = ref.read(serialInventoryListProvider);
+    ref
+        .read(serialInventoryListProvider.notifier)
+        .updateFilters(
+          bySkuItemNumber: trimmed.isEmpty ? null : trimmed,
+          bySkuName: state.bySkuName,
+          bySkuCode: state.bySkuCode,
+          byStatus: state.byStatus,
+        );
   }
 
   void _openFilterSheet(SerialInventoryListState state) {
@@ -74,6 +91,11 @@ class _SerialInventoryListViewState
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(serialInventoryListProvider);
+    final hasFilters =
+        state.byStatus != 'all' ||
+        state.bySkuItemNumber != null ||
+        state.bySkuCode != null ||
+        state.bySkuName != null;
 
     return Column(
       children: [
@@ -103,12 +125,19 @@ class _SerialInventoryListViewState
                               color: AppColors.textMuted,
                             ),
                             onPressed: () {
+                              _searchDebounce?.cancel();
                               _searchController.clear();
+                              setState(() {});
+                              final state = ref.read(
+                                serialInventoryListProvider,
+                              );
                               ref
                                   .read(serialInventoryListProvider.notifier)
                                   .updateFilters(
-                                    bySkuItemNumber: '',
-                                    bySkuName: '',
+                                    bySkuItemNumber: null,
+                                    bySkuName: null,
+                                    bySkuCode: state.bySkuCode,
+                                    byStatus: state.byStatus,
                                   );
                             },
                           )
@@ -133,9 +162,16 @@ class _SerialInventoryListViewState
                     ),
                   ),
                   onSubmitted: (val) {
-                    ref
-                        .read(serialInventoryListProvider.notifier)
-                        .updateFilters(bySkuItemNumber: val.trim());
+                    _searchDebounce?.cancel();
+                    _searchBySkuItemNumber(val);
+                  },
+                  onChanged: (v) {
+                    setState(() {}); // refresh suffix clear-icon visibility
+                    _searchDebounce?.cancel();
+                    _searchDebounce = Timer(
+                      const Duration(milliseconds: 500),
+                      () => _searchBySkuItemNumber(v),
+                    );
                   },
                 ),
               ),
@@ -146,18 +182,10 @@ class _SerialInventoryListViewState
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color:
-                        (state.byStatus != 'all' ||
-                            state.bySkuCode != null ||
-                            state.bySkuName != null)
-                        ? AppColors.primary
-                        : AppColors.surface,
+                    color: hasFilters ? AppColors.primary : AppColors.surface,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color:
-                          (state.byStatus != 'all' ||
-                              state.bySkuCode != null ||
-                              state.bySkuName != null)
+                      color: hasFilters
                           ? AppColors.primary
                           : AppColors.cardBorder,
                       width: 1,
@@ -165,12 +193,7 @@ class _SerialInventoryListViewState
                   ),
                   child: Icon(
                     Icons.filter_list_rounded,
-                    color:
-                        (state.byStatus != 'all' ||
-                            state.bySkuCode != null ||
-                            state.bySkuName != null)
-                        ? Colors.white
-                        : AppColors.textMuted,
+                    color: hasFilters ? Colors.white : AppColors.textMuted,
                     size: 22,
                   ),
                 ),
@@ -189,7 +212,11 @@ class _SerialInventoryListViewState
             },
             color: AppColors.primary,
             child: state.isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
+                    itemCount: 6,
+                    itemBuilder: (_, _) => const InventoryCardSkeleton(),
+                  )
                 : state.errorMessage != null && state.items.isEmpty
                 ? Center(
                     child: Column(
@@ -472,6 +499,19 @@ class _SerialFilterSheetState extends State<_SerialFilterSheet> {
     super.dispose();
   }
 
+  Widget _clearSuffix(TextEditingController ctrl) {
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: ctrl,
+      builder: (context, value, child) {
+        if (value.text.isEmpty) return const SizedBox.shrink();
+        return IconButton(
+          icon: const Icon(Icons.clear, size: 18, color: AppColors.textMuted),
+          onPressed: () => ctrl.clear(),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -503,18 +543,21 @@ class _SerialFilterSheetState extends State<_SerialFilterSheet> {
             label: "Serial Number",
             controller: _serialCtrl,
             hint: "Enter exact/partial serial number...",
+            suffix: _clearSuffix(_serialCtrl),
           ),
           const SizedBox(height: 12),
           AppTextField(
             label: "SKU Name",
             controller: _skuNameCtrl,
             hint: "Enter SKU name...",
+            suffix: _clearSuffix(_skuNameCtrl),
           ),
           const SizedBox(height: 12),
           AppTextField(
             label: "SKU Code",
             controller: _skuCodeCtrl,
             hint: "Enter SKU code...",
+            suffix: _clearSuffix(_skuCodeCtrl),
           ),
           const SizedBox(height: 16),
           Text("Status", style: AppTextStyles.labelMedium),

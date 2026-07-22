@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:node_management_app/core/widgets/back_to_home_scope.dart';
@@ -7,6 +8,17 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../providers/purchase_order_provider.dart';
 import '../widgets/purchase_order_card.dart';
+import '../widgets/purchase_order_card_skeleton.dart';
+
+class _UpperCaseTextFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    return newValue.copyWith(text: newValue.text.toUpperCase());
+  }
+}
 
 class PurchaseOrderListScreen extends ConsumerStatefulWidget {
   const PurchaseOrderListScreen({super.key});
@@ -47,6 +59,20 @@ class _PurchaseOrderListScreenState
     super.dispose();
   }
 
+  void _searchByPoNumber(String v) {
+    final state = ref.read(purchaseOrderListProvider);
+    ref
+        .read(purchaseOrderListProvider.notifier)
+        .updateFilters(
+          byGrnStatus: _tabs[_tabCtrl.index].$2,
+          byPoNumber: v.trim().isEmpty ? null : v.trim(),
+          bySkuName: state.bySkuName,
+          byGrnNumber: state.byGrnNumber,
+          fromDate: state.fromDate,
+          toDate: state.toDate,
+        );
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(purchaseOrderListProvider);
@@ -71,6 +97,8 @@ class _PurchaseOrderListScreenState
                             controller: _searchCtrl,
                             style: AppTextStyles.bodyMedium,
                             cursorColor: AppColors.primary,
+                            textCapitalization: TextCapitalization.characters,
+                            inputFormatters: [_UpperCaseTextFormatter()],
                             decoration: InputDecoration(
                               hintText: 'Search by PO number...',
                               hintStyle: AppTextStyles.bodySmall,
@@ -104,26 +132,41 @@ class _PurchaseOrderListScreenState
                                   width: 1.5,
                                 ),
                               ),
+                              suffixIcon: _searchCtrl.text.isNotEmpty
+                                  ? IconButton(
+                                      icon: const Icon(
+                                        Icons.clear,
+                                        size: 18,
+                                        color: AppColors.textMuted,
+                                      ),
+                                      onPressed: () {
+                                        _debounce?.cancel();
+                                        _searchCtrl.clear();
+                                        setState(() => _search = '');
+                                        _searchByPoNumber('');
+                                      },
+                                    )
+                                  : null,
                             ),
+                            onSubmitted: (v) {
+                              _debounce?.cancel();
+                              _searchByPoNumber(v);
+                            },
                             onChanged: (v) {
                               setState(() => _search = v);
-                              if (_debounce?.isActive ?? false)
-                                _debounce!.cancel();
-                              _debounce = Timer(
-                                const Duration(milliseconds: 500),
-                                () {
-                                  ref
-                                      .read(purchaseOrderListProvider.notifier)
-                                      .updateFilters(
-                                        byStatus: _tabs[_tabCtrl.index].$2,
-                                        byPoNumber: v.trim().isEmpty
-                                            ? null
-                                            : v.trim(),
-                                        fromDate: state.fromDate,
-                                        toDate: state.toDate,
-                                      );
-                                },
-                              );
+                              _debounce?.cancel();
+                              final trimmed = v.trim();
+                              if (trimmed.length >= 10) {
+                                _debounce = Timer(
+                                  const Duration(milliseconds: 500),
+                                  () => _searchByPoNumber(v),
+                                );
+                              } else if (trimmed.isEmpty) {
+                                // Manually clearing the field should also
+                                // clear the applied filter, not just leave
+                                // the last search still in effect.
+                                _searchByPoNumber('');
+                              }
                             },
                           ),
                         ),
@@ -132,6 +175,8 @@ class _PurchaseOrderListScreenState
                           builder: (ctx) {
                             final hasFilters =
                                 state.byPoNumber != null ||
+                                state.bySkuName != null ||
+                                state.byGrnNumber != null ||
                                 state.fromDate != null ||
                                 state.toDate != null;
                             return InkWell(
@@ -147,16 +192,20 @@ class _PurchaseOrderListScreenState
                                   ),
                                   builder: (ctx) => _PoFilterSheet(
                                     initialPoNum: state.byPoNumber,
+                                    initialSkuName: state.bySkuName,
+                                    initialGrnNumber: state.byGrnNumber,
                                     initialFromDate: state.fromDate,
                                     initialToDate: state.toDate,
-                                    onApply: (poNum, fromDate, toDate) {
+                                    onApply: (poNum, skuName, grnNumber, fromDate, toDate) {
                                       ref
                                           .read(
                                             purchaseOrderListProvider.notifier,
                                           )
                                           .updateFilters(
-                                            byStatus: _tabs[_tabCtrl.index].$2,
+                                            byGrnStatus: _tabs[_tabCtrl.index].$2,
                                             byPoNumber: poNum,
+                                            bySkuName: skuName,
+                                            byGrnNumber: grnNumber,
                                             fromDate: fromDate,
                                             toDate: toDate,
                                           );
@@ -226,7 +275,12 @@ class _PurchaseOrderListScreenState
               child: Builder(
                 builder: (context) {
                   if (state.isLoading && !state.isMoreLoading) {
-                    return const Center(child: CircularProgressIndicator());
+                    return ListView.separated(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: 6,
+                      separatorBuilder: (_, _) => const SizedBox(height: 12),
+                      itemBuilder: (_, _) => const PurchaseOrderCardSkeleton(),
+                    );
                   }
 
                   if (state.error != null && allPos.isEmpty) {
@@ -351,13 +405,24 @@ class _PurchaseOrderListScreenState
 
 class _PoFilterSheet extends StatefulWidget {
   final String? initialPoNum;
+  final String? initialSkuName;
+  final String? initialGrnNumber;
   final String? initialFromDate;
   final String? initialToDate;
-  final Function(String? poNum, String? fromDate, String? toDate) onApply;
+  final Function(
+    String? poNum,
+    String? skuName,
+    String? grnNumber,
+    String? fromDate,
+    String? toDate,
+  )
+  onApply;
   final VoidCallback onReset;
 
   const _PoFilterSheet({
     required this.initialPoNum,
+    required this.initialSkuName,
+    required this.initialGrnNumber,
     required this.initialFromDate,
     required this.initialToDate,
     required this.onApply,
@@ -370,6 +435,8 @@ class _PoFilterSheet extends StatefulWidget {
 
 class _PoFilterSheetState extends State<_PoFilterSheet> {
   late TextEditingController _poCtrl;
+  late TextEditingController _skuNameCtrl;
+  late TextEditingController _grnNumberCtrl;
   late TextEditingController _fromCtrl;
   late TextEditingController _toCtrl;
 
@@ -377,6 +444,8 @@ class _PoFilterSheetState extends State<_PoFilterSheet> {
   void initState() {
     super.initState();
     _poCtrl = TextEditingController(text: widget.initialPoNum ?? '');
+    _skuNameCtrl = TextEditingController(text: widget.initialSkuName ?? '');
+    _grnNumberCtrl = TextEditingController(text: widget.initialGrnNumber ?? '');
     _fromCtrl = TextEditingController(text: widget.initialFromDate ?? '');
     _toCtrl = TextEditingController(text: widget.initialToDate ?? '');
   }
@@ -384,6 +453,8 @@ class _PoFilterSheetState extends State<_PoFilterSheet> {
   @override
   void dispose() {
     _poCtrl.dispose();
+    _skuNameCtrl.dispose();
+    _grnNumberCtrl.dispose();
     _fromCtrl.dispose();
     _toCtrl.dispose();
     super.dispose();
@@ -392,7 +463,7 @@ class _PoFilterSheetState extends State<_PoFilterSheet> {
   Future<void> _selectDate(TextEditingController ctrl) async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
+      initialDate: DateTime.tryParse(ctrl.text) ?? DateTime.now(),
       firstDate: DateTime(2020),
       lastDate: DateTime(2030),
       builder: (context, child) {
@@ -439,7 +510,10 @@ class _PoFilterSheetState extends State<_PoFilterSheet> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () {
+                    FocusManager.instance.primaryFocus?.unfocus();
+                    Navigator.pop(context);
+                  },
                 ),
               ],
             ),
@@ -471,6 +545,63 @@ class _PoFilterSheetState extends State<_PoFilterSheet> {
             //     ),
             //   ),
             // ),
+            Text("SKU Name", style: AppTextStyles.labelMedium),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _skuNameCtrl,
+              decoration: InputDecoration(
+                hintText: "Enter SKU name...",
+                hintStyle: AppTextStyles.bodySmall,
+                filled: true,
+                fillColor: AppColors.surface,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppColors.cardBorder),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppColors.cardBorder),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppColors.primary),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text("GRN Number", style: AppTextStyles.labelMedium),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _grnNumberCtrl,
+              textCapitalization: TextCapitalization.characters,
+              inputFormatters: [_UpperCaseTextFormatter()],
+              decoration: InputDecoration(
+                hintText: "Enter GRN number...",
+                hintStyle: AppTextStyles.bodySmall,
+                filled: true,
+                fillColor: AppColors.surface,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppColors.cardBorder),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppColors.cardBorder),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppColors.primary),
+                ),
+              ),
+            ),
             const SizedBox(height: 12),
             Row(
               children: [
@@ -571,9 +702,12 @@ class _PoFilterSheetState extends State<_PoFilterSheet> {
                     ),
                     onPressed: () {
                       _poCtrl.clear();
+                      _skuNameCtrl.clear();
+                      _grnNumberCtrl.clear();
                       _fromCtrl.clear();
                       _toCtrl.clear();
                       widget.onReset();
+                      FocusManager.instance.primaryFocus?.unfocus();
                       Navigator.pop(context);
                     },
                     child: Text("Reset", style: AppTextStyles.labelMedium),
@@ -593,9 +727,12 @@ class _PoFilterSheetState extends State<_PoFilterSheet> {
                     onPressed: () {
                       widget.onApply(
                         _poCtrl.text.isEmpty ? null : _poCtrl.text,
+                        _skuNameCtrl.text.isEmpty ? null : _skuNameCtrl.text,
+                        _grnNumberCtrl.text.isEmpty ? null : _grnNumberCtrl.text,
                         _fromCtrl.text.isEmpty ? null : _fromCtrl.text,
                         _toCtrl.text.isEmpty ? null : _toCtrl.text,
                       );
+                      FocusManager.instance.primaryFocus?.unfocus();
                       Navigator.pop(context);
                     },
                     child: Text(

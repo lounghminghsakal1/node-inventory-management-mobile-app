@@ -164,8 +164,13 @@ class ShipmentListNotifier extends StateNotifier<ShipmentListState> {
     await load(page: state.currentPage + 1, byShipmentType: state.byShipmentType);
   }
 
+  // Replaces the filter-sheet-owned fields with exactly what's passed in
+  // (including null, to clear a field). copyWith can't null a field back out
+  // (it falls back to the current value), so this rebuilds the state
+  // directly — callers must pass every field they want to keep, not omit it.
   void updateFilters({
     String? byStatus,
+    bool? byFullyAllocated,
     String? byOrderNumber,
     String? byShipmentNumber,
     String? bySkuName,
@@ -173,8 +178,17 @@ class ShipmentListNotifier extends StateNotifier<ShipmentListState> {
     String? fromDate,
     String? toDate,
   }) {
-    state = state.copyWith(
+    state = ShipmentListState(
+      shipments: state.shipments,
+      isLoading: state.isLoading,
+      isMoreLoading: state.isMoreLoading,
+      error: state.error,
+      currentPage: state.currentPage,
+      totalPages: state.totalPages,
+      totalCount: state.totalCount,
+      byShipmentType: state.byShipmentType,
       byStatus: byStatus,
+      byFullyAllocated: byFullyAllocated,
       byOrderNumber: byOrderNumber,
       byShipmentNumber: byShipmentNumber,
       bySkuName: bySkuName,

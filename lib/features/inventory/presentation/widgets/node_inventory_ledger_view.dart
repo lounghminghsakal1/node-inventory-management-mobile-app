@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/theme/app_colors.dart';
@@ -16,6 +17,7 @@ class NodeInventoryLedgerView extends ConsumerStatefulWidget {
 class _NodeInventoryLedgerViewState extends ConsumerState<NodeInventoryLedgerView> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
 
   @override
   void initState() {
@@ -31,17 +33,36 @@ class _NodeInventoryLedgerViewState extends ConsumerState<NodeInventoryLedgerVie
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
   }
 
+  void _searchBySkuCode(String v) {
+    final trimmed = v.trim();
+    final state = ref.read(nodeInventoryLedgerProvider);
+    ref
+        .read(nodeInventoryLedgerProvider.notifier)
+        .updateFilters(
+          bySkuCode: trimmed.isEmpty ? null : trimmed,
+          bySkuId: state.bySkuId,
+          fromDate: state.fromDate,
+          toDate: state.toDate,
+        );
+  }
+
   Future<void> _pickDateRange(BuildContext context, NodeInventoryLedgerState state) async {
     final now = DateTime.now();
+    final existingFrom = state.fromDate != null ? DateTime.tryParse(state.fromDate!) : null;
+    final existingTo = state.toDate != null ? DateTime.tryParse(state.toDate!) : null;
     final picked = await showDateRangePicker(
       context: context,
       firstDate: DateTime(2023),
       lastDate: DateTime(now.year + 2),
+      initialDateRange: existingFrom != null && existingTo != null
+          ? DateTimeRange(start: existingFrom, end: existingTo)
+          : null,
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -88,15 +109,24 @@ class _NodeInventoryLedgerViewState extends ConsumerState<NodeInventoryLedgerVie
                     ? IconButton(
                         icon: const Icon(Icons.clear, size: 18, color: AppColors.textMuted),
                         onPressed: () {
+                          _searchDebounce?.cancel();
                           _searchController.clear();
+                          setState(() {});
                           ref.read(nodeInventoryLedgerProvider.notifier).clearFilters();
                         },
                       )
                     : null,
                 onSubmitted: (val) {
-                  ref.read(nodeInventoryLedgerProvider.notifier).updateFilters(
-                        bySkuCode: val.trim().isNotEmpty ? val.trim() : null,
-                      );
+                  _searchDebounce?.cancel();
+                  _searchBySkuCode(val);
+                },
+                onChanged: (v) {
+                  setState(() {}); // refresh suffix clear-icon visibility
+                  _searchDebounce?.cancel();
+                  _searchDebounce = Timer(
+                    const Duration(milliseconds: 500),
+                    () => _searchBySkuCode(v),
+                  );
                 },
               ),
               const SizedBox(height: 10),

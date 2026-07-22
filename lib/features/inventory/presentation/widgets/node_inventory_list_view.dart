@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/theme/app_colors.dart';
@@ -6,6 +7,7 @@ import '../../../../core/widgets/app_text_field.dart';
 import '../../data/models/node_inventory_model.dart';
 import '../../providers/inventory_provider.dart';
 import '../screens/node_inventory_detail_screen.dart';
+import 'inventory_card_skeleton.dart';
 
 class NodeInventoryListView extends ConsumerStatefulWidget {
   const NodeInventoryListView({super.key});
@@ -18,6 +20,7 @@ class NodeInventoryListView extends ConsumerStatefulWidget {
 class _NodeInventoryListViewState extends ConsumerState<NodeInventoryListView> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
 
   @override
   void initState() {
@@ -33,9 +36,23 @@ class _NodeInventoryListViewState extends ConsumerState<NodeInventoryListView> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _searchBySkuName(String v) {
+    final trimmed = v.trim();
+    final state = ref.read(nodeInventoryListProvider);
+    ref
+        .read(nodeInventoryListProvider.notifier)
+        .updateFilters(
+          bySkuName: trimmed.isEmpty ? null : trimmed,
+          bySkuCode: state.bySkuCode,
+          bySkuId: state.bySkuId,
+          availableOnly: state.availableOnly,
+        );
   }
 
   void _openFilterSheet(NodeInventoryListState state) {
@@ -72,6 +89,11 @@ class _NodeInventoryListViewState extends ConsumerState<NodeInventoryListView> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(nodeInventoryListProvider);
+    final hasFilters =
+        state.bySkuName != null ||
+        state.bySkuCode != null ||
+        state.bySkuId != null ||
+        !state.availableOnly;
 
     return Column(
       children: [
@@ -101,10 +123,20 @@ class _NodeInventoryListViewState extends ConsumerState<NodeInventoryListView> {
                               color: AppColors.textMuted,
                             ),
                             onPressed: () {
+                              _searchDebounce?.cancel();
                               _searchController.clear();
+                              setState(() {});
+                              final state = ref.read(
+                                nodeInventoryListProvider,
+                              );
                               ref
                                   .read(nodeInventoryListProvider.notifier)
-                                  .updateFilters(bySkuName: '', bySkuCode: '');
+                                  .updateFilters(
+                                    bySkuName: null,
+                                    bySkuCode: null,
+                                    bySkuId: state.bySkuId,
+                                    availableOnly: state.availableOnly,
+                                  );
                             },
                           )
                         : null,
@@ -128,9 +160,16 @@ class _NodeInventoryListViewState extends ConsumerState<NodeInventoryListView> {
                     ),
                   ),
                   onSubmitted: (val) {
-                    ref
-                        .read(nodeInventoryListProvider.notifier)
-                        .updateFilters(bySkuName: val.trim());
+                    _searchDebounce?.cancel();
+                    _searchBySkuName(val);
+                  },
+                  onChanged: (v) {
+                    setState(() {}); // refresh suffix clear-icon visibility
+                    _searchDebounce?.cancel();
+                    _searchDebounce = Timer(
+                      const Duration(milliseconds: 500),
+                      () => _searchBySkuName(v),
+                    );
                   },
                 ),
               ),
@@ -141,18 +180,10 @@ class _NodeInventoryListViewState extends ConsumerState<NodeInventoryListView> {
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color:
-                        (state.bySkuCode != null ||
-                            state.bySkuId != null ||
-                            !state.availableOnly)
-                        ? AppColors.primary
-                        : AppColors.surface,
+                    color: hasFilters ? AppColors.primary : AppColors.surface,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color:
-                          (state.bySkuCode != null ||
-                              state.bySkuId != null ||
-                              !state.availableOnly)
+                      color: hasFilters
                           ? AppColors.primary
                           : AppColors.cardBorder,
                       width: 1,
@@ -160,12 +191,7 @@ class _NodeInventoryListViewState extends ConsumerState<NodeInventoryListView> {
                   ),
                   child: Icon(
                     Icons.filter_list_rounded,
-                    color:
-                        (state.bySkuCode != null ||
-                            state.bySkuId != null ||
-                            !state.availableOnly)
-                        ? Colors.white
-                        : AppColors.textMuted,
+                    color: hasFilters ? Colors.white : AppColors.textMuted,
                     size: 22,
                   ),
                 ),
@@ -177,8 +203,10 @@ class _NodeInventoryListViewState extends ConsumerState<NodeInventoryListView> {
         // ── List View ─────────────────────────────────────────────────────────
         Expanded(
           child: state.isLoading && state.items.isEmpty
-              ? const Center(
-                  child: CircularProgressIndicator(color: AppColors.primary),
+              ? ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: 6,
+                  itemBuilder: (_, _) => const InventoryCardSkeleton(),
                 )
               : state.errorMessage != null && state.items.isEmpty
               ? Center(
@@ -535,6 +563,19 @@ class _NodeInventoryFilterSheetState extends State<_NodeInventoryFilterSheet> {
     super.dispose();
   }
 
+  Widget _clearSuffix(TextEditingController ctrl) {
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: ctrl,
+      builder: (context, value, child) {
+        if (value.text.isEmpty) return const SizedBox.shrink();
+        return IconButton(
+          icon: const Icon(Icons.clear, size: 18, color: AppColors.textMuted),
+          onPressed: () => ctrl.clear(),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -563,12 +604,14 @@ class _NodeInventoryFilterSheetState extends State<_NodeInventoryFilterSheet> {
             label: "SKU Name",
             controller: _skuNameCtrl,
             hint: "Enter SKU name...",
+            suffix: _clearSuffix(_skuNameCtrl),
           ),
           const SizedBox(height: 12),
           AppTextField(
             label: "SKU Code",
             controller: _skuCodeCtrl,
             hint: "Enter SKU code...",
+            suffix: _clearSuffix(_skuCodeCtrl),
           ),
           const SizedBox(height: 16),
           SwitchListTile(

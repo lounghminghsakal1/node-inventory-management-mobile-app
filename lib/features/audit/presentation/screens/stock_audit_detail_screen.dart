@@ -631,6 +631,7 @@ class _SkuLineItemCard extends StatelessWidget {
                         item: item,
                         auditId: auditId,
                         canEdit: canEdit,
+                        auditStatus: auditStatus,
                         onSaved: onSaved,
                       ),
                     if (item.trackingType != 'untracked')
@@ -700,11 +701,13 @@ class _UntrackedInlineEditor extends ConsumerStatefulWidget {
   final AuditLineItem item;
   final String auditId;
   final bool canEdit;
+  final StockAuditStatus auditStatus;
   final Future<void> Function(AuditLineItem) onSaved;
   const _UntrackedInlineEditor({
     required this.item,
     required this.auditId,
     required this.canEdit,
+    required this.auditStatus,
     required this.onSaved,
   });
 
@@ -824,6 +827,7 @@ class _UntrackedInlineEditorState
         goodQty: widget.item.countedQty ?? 0,
         damagedQty: widget.item.damagedQty ?? 0,
         missingQty: widget.item.missingQty ?? 0,
+        auditStatus: widget.auditStatus,
       );
     }
 
@@ -835,6 +839,7 @@ class _UntrackedInlineEditorState
             goodQty: widget.item.countedQty ?? 0,
             damagedQty: widget.item.damagedQty ?? 0,
             missingQty: widget.item.missingQty ?? 0,
+            auditStatus: widget.auditStatus,
           ),
           const SizedBox(height: 12),
           SizedBox(
@@ -978,11 +983,13 @@ class _TrackedInlineEditor extends ConsumerWidget {
               value: item.damagedQty,
               color: AppColors.warning,
             ),
-            _QtyChip(
-              label: 'Missing',
-              value: item.missingQty,
-              color: AppColors.error,
-            ),
+            if (auditStatus == StockAuditStatus.approved ||
+                auditStatus == StockAuditStatus.rejected)
+              _QtyChip(
+                label: 'Missing',
+                value: item.missingQty,
+                color: AppColors.error,
+              ),
           ],
         ),
         if (auditStatus != StockAuditStatus.assigned &&
@@ -1665,90 +1672,19 @@ class _SerialCountModalState extends ConsumerState<_SerialCountModal> {
                                   count: _damaged?.length ?? 0,
                                   color: AppColors.warning,
                                 ),
-                                _SerialStatChip(
-                                  label: 'Missing',
-                                  count:
-                                      serials.length -
-                                      ((_good?.length ?? 0) +
-                                          (_damaged?.length ?? 0)),
-                                  color: AppColors.error,
-                                ),
+                                if (widget.auditStatus ==
+                                        StockAuditStatus.approved ||
+                                    widget.auditStatus ==
+                                        StockAuditStatus.rejected)
+                                  _SerialStatChip(
+                                    label: 'Missing',
+                                    count:
+                                        serials.length -
+                                        ((_good?.length ?? 0) +
+                                            (_damaged?.length ?? 0)),
+                                    color: AppColors.error,
+                                  ),
                               ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 20),
-                            child: Text(
-                              'Expected Serials',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Expanded(
-                            child: ListView.builder(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                              ),
-                              itemCount: serials.length,
-                              itemBuilder: (context, index) {
-                                final s = serials[index];
-                                final isGood =
-                                    _good?.contains(s.serialNumber) ?? false;
-                                final isDamaged =
-                                    _damaged?.contains(s.serialNumber) ?? false;
-                                final isMissing = !isGood && !isDamaged;
-
-                                Color bgColor = AppColors.background;
-                                Color textColor = AppColors.textPrimary;
-                                String status = 'Missing';
-
-                                if (isGood) {
-                                  bgColor = AppColors.success.withOpacity(0.1);
-                                  textColor = AppColors.success;
-                                  status = 'Good';
-                                } else if (isDamaged) {
-                                  bgColor = AppColors.warning.withOpacity(0.1);
-                                  textColor = AppColors.warning;
-                                  status = 'Damaged';
-                                }
-
-                                return Container(
-                                  margin: const EdgeInsets.only(bottom: 8),
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: bgColor,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: isMissing
-                                          ? AppColors.cardBorder
-                                          : textColor.withOpacity(0.3),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        s.serialNumber,
-                                        style: AppTextStyles.bodyMedium
-                                            .copyWith(
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                      ),
-                                      Text(
-                                        status,
-                                        style: AppTextStyles.caption.copyWith(
-                                          color: isMissing
-                                              ? AppColors.textMuted
-                                              : textColor,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
                             ),
                           ),
                         ],
@@ -1867,21 +1803,27 @@ class _ReadOnlyQtyRow extends StatelessWidget {
   final int goodQty;
   final int damagedQty;
   final int missingQty;
+  final StockAuditStatus auditStatus;
   const _ReadOnlyQtyRow({
     required this.goodQty,
     required this.damagedQty,
     required this.missingQty,
+    required this.auditStatus,
   });
 
   @override
   Widget build(BuildContext context) {
+    final showMissing = auditStatus == StockAuditStatus.approved ||
+        auditStatus == StockAuditStatus.rejected;
     return Row(
       children: [
         _QtyChip(label: 'Good', value: goodQty, color: AppColors.success),
         const SizedBox(width: 8),
         _QtyChip(label: 'Damaged', value: damagedQty, color: AppColors.warning),
-        const SizedBox(width: 8),
-        _QtyChip(label: 'Missing', value: missingQty, color: AppColors.error),
+        if (showMissing) ...[
+          const SizedBox(width: 8),
+          _QtyChip(label: 'Missing', value: missingQty, color: AppColors.error),
+        ],
       ],
     );
   }

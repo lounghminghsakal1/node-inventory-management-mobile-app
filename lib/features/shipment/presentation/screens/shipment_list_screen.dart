@@ -65,38 +65,66 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
       ? _forwardStatusTabs
       : _returnStatusTabs;
 
+  // NOTE on _onTap vs the controller listener: TabController only notifies
+  // listeners with the NEW index once the tab-switch slide animation fully
+  // settles (~300ms later) — the notification fired at tap-time still carries
+  // the OLD index. Waiting on that listener alone means the data fetch (and
+  // its isLoading:true) doesn't start until the animation finishes, while
+  // TabBarView is already showing the new tab's client-filtered (stale/empty)
+  // list in the meantime. TabBar.onTap fires synchronously at tap-time with
+  // the correct target index, so it drives the actual refetch; the listener
+  // is kept only to rebuild the tab indicator during the slide animation and
+  // to catch programmatic animateTo() calls, guarded so it never double-fires.
   void _onTypeTabChanged() {
+    setState(() {});
     final newType = _typeTabCtrl.index == 0
         ? 'forward_shipment'
         : 'reverse_shipment';
-    if (_shipmentType != newType) {
-      _shipmentType = newType;
-      _statusTabCtrl.removeListener(_onStatusTabChanged);
-      _statusTabCtrl.dispose();
-      _statusTabCtrl = TabController(
-        length: _currentStatusTabs.length,
-        vsync: this,
-      );
-      _lastAppliedStatusTabIndex = 0;
-      _statusTabCtrl.addListener(_onStatusTabChanged);
-      setState(() {});
-      ref
-          .read(shipmentListProvider.notifier)
-          .load(page: 1, byShipmentType: newType);
-    }
+    _applyTypeTabChange(newType);
+  }
+
+  void _onTypeTabTapped(int index) {
+    final newType = index == 0 ? 'forward_shipment' : 'reverse_shipment';
+    _applyTypeTabChange(newType);
+  }
+
+  void _applyTypeTabChange(String newType) {
+    if (_shipmentType == newType) return;
+    _shipmentType = newType;
+    _statusTabCtrl.removeListener(_onStatusTabChanged);
+    _statusTabCtrl.dispose();
+    _statusTabCtrl = TabController(
+      length: _currentStatusTabs.length,
+      vsync: this,
+    );
+    _lastAppliedStatusTabIndex = 0;
+    _statusTabCtrl.addListener(_onStatusTabChanged);
+    setState(() {});
+    ref
+        .read(shipmentListProvider.notifier)
+        .load(page: 1, byShipmentType: newType);
   }
 
   void _onStatusTabChanged() {
     setState(() {});
     if (_statusTabCtrl.index == _lastAppliedStatusTabIndex) return;
-    _lastAppliedStatusTabIndex = _statusTabCtrl.index;
+    _applyStatusTabChange(_statusTabCtrl.index);
+  }
+
+  void _onStatusTabTapped(int index) {
+    if (index == _lastAppliedStatusTabIndex) return;
+    _applyStatusTabChange(index);
+  }
+
+  void _applyStatusTabChange(int index) {
+    _lastAppliedStatusTabIndex = index;
     if (_shipmentType != 'forward_shipment') return;
 
     // Dispatched/Delivered request their own server-side status filter.
     // 'Pending' restores whatever Home-tile filter (_activeByStatus) was
     // active before — it should persist across tab switches and only be
     // cleared when the user explicitly dismisses the banner via its X icon.
-    final tabLabel = _currentStatusTabs[_statusTabCtrl.index].$1;
+    final tabLabel = _currentStatusTabs[index].$1;
     String? targetStatus;
     bool? targetFullyAllocated;
     if (tabLabel == 'Dispatched') {
@@ -297,6 +325,7 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
                       ),
                       child: TabBar(
                         controller: _typeTabCtrl,
+                        onTap: _onTypeTabTapped,
                         indicator: BoxDecoration(
                           color: AppColors.primary,
                           borderRadius: BorderRadius.circular(8),
@@ -490,6 +519,7 @@ class _ShipmentListScreenState extends ConsumerState<ShipmentListScreen>
                   // Status Tabs
                   TabBar(
                     controller: _statusTabCtrl,
+                    onTap: _onStatusTabTapped,
                     isScrollable: true,
                     tabAlignment: TabAlignment.start,
                     labelColor: AppColors.primary,
